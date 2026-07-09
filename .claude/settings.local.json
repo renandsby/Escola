@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(DB_HOST=localhost DB_NAME=escola_db DB_USER=escola_user DB_PASSWORD=escola_password DEBUG=True SECRET_KEY=dev-secret python manage.py makemigrations)"
+    ]
+  }
+}
