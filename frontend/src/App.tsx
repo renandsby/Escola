@@ -20,6 +20,7 @@ import AttendancePage from '@/pages/attendance/AttendancePage'
 import BoletimPage from '@/pages/reports/BoletimPage'
 import DocumentsPage from '@/pages/documents/DocumentsPage'
 import DocumentFormPage from '@/pages/documents/DocumentFormPage'
+import SettingsPage from '@/pages/settings/SettingsPage'
 import { useEffect } from 'react'
 
 const queryClient = new QueryClient({
@@ -91,6 +92,9 @@ function App() {
 
             {/* Reports Routes */}
             <Route path="/boletins" element={<BoletimPage />} />
+
+            {/* Settings Routes */}
+            <Route path="/settings" element={<SettingsPage />} />
 
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Route>
