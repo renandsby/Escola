@@ -38,6 +38,8 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'drf_spectacular',
     'django_filters',
+    'django_redis',
+    'apps.health',
     'apps.accounts',
     'apps.schools',
     'apps.students',
