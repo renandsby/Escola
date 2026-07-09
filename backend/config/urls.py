@@ -19,7 +19,7 @@ api_urlpatterns = [
     path('diary/', include('apps.diary.urls')),
     path('curriculum/', include('apps.curriculum.urls')),
     path('history/', include('apps.history.urls')),
-    path('messages/', include('apps.messages.urls')),
+    path('communications/', include('apps.communications.urls')),
     path('notifications/', include('apps.notifications.urls')),
     path('documents/', include('apps.documents.urls')),
     path('student-cards/', include('apps.student_cards.urls')),

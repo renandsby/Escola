@@ -72,10 +72,9 @@ class UserRole(models.TextChoices):
     STUDENT = 'student', _('Aluno')
 
 
-class User(AbstractUser, BaseModel):
+class User(AbstractUser):
     """Modelo de usuário customizado."""
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True, verbose_name=_('Email'))
     phone = models.CharField(max_length=20, blank=True, verbose_name=_('Telefone'))
     document = models.CharField(max_length=20, unique=True, blank=True, null=True, verbose_name=_('CPF/CNPJ'))
@@ -97,10 +96,13 @@ class User(AbstractUser, BaseModel):
     )
     last_login_ip = models.GenericIPAddressField(null=True, blank=True, verbose_name=_('Último IP de login'))
     last_login_agent = models.TextField(blank=True, verbose_name=_('Último agente'))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Criado em'))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_('Atualizado em'))
 
     class Meta:
         verbose_name = _('Usuário')
         verbose_name_plural = _('Usuários')
+        ordering = ['-created_at']
         indexes = [
             models.Index(fields=['email']),
             models.Index(fields=['document']),

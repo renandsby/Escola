@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'django_filters',
     'django_redis',
+    'core',
     'apps.health',
     'apps.accounts',
     'apps.schools',
@@ -54,7 +55,7 @@ INSTALLED_APPS = [
     'apps.diary',
     'apps.curriculum',
     'apps.history',
-    'apps.messages',
+    'apps.communications',
     'apps.notifications',
     'apps.documents',
     'apps.student_cards',
@@ -269,7 +270,7 @@ if not DEBUG:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
 
-AUTH_USER_MODEL = 'accounts.User'
+AUTH_USER_MODEL = 'core.User'
 
 DEFAULT_FROM_EMAIL = decouple_config('EMAIL_HOST_USER', default='noreply@escola.com')
 EMAIL_BACKEND = decouple_config('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
