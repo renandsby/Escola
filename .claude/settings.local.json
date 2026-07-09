@@ -1,7 +1,38 @@
 {
   "permissions": {
     "allow": [
-      "Bash(DB_HOST=localhost DB_NAME=escola_db DB_USER=escola_user DB_PASSWORD=escola_password DEBUG=True SECRET_KEY=dev-secret python manage.py makemigrations)"
+      "Bash(DB_HOST=localhost DB_NAME=escola_db DB_USER=escola_user DB_PASSWORD=escola_password DEBUG=True SECRET_KEY=dev-secret python manage.py makemigrations)",
+      "Bash(docker-compose up *)",
+      "Bash(docker-compose down *)",
+      "Bash(npm install *)",
+      "Bash(curl -s http://localhost:8000/api/v1/)",
+      "Bash(curl -s http://localhost:8000/api/v1/accounts/login/)",
+      "Bash(curl -s http://localhost:8000/api/docs/)",
+      "Bash(curl -s http://localhost:8000/api/v1/schools/)",
+      "Bash(curl -X POST http://localhost:8000/api/v1/accounts/login/ -H 'Content-Type: application/json' -d '{\"username\": \"admin\", \"password\": \"admin123\"}')",
+      "Bash(python3 -m json.tool)",
+      "Bash(npm run *)",
+      "Bash(docker-compose restart *)",
+      "Bash(pip install *)",
+      "Bash(docker-compose ps *)",
+      "Bash(curl -X POST http://localhost:8000/api/v1/accounts/token/obtain/ -H 'Content-Type: application/json' -d '{\"username\": \"admin\", \"password\": \"admin123\"}')",
+      "Bash(python -m json.tool)",
+      "Bash(docker-compose exec *)",
+      "Bash(curl -X POST http://localhost:3000/api/v1/accounts/login/ -H 'Content-Type: application/json' -d '{\"username\": \"admin\", \"password\": \"admin123\"}')",
+      "Bash(docker-compose logs *)",
+      "Bash(curl -s -X POST http://localhost:8000/api/v1/accounts/login/ -H 'Content-Type: application/json' -d '{\"username\": \"admin\", \"password\": \"admin123\"}')",
+      "Bash(docker-compose build *)",
+      "Bash(docker rmi *)",
+      "Bash(python -m py_compile apps/reports/pdf_generator.py)",
+      "Bash(python3 test_apis.py)",
+      "Bash(curl -s http://localhost:8000/api/v1/accounts/login/ -H \"Content-Type: application/json\" -d '{\"username\": \"admin\", \"password\": \"admin123\"}')",
+      "Skill(run)",
+      "Bash(npx playwright *)",
+      "Bash(curl -s http://localhost:3000/dashboard)",
+      "Bash(cat)",
+      "Bash(chmod +x /tmp/test-flow.sh)",
+      "Bash(/tmp/test-flow.sh)",
+      "Skill(update-config)"
     ]
   }
 }
