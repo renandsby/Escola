@@ -1,0 +1,1 @@
+default_app_config = "student_cards.apps.StudentCardsConfig"
