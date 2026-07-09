@@ -86,13 +86,11 @@ class User(AbstractUser):
         default=UserRole.STUDENT,
         verbose_name=_('Papel'),
     )
-    school = models.ForeignKey(
-        'schools.School',
-        on_delete=models.CASCADE,
+    school_id = models.CharField(
+        max_length=36,
         null=True,
         blank=True,
-        related_name='users',
-        verbose_name=_('Escola'),
+        verbose_name=_('ID da Escola'),
     )
     last_login_ip = models.GenericIPAddressField(null=True, blank=True, verbose_name=_('Último IP de login'))
     last_login_agent = models.TextField(blank=True, verbose_name=_('Último agente'))
