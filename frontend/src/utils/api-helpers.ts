@@ -34,7 +34,7 @@ export async function apiPost<T>(
     return response.data
   } catch (error) {
     console.error(`POST ${url}:`, error)
-    return null
+    throw error
   }
 }
 
@@ -50,7 +50,7 @@ export async function apiPut<T>(
     return response.data
   } catch (error) {
     console.error(`PUT ${url}:`, error)
-    return null
+    throw error
   }
 }
 
