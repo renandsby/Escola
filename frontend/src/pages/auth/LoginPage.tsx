@@ -35,10 +35,14 @@ export default function LoginPage() {
 
       navigate('/dashboard')
     } catch (err: unknown) {
+      console.error('Login error:', err)
       if (err instanceof Error) {
-        setError('Usuário ou senha inválidos')
+        const errorMessage = err.message || 'Erro ao fazer login'
+        setError(errorMessage.includes('401') || errorMessage.includes('invalid')
+          ? 'Usuário ou senha inválidos'
+          : errorMessage)
       } else {
-        setError('Erro ao fazer login')
+        setError('Erro ao fazer login. Tente novamente.')
       }
     } finally {
       setIsLoading(false)

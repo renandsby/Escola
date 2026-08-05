@@ -1,9 +1,20 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCrud } from '@/hooks/useCrud'
-import { Document } from '@/types/api'
 import { Button } from '@/components/ui/button'
 import { Plus, Download, Trash2, Eye } from 'lucide-react'
+import { formatDistanceToNow } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
+
+interface Document {
+  id: string
+  file_name: string
+  document_type: string
+  description: string
+  uploaded_by?: string
+  created_at: string
+  file?: string
+}
 
 export default function DocumentsPage() {
   const navigate = useNavigate()
@@ -17,8 +28,8 @@ export default function DocumentsPage() {
   }
 
   const filteredData = list.data?.results?.filter((doc: Document) =>
-    doc.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    doc.document_type?.toLowerCase().includes(searchTerm.toLowerCase())
+    doc.file_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    doc.document_type?.includes(searchTerm)
   ) || []
 
   if (list.isLoading) return <div className="p-6">Carregando...</div>
@@ -50,58 +61,59 @@ export default function DocumentsPage() {
             <tr>
               <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Nome</th>
               <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Tipo</th>
+              <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Enviado por</th>
               <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Data</th>
               <th className="px-6 py-3 text-right text-sm font-medium text-gray-700">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y">
-            {filteredData.length > 0 ? (
-              filteredData.map((doc: Document) => (
-                <tr key={doc.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{doc.name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
-                      {doc.document_type}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    {doc.created_at ? new Date(doc.created_at).toLocaleDateString('pt-BR') : '-'}
-                  </td>
-                  <td className="px-6 py-4 text-right space-x-2">
+            {filteredData.map((doc: Document) => (
+              <tr key={doc.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 text-sm font-medium text-gray-900">{doc.file_name}</td>
+                <td className="px-6 py-4 text-sm text-gray-600 capitalize">
+                  {doc.document_type.replace('_', ' ')}
+                </td>
+                <td className="px-6 py-4 text-sm text-gray-600">{doc.uploaded_by || '-'}</td>
+                <td className="px-6 py-4 text-sm text-gray-600">
+                  {formatDistanceToNow(new Date(doc.created_at), {
+                    addSuffix: true,
+                    locale: ptBR,
+                  })}
+                </td>
+                <td className="px-6 py-4 text-right space-x-2">
+                  {doc.file && (
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => doc.file_url && window.open(doc.file_url, '_blank')}
-                      disabled={!doc.file_url}
+                      onClick={() => window.open(doc.file, '_blank')}
                     >
                       <Download className="w-4 h-4" />
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate(`/documents/${doc.id}`)}
-                    >
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDelete(doc.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
-                  Nenhum documento encontrado
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate(`/documents/${doc.id}`)}
+                  >
+                    <Eye className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDelete(doc.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </td>
               </tr>
-            )}
+            ))}
           </tbody>
         </table>
+        {filteredData.length === 0 && (
+          <div className="p-6 text-center text-gray-500">
+            Nenhum documento encontrado
+          </div>
+        )}
       </div>
     </div>
   )

@@ -7,7 +7,6 @@ import {
   BarChart3,
   MessageSquare,
   FileText,
-  Settings,
   ChevronLeft,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
@@ -26,6 +25,12 @@ export default function Sidebar({ open, onOpenChange }: SidebarProps) {
       icon: LayoutDashboard,
       href: '/dashboard',
       roles: ['admin', 'director', 'coordinator', 'secretary', 'teacher', 'guardian', 'student'],
+    },
+    {
+      title: 'Escolas',
+      icon: FileText,
+      href: '/schools',
+      roles: ['admin', 'director'],
     },
     {
       title: 'Alunos',
@@ -52,6 +57,18 @@ export default function Sidebar({ open, onOpenChange }: SidebarProps) {
       roles: ['admin', 'director', 'coordinator', 'teacher', 'guardian', 'student'],
     },
     {
+      title: 'Frequência',
+      icon: BarChart3,
+      href: '/attendance',
+      roles: ['admin', 'director', 'coordinator', 'teacher'],
+    },
+    {
+      title: 'Boletins Consolidados',
+      icon: FileText,
+      href: '/boletins',
+      roles: ['admin', 'director', 'coordinator', 'teacher'],
+    },
+    {
       title: 'Mensagens',
       icon: MessageSquare,
       href: '/messages',
@@ -62,12 +79,6 @@ export default function Sidebar({ open, onOpenChange }: SidebarProps) {
       icon: FileText,
       href: '/documents',
       roles: ['admin', 'director', 'coordinator', 'secretary', 'teacher', 'guardian', 'student'],
-    },
-    {
-      title: 'Configurações',
-      icon: Settings,
-      href: '/settings',
-      roles: ['admin', 'director', 'coordinator', 'secretary'],
     },
   ]
 

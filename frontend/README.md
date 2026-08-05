@@ -1,3 +1,4 @@
+
 # Frontend - Sistema de Gestão Escolar
 
 Frontend da aplicação de gestão escolar desenvolvido com React 19, TypeScript e Vite.

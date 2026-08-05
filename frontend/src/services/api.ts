@@ -1,9 +1,12 @@
 import axios, { AxiosInstance, AxiosError } from 'axios'
 import { useAuthStore } from '@/store/auth'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
+// Use relative URL so Nginx proxy at /api/ works
+const API_URL = '/api/v1'
+console.log('🔧 API_URL configured as:', API_URL)
 
 export const createApiClient = (): AxiosInstance => {
+  console.log('🔧 Creating axios client with baseURL:', API_URL)
   const client = axios.create({
     baseURL: API_URL,
     headers: {

@@ -6,7 +6,6 @@ import { useState } from 'react'
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const user = useAuthStore((state) => state.user)
   const logout = useAuthStore((state) => state.logout)
   const navigate = useNavigate()
 

@@ -85,11 +85,18 @@ export interface CreateSchoolRequest {
 
 export interface Student {
   id: string
-  user: User
-  school: School
-  birth_date: string
+  user?: User
+  user_name?: string
+  user_email?: string
+  school?: School
+  registration_number?: string
+  birth_date?: string
   gender?: 'M' | 'F'
   nationality?: string
+  status?: 'active' | 'inactive'
+  cpf?: string
+  rg?: string
+  age?: number
   is_active: boolean
   created_at: string
   updated_at: string
@@ -178,15 +185,20 @@ export type ClassStatus = 'active' | 'inactive' | 'archived'
 
 export interface Class {
   id: string
-  school: School
-  name: string
-  code: string
-  year: number
-  semester: number
-  status: ClassStatus
+  school?: School
+  name?: string
+  code?: string
+  year?: number
+  semester?: number
+  grade_level?: string
+  status?: ClassStatus
   teacher?: Teacher
+  teacher_name?: string
   students?: Student[]
+  student_count?: number
   subjects?: Subject[]
+  classroom?: string
+  classroom_number?: string
   is_active: boolean
   created_at: string
   updated_at: string
@@ -229,16 +241,22 @@ export interface CreateEnrollmentRequest {
 
 export interface Grade {
   id: string
-  student: Student
-  subject: Subject
-  class: Class
+  student?: Student
+  student_name?: string
+  subject?: Subject
+  subject_name?: string
+  class?: Class
+  class_name?: string
   first_period?: number
   second_period?: number
   third_period?: number
   fourth_period?: number
+  participation?: number
+  behavior?: number
   average?: number
   final_exam?: number
   final_grade?: number
+  notes?: string
   status?: 'approved' | 'failed' | 'pending'
   created_at: string
   updated_at: string
@@ -257,15 +275,20 @@ export interface CreateGradeRequest {
 
 // ============ ATTENDANCE ============
 
-export type AttendanceStatus = 'present' | 'absent' | 'justified'
+export type AttendanceStatus = 'present' | 'absent' | 'justified' | 'excused'
 
 export interface Attendance {
   id: string
-  student: Student
-  class: Class
+  student?: Student
+  student_name?: string
+  class?: Class
+  class_name?: string
+  subject?: Subject
+  subject_name?: string
   date: string
   status: AttendanceStatus
   observation?: string
+  is_active?: boolean
   created_at: string
   updated_at: string
 }

@@ -96,6 +96,32 @@ class ClassFactory(DjangoModelFactory):
     semester = 1
 
 
+class ClassroomFactory(DjangoModelFactory):
+    """Factory para criar salas de aula."""
+
+    class Meta:
+        model = 'classrooms.Classroom'
+
+    name = factory.Sequence(lambda n: f'Sala {n}')
+    capacity = 30
+    resources = 'Quadro, Projetor'
+    school = factory.SubFactory(SchoolFactory)
+
+
+class ClassDetailFactory(DjangoModelFactory):
+    """Factory para criar turmas com relacionamentos."""
+
+    class Meta:
+        model = 'classes.Class'
+
+    name = factory.Sequence(lambda n: f'{n}º Ano A')
+    grade_level = factory.Iterator([1, 2, 3, 4, 5, 6, 7, 8, 9])
+    teacher = factory.SubFactory(TeacherFactory)
+    classroom = factory.SubFactory(ClassroomFactory)
+    school = factory.SelfAttribute('teacher.school')
+    year = 2024
+
+
 class EnrollmentFactory(DjangoModelFactory):
     """Factory para criar matrículas."""
 
@@ -103,6 +129,36 @@ class EnrollmentFactory(DjangoModelFactory):
         model = 'enrollments.Enrollment'
 
     student = factory.SubFactory(StudentFactory)
+    class_obj = factory.SubFactory(ClassDetailFactory)
     school = factory.SubFactory(SchoolFactory)
     enrollment_date = factory.Faker('date_object')
     status = 'active'
+
+
+class GradeFactory(DjangoModelFactory):
+    """Factory para criar notas."""
+
+    class Meta:
+        model = 'grades.Grade'
+
+    student = factory.SubFactory(StudentFactory)
+    class_obj = factory.SubFactory(ClassDetailFactory)
+    subject = factory.SubFactory(SubjectFactory)
+    first_period = 8.5
+    second_period = 7.8
+    third_period = 9.0
+    fourth_period = 8.2
+    school = factory.SubFactory(SchoolFactory)
+
+
+class AttendanceFactory(DjangoModelFactory):
+    """Factory para criar frequência."""
+
+    class Meta:
+        model = 'attendance.Attendance'
+
+    student = factory.SubFactory(StudentFactory)
+    class_obj = factory.SubFactory(ClassDetailFactory)
+    date = factory.Faker('date_object')
+    status = factory.Iterator(['present', 'absent', 'justified'])
+    school = factory.SubFactory(SchoolFactory)

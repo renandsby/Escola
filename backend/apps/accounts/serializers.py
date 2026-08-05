@@ -60,7 +60,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 'first_name': user.first_name,
                 'last_name': user.last_name,
                 'role': user.role,
-                'school': str(user.school.id) if user.school else None,
+                'school_id': user.school_id,
             },
         }
 
@@ -70,7 +70,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def get_token(cls, user):
         token = super().get_token(user)
         token['role'] = user.role
-        token['school_id'] = str(user.school.id) if user.school else None
+        token['school_id'] = user.school_id
         return token
 
 
@@ -91,7 +91,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             'first_name',
             'last_name',
             'role',
-            'school',
+            'school_id',
         ]
 
     def validate_username(self, value):
@@ -171,7 +171,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'avatar',
             'bio',
             'role',
-            'school',
+            'school_id',
             'created_at',
             'updated_at',
         ]

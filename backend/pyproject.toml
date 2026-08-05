@@ -2,33 +2,34 @@
 requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+packages = ["apps", "common", "config", "core"]
+
 [project]
 name = "escola-backend"
 version = "0.1.0"
 description = "Sistema de Gestão Escolar - Backend"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.13"
 authors = [
     {name = "Your Name", email = "your.email@example.com"}
 ]
 license = {text = "MIT"}
 
 dependencies = [
-    "Django==5.0.0",
+    "Django==5.0",
     "djangorestframework==3.14.0",
     "django-cors-headers==4.3.1",
     "django-filter==23.5",
     "drf-spectacular==0.27.0",
-    "djangorestframework-simplejwt==5.3.2",
-    "django-environ==0.21.0",
-    "psycopg[binary]==3.17.0",
+    "djangorestframework-simplejwt==5.3.1",
+    "django-environ==0.14.0",
+    "psycopg[binary]==3.3.4",
     "celery==5.3.4",
     "redis==5.0.1",
-    "pillow==10.1.0",
+    "pillow>=10.0.0",
     "requests==2.31.0",
     "python-decouple==3.8",
-    "pydantic==2.5.0",
-    "pydantic-settings==2.1.0",
     "python-dateutil==2.8.2",
     "pytz==2023.3",
     "gunicorn==21.2.0",
@@ -39,9 +40,8 @@ dependencies = [
     "cryptography==41.0.7",
     "python-docx==0.8.11",
     "reportlab==4.0.7",
-    "openpyxl==3.11.0",
+    "openpyxl>=3.1.0",
     "qrcode==7.4.2",
-    "Pillow==10.1.0",
     "email-validator==2.1.0",
     "segno==1.6.1",
     "python-json-logger==2.0.7",
@@ -58,8 +58,8 @@ dev = [
     "black==23.12.0",
     "ruff==0.1.8",
     "mypy==1.7.1",
-    "django-stubs==4.2.6",
-    "djangorestframework-stubs==3.14.5",
+    "django-stubs>=4.2.7",
+    "djangorestframework-stubs>=3.14.5",
     "ipython==8.18.1",
     "django-extensions==3.2.3",
     "debugpy==1.8.0",
@@ -67,7 +67,7 @@ dev = [
 
 [tool.black]
 line-length = 88
-target-version = ['py314']
+target-version = ['py313']
 include = '\.pyi?$'
 exclude = '''
 /(
@@ -85,7 +85,7 @@ exclude = '''
 
 [tool.ruff]
 line-length = 88
-target-version = "py314"
+target-version = "py313"
 select = [
     "E",    # pycodestyle errors
     "W",    # pycodestyle warnings

@@ -1,8 +1,9 @@
-from rest_framework import viewsets, status, permissions
+from rest_framework import viewsets, status, permissions, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
+from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth import authenticate
 from django.shortcuts import get_object_or_404
 from core.models import User
@@ -31,7 +32,8 @@ class UserViewSet(viewsets.ModelViewSet):
 
     queryset = User.objects.filter(is_active=True)
     permission_classes = [permissions.IsAuthenticated]
-    filterset_fields = ['role', 'school', 'is_active']
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['role', 'school_id', 'is_active']
     search_fields = ['username', 'email', 'first_name', 'last_name']
     ordering_fields = ['username', 'email', 'created_at']
     ordering = ['-created_at']
@@ -119,6 +121,7 @@ class PermissionViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Permission.objects.all()
     serializer_class = PermissionSerializer
     permission_classes = [permissions.IsAuthenticated, IsAdmin]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['module']
     search_fields = ['name', 'code']
     ordering_fields = ['name', 'module']
@@ -130,6 +133,7 @@ class ProfileViewSet(viewsets.ModelViewSet):
     queryset = Profile.objects.all()
     serializer_class = ProfileSerializer
     permission_classes = [permissions.IsAuthenticated, IsAdmin]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'description']
     ordering_fields = ['name', 'created_at']
 
@@ -140,6 +144,7 @@ class LoginLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = LoginLog.objects.all()
     serializer_class = LoginLogSerializer
     permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['user', 'success']
     ordering_fields = ['login_time']
     ordering = ['-login_time']
