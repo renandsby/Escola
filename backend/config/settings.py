@@ -125,10 +125,18 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -288,9 +296,25 @@ if not DEBUG:
 AUTH_USER_MODEL = 'core.User'
 
 DEFAULT_FROM_EMAIL = decouple_config('EMAIL_HOST_USER', default='noreply@escola.com')
-EMAIL_BACKEND = decouple_config('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
-EMAIL_HOST = decouple_config('EMAIL_HOST', default='smtp.gmail.com')
-EMAIL_PORT = decouple_config('EMAIL_PORT', default=587, cast=int)
-EMAIL_USE_TLS = decouple_config('EMAIL_USE_TLS', default=True, cast=bool)
-EMAIL_HOST_USER = decouple_config('EMAIL_HOST_USER', default='')
-EMAIL_HOST_PASSWORD = decouple_config('EMAIL_HOST_PASSWORD', default='')
+
+_EMAIL_BACKEND = decouple_config(
+    'EMAIL_BACKEND',
+    default='django.core.mail.backends.console.EmailBackend',
+)
+
+MAILERS = {
+    'default': {
+        'BACKEND': _EMAIL_BACKEND,
+    },
+}
+
+# As OPTIONS abaixo só fazem sentido para o backend SMTP; outros backends
+# (console, locmem, filebased) rejeitam ou ignoram esses parâmetros.
+if _EMAIL_BACKEND.endswith('smtp.EmailBackend'):
+    MAILERS['default']['OPTIONS'] = {
+        'host': decouple_config('EMAIL_HOST', default='smtp.gmail.com'),
+        'port': decouple_config('EMAIL_PORT', default=587, cast=int),
+        'use_tls': decouple_config('EMAIL_USE_TLS', default=True, cast=bool),
+        'username': decouple_config('EMAIL_HOST_USER', default=''),
+        'password': decouple_config('EMAIL_HOST_PASSWORD', default=''),
+    }

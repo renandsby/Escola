@@ -16,15 +16,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copiar requirements
-COPY pyproject.toml .
+RUN pip install --upgrade pip setuptools wheel
+
+# Copiar código da aplicação (necessário antes do install: o pyproject.toml
+# declara os pacotes apps/common/config/core, que precisam existir no build)
+COPY . .
 
 # Instalar Python dependencies
-RUN pip install --upgrade pip setuptools wheel && \
-    pip install -e .
-
-# Copiar código da aplicação
-COPY . .
+RUN pip install -e .
 
 # Criar diretórios necessários
 RUN mkdir -p staticfiles media logs

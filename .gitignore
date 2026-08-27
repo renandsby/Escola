@@ -58,8 +58,9 @@ yarn-error.log
 .nuxt/
 dist/
 
-# Docker
-.dockerignore
+# Celery
+celerybeat-schedule*
+celerybeat.pid
 
 # Environment
 .env

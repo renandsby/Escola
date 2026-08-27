@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -72,10 +70,11 @@ services:
     networks:
       - escola_network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/', timeout=5)"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 60s
 
   celery:
     build:
@@ -101,6 +100,12 @@ services:
       - backend
     networks:
       - escola_network
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A config inspect ping -d celery@$$HOSTNAME"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   celery-beat:
     build:
@@ -126,6 +131,9 @@ services:
       - backend
     networks:
       - escola_network
+    # O beat não expõe serviço; o healthcheck HTTP herdado do Dockerfile não se aplica
+    healthcheck:
+      disable: true
 
   frontend:
     build:

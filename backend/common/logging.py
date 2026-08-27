@@ -2,10 +2,10 @@ import logging
 import json
 import sys
 from typing import Any, Dict
-from pythonjsonlogger import jsonlogger
+from pythonjsonlogger.json import JsonFormatter
 
 
-class CustomJsonFormatter(jsonlogger.JsonFormatter):
+class CustomJsonFormatter(JsonFormatter):
     """Formatter customizado para logs em JSON."""
 
     def add_fields(
