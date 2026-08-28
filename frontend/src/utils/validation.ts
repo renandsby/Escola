@@ -17,10 +17,10 @@ export function isValidCPF(cpf: string): boolean {
   const cleaned = cpf.replace(/\D/g, '')
 
   // Verifica tamanho
-  if (cleaned.length !== 11) return false
+  if (cleaned.length !== 11) {return false}
 
   // Verifica se todos os dígitos são iguais
-  if (/^(\d)\1{10}$/.test(cleaned)) return false
+  if (/^(\d)\1{10}$/.test(cleaned)) {return false}
 
   // Valida dígitos verificadores
   let sum = 0
@@ -32,9 +32,9 @@ export function isValidCPF(cpf: string): boolean {
 
   remainder = (sum * 10) % 11
 
-  if (remainder === 10 || remainder === 11) remainder = 0
+  if (remainder === 10 || remainder === 11) {remainder = 0}
 
-  if (remainder !== parseInt(cleaned.substring(9, 10))) return false
+  if (remainder !== parseInt(cleaned.substring(9, 10))) {return false}
 
   sum = 0
 
@@ -44,9 +44,9 @@ export function isValidCPF(cpf: string): boolean {
 
   remainder = (sum * 10) % 11
 
-  if (remainder === 10 || remainder === 11) remainder = 0
+  if (remainder === 10 || remainder === 11) {remainder = 0}
 
-  if (remainder !== parseInt(cleaned.substring(10, 11))) return false
+  if (remainder !== parseInt(cleaned.substring(10, 11))) {return false}
 
   return true
 }
@@ -57,9 +57,9 @@ export function isValidCPF(cpf: string): boolean {
 export function isValidCNPJ(cnpj: string): boolean {
   const cleaned = cnpj.replace(/\D/g, '')
 
-  if (cleaned.length !== 14) return false
+  if (cleaned.length !== 14) {return false}
 
-  if (/^(\d)\1{13}$/.test(cleaned)) return false
+  if (/^(\d)\1{13}$/.test(cleaned)) {return false}
 
   let sum = 0
   let remainder
@@ -75,7 +75,7 @@ export function isValidCNPJ(cnpj: string): boolean {
   remainder = sum % 11
   remainder = remainder < 2 ? 0 : 11 - remainder
 
-  if (remainder !== parseInt(cleaned[12])) return false
+  if (remainder !== parseInt(cleaned[12])) {return false}
 
   sum = 0
 
@@ -90,7 +90,7 @@ export function isValidCNPJ(cnpj: string): boolean {
   remainder = sum % 11
   remainder = remainder < 2 ? 0 : 11 - remainder
 
-  if (remainder !== parseInt(cleaned[13])) return false
+  if (remainder !== parseInt(cleaned[13])) {return false}
 
   return true
 }
@@ -128,12 +128,12 @@ export function isValidURL(url: string): boolean {
  * Requisitos: mínimo 8 caracteres, 1 maiúscula, 1 minúscula, 1 número, 1 caractere especial
  */
 export function isStrongPassword(password: string): boolean {
-  if (password.length < 8) return false
+  if (password.length < 8) {return false}
 
   const hasUpperCase = /[A-Z]/.test(password)
   const hasLowerCase = /[a-z]/.test(password)
   const hasNumber = /\d/.test(password)
-  const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+  const hasSpecialChar = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)
 
   return hasUpperCase && hasLowerCase && hasNumber && hasSpecialChar
 }
@@ -145,15 +145,15 @@ export function getPasswordStrength(password: string): number {
   let strength = 0
 
   // Comprimento
-  if (password.length >= 8) strength += 20
-  if (password.length >= 12) strength += 10
-  if (password.length >= 16) strength += 10
+  if (password.length >= 8) {strength += 20}
+  if (password.length >= 12) {strength += 10}
+  if (password.length >= 16) {strength += 10}
 
   // Tipos de caracteres
-  if (/[a-z]/.test(password)) strength += 15
-  if (/[A-Z]/.test(password)) strength += 15
-  if (/\d/.test(password)) strength += 15
-  if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) strength += 15
+  if (/[a-z]/.test(password)) {strength += 15}
+  if (/[A-Z]/.test(password)) {strength += 15}
+  if (/\d/.test(password)) {strength += 15}
+  if (/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) {strength += 15}
 
   return Math.min(100, strength)
 }

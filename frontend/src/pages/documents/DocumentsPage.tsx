@@ -1,20 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCrud } from '@/hooks/useCrud'
+import { Document } from '@/types/api'
 import { Button } from '@/components/ui/button'
 import { Plus, Download, Trash2, Eye } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-
-interface Document {
-  id: string
-  file_name: string
-  document_type: string
-  description: string
-  uploaded_by?: string
-  created_at: string
-  file?: string
-}
 
 export default function DocumentsPage() {
   const navigate = useNavigate()
@@ -27,13 +18,16 @@ export default function DocumentsPage() {
     }
   }
 
-  const filteredData = list.data?.results?.filter((doc: Document) =>
-    doc.file_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    doc.document_type?.includes(searchTerm)
-  ) || []
+  const filteredData =
+    list.data?.results?.filter(
+      (doc: Document) =>
+        doc.file_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        doc.document_type?.includes(searchTerm) ||
+        doc.student_name?.toLowerCase().includes(searchTerm.toLowerCase())
+    ) || []
 
-  if (list.isLoading) return <div className="p-6">Carregando...</div>
-  if (list.isError) return <div className="p-6 text-red-600">Erro ao carregar documentos</div>
+  if (list.isLoading) {return <div className="p-6">Carregando...</div>}
+  if (list.isError) {return <div className="p-6 text-red-600">Erro ao carregar documentos</div>}
 
   return (
     <div className="space-y-6">
@@ -48,7 +42,7 @@ export default function DocumentsPage() {
       <div className="bg-white rounded-lg shadow p-6">
         <input
           type="text"
-          placeholder="Buscar por nome ou tipo..."
+          placeholder="Buscar por nome, tipo ou aluno..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -61,6 +55,7 @@ export default function DocumentsPage() {
             <tr>
               <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Nome</th>
               <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Tipo</th>
+              <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Aluno</th>
               <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Enviado por</th>
               <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Data</th>
               <th className="px-6 py-3 text-right text-sm font-medium text-gray-700">Ações</th>
@@ -71,9 +66,12 @@ export default function DocumentsPage() {
               <tr key={doc.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 text-sm font-medium text-gray-900">{doc.file_name}</td>
                 <td className="px-6 py-4 text-sm text-gray-600 capitalize">
-                  {doc.document_type.replace('_', ' ')}
+                  {String(doc.document_type).replace(/_/g, ' ')}
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-600">{doc.uploaded_by || '-'}</td>
+                <td className="px-6 py-4 text-sm text-gray-600">{doc.student_name || '—'}</td>
+                <td className="px-6 py-4 text-sm text-gray-600">
+                  {doc.uploaded_by_name || '—'}
+                </td>
                 <td className="px-6 py-4 text-sm text-gray-600">
                   {formatDistanceToNow(new Date(doc.created_at), {
                     addSuffix: true,
@@ -110,9 +108,7 @@ export default function DocumentsPage() {
           </tbody>
         </table>
         {filteredData.length === 0 && (
-          <div className="p-6 text-center text-gray-500">
-            Nenhum documento encontrado
-          </div>
+          <div className="p-6 text-center text-gray-500">Nenhum documento encontrado</div>
         )}
       </div>
     </div>

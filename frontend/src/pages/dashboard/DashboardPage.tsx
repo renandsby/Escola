@@ -1,8 +1,9 @@
-import { useAuthStore } from '@/store/auth'
+import { useAuthStore } from '@/stores/authStore'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { apiGet } from '@/utils/api-helpers'
-import { Users, School, BookOpen, Users2, Activity } from 'lucide-react'
+import { Users, School, BookOpen, Users2, Activity, Building2 } from 'lucide-react'
+import { USER_ROLE_LABELS } from '@/types/api'
 
 interface ActivityItem {
   id: string
@@ -15,6 +16,7 @@ interface ActivityItem {
 
 export default function DashboardPage() {
   const user = useAuthStore((state) => state.user)
+  const isSme = user?.role === 'sme_admin' || user?.role === 'sme_supervisor'
 
   const activities = useQuery({
     queryKey: ['recent_activities'],
@@ -24,40 +26,47 @@ export default function DashboardPage() {
   const stats = [
     {
       title: 'Alunos',
-      value: '1,234',
+      value: '—',
       icon: Users,
       color: 'bg-blue-500',
-      href: '/students'
+      href: '/students',
     },
     {
       title: 'Turmas',
-      value: '45',
+      value: '—',
       icon: Users2,
       color: 'bg-green-500',
-      href: '/classes'
+      href: '/classes',
     },
     {
       title: 'Disciplinas',
-      value: '18',
+      value: '—',
       icon: BookOpen,
       color: 'bg-purple-500',
-      href: '/subjects'
+      href: '/subjects',
     },
     {
-      title: 'Escolas',
-      value: '3',
-      icon: School,
+      title: isSme ? 'Secretaria' : 'Escolas',
+      value: '—',
+      icon: isSme ? Building2 : School,
       color: 'bg-orange-500',
-      href: '/schools'
+      href: isSme ? '/sme' : '/schools',
     },
   ]
 
-  const quickMenu = [
-    { label: 'Alunos', href: '/students' },
-    { label: 'Turmas', href: '/classes' },
-    { label: 'Boletins', href: '/boletins' },
-    { label: 'Frequência', href: '/attendance' },
-  ]
+  const quickMenu = isSme
+    ? [
+        { label: 'Secretaria', href: '/sme' },
+        { label: 'Matrizes', href: '/sme/matrices' },
+        { label: 'Transferências', href: '/sme/transfers' },
+        { label: 'Alunos', href: '/students' },
+      ]
+    : [
+        { label: 'Alunos', href: '/students' },
+        { label: 'Turmas', href: '/classes' },
+        { label: 'Boletins', href: '/boletins' },
+        { label: 'Frequência', href: '/attendance' },
+      ]
 
   return (
     <div className="space-y-6">
@@ -65,7 +74,12 @@ export default function DashboardPage() {
         <h1 className="text-3xl font-bold text-gray-900">
           Bem-vindo, {user?.first_name || user?.username}!
         </h1>
-        <p className="text-gray-600 mt-1">Aqui está um resumo de sua escola</p>
+        <p className="text-gray-600 mt-1">
+          {user?.role ? USER_ROLE_LABELS[user.role] : ''}
+          {isSme
+            ? ' — visão da rede municipal'
+            : ' — resumo da sua unidade escolar'}
+        </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -102,7 +116,10 @@ export default function DashboardPage() {
               <p className="text-gray-600 text-center py-8">Carregando atividades...</p>
             ) : activities.data && activities.data.length > 0 ? (
               activities.data.map((activity) => (
-                <div key={activity.id} className="flex items-start gap-4 p-3 hover:bg-gray-50 rounded-lg transition-colors">
+                <div
+                  key={activity.id}
+                  className="flex items-start gap-4 p-3 hover:bg-gray-50 rounded-lg transition-colors"
+                >
                   <div className="flex-1">
                     <p className="font-medium text-gray-900">
                       <span className="text-blue-600">{activity.user}</span> {activity.action}

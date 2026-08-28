@@ -1,58 +1,75 @@
 import { useQuery } from '@tanstack/react-query'
 import { apiGet } from '@/utils/api-helpers'
+import type { SchoolClass, Grade, Attendance, PaginatedResponse } from '@/types/api'
+import { SHIFT_LABELS } from '@/types/api'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 export default function TeacherDashboard() {
   const classes = useQuery({
     queryKey: ['classes'],
-    queryFn: () => apiGet('classes/') as Promise<any>,
+    queryFn: () => apiGet<PaginatedResponse<SchoolClass>>('classes/'),
   })
 
   const grades = useQuery({
     queryKey: ['grades'],
-    queryFn: () => apiGet('grades/') as Promise<any>,
+    queryFn: () => apiGet<PaginatedResponse<Grade>>('grades/'),
   })
 
   const attendance = useQuery({
     queryKey: ['attendance'],
-    queryFn: () => apiGet('attendance/') as Promise<any>,
+    queryFn: () => apiGet<PaginatedResponse<Attendance>>('attendance/'),
   })
 
   if (classes.isLoading || grades.isLoading) {
     return <div className="p-6">Carregando...</div>
   }
 
-  const classList = (classes.data as any)?.results || []
-  const gradesList = (grades.data as any)?.results || []
-  const attendanceList = (attendance.data as any)?.results || []
+  const classList = classes.data?.results || []
+  const gradesList = grades.data?.results || []
+  const attendanceList = attendance.data?.results || []
 
-  const totalStudents = classList.reduce((sum: number, c: any) => sum + (c.student_count || 0), 0)
-  const avgGrade = gradesList.length > 0
-    ? (gradesList.reduce((sum: number, g: any) => sum + (g.average || 0), 0) / gradesList.length).toFixed(1)
-    : 0
-  const avgAttendance = attendanceList.length > 0
-    ? ((attendanceList.filter((a: any) => a.status === 'present').length / attendanceList.length) * 100).toFixed(1)
-    : 0
+  const totalStudents = classList.reduce((sum, c) => sum + (c.student_count || 0), 0)
+  const avgGrade =
+    gradesList.length > 0
+      ? (
+          gradesList.reduce(
+            (sum, g) => sum + Number(g.effective_score ?? g.score ?? 0),
+            0
+          ) / gradesList.length
+        ).toFixed(1)
+      : 0
+  const avgAttendance =
+    attendanceList.length > 0
+      ? (
+          (attendanceList.filter((a) => a.status === 'PRESENT').length /
+            attendanceList.length) *
+          100
+        ).toFixed(1)
+      : 0
 
-  const gradesBySubject = gradesList.reduce((acc: any, grade: any) => {
-    const existing = acc.find((item: any) => item.subject === grade.subject_name)
-    if (existing) {
-      existing.total += grade.average || 0
-      existing.count += 1
-    } else {
-      acc.push({ subject: grade.subject_name, total: grade.average || 0, count: 1 })
-    }
-    return acc
-  }, []).map((item: any) => ({
-    subject: item.subject,
-    media: (item.total / item.count).toFixed(1),
-  }))
+  const gradesBySubject = gradesList
+    .reduce<{ subject: string; total: number; count: number }[]>((acc, grade) => {
+      const name = grade.subject_name || '—'
+      const existing = acc.find((item) => item.subject === name)
+      const value = Number(grade.effective_score ?? grade.score ?? 0)
+      if (existing) {
+        existing.total += value
+        existing.count += 1
+      } else {
+        acc.push({ subject: name, total: value, count: 1 })
+      }
+      return acc
+    }, [])
+    .map((item) => ({
+      subject: item.subject,
+      media: (item.total / item.count).toFixed(1),
+    }))
 
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold text-gray-900">Dashboard do Professor</h1>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-lg shadow p-6">
           <p className="text-sm text-gray-600">Minhas Turmas</p>
           <p className="text-3xl font-bold text-blue-600">{classList.length}</p>
@@ -72,7 +89,9 @@ export default function TeacherDashboard() {
       </div>
 
       <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Média de Notas por Disciplina</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          Média de Notas por Disciplina
+        </h2>
         {gradesBySubject.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={gradesBySubject}>
@@ -91,10 +110,15 @@ export default function TeacherDashboard() {
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Minhas Turmas</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {classList.map((cls: any) => (
-            <div key={cls.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+          {classList.map((cls) => (
+            <div
+              key={cls.id}
+              className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition"
+            >
               <h3 className="font-semibold text-gray-900">{cls.name}</h3>
-              <p className="text-sm text-gray-600">{cls.grade_level}</p>
+              <p className="text-sm text-gray-600">
+                {SHIFT_LABELS[cls.shift] || cls.shift}
+              </p>
               <div className="mt-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Alunos:</span>
@@ -102,37 +126,15 @@ export default function TeacherDashboard() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Status:</span>
-                  <span className={`font-medium ${cls.status === 'active' ? 'text-green-600' : 'text-gray-600'}`}>
-                    {cls.status === 'active' ? 'Ativa' : 'Inativa'}
+                  <span
+                    className={`font-medium ${cls.is_active ? 'text-green-600' : 'text-gray-600'}`}
+                  >
+                    {cls.is_active ? 'Ativa' : 'Inativa'}
                   </span>
                 </div>
               </div>
             </div>
           ))}
-        </div>
-      </div>
-
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Distribuição de Status</h2>
-        <div className="grid grid-cols-3 gap-4">
-          <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-            <p className="text-sm text-gray-600">Aprovados</p>
-            <p className="text-2xl font-bold text-green-600">
-              {gradesList.filter((g: any) => g.status === 'approved').length}
-            </p>
-          </div>
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-sm text-gray-600">Reprovados</p>
-            <p className="text-2xl font-bold text-red-600">
-              {gradesList.filter((g: any) => g.status === 'failed').length}
-            </p>
-          </div>
-          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-sm text-gray-600">Pendentes</p>
-            <p className="text-2xl font-bold text-yellow-600">
-              {gradesList.filter((g: any) => g.status === 'pending').length}
-            </p>
-          </div>
         </div>
       </div>
     </div>

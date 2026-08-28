@@ -8,6 +8,9 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    // Testes unitários ficam em src/; e2e/ é do Playwright.
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    exclude: ['node_modules/', 'dist/', 'e2e/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

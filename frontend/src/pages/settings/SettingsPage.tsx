@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { useAuthStore } from '@/store/auth'
+import { useAuthStore } from '@/stores/authStore'
 import { Button } from '@/components/ui/button'
 import { Bell, Lock, Palette, LogOut } from 'lucide-react'
+import { USER_ROLE_LABELS } from '@/types/api'
 
 export default function SettingsPage() {
   const { user, logout } = useAuthStore()
@@ -50,8 +51,8 @@ export default function SettingsPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Função</label>
-              <div className="px-4 py-2 bg-gray-50 rounded-md text-gray-700 border border-gray-300 capitalize">
-                {user?.role}
+              <div className="px-4 py-2 bg-gray-50 rounded-md text-gray-700 border border-gray-300">
+                {user?.role ? USER_ROLE_LABELS[user.role] : '—'}
               </div>
             </div>
           </div>

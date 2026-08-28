@@ -1,28 +1,48 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { apiGet, apiPost } from '@/utils/api-helpers'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { apiGet, apiPost, getErrorMessage } from '@/utils/api-helpers'
+import type { PaginatedResponse, User } from '@/types/api'
 import { ArrowLeft } from 'lucide-react'
 
 const messageSchema = z.object({
-  recipient: z.coerce.number().describe('Destinatário é obrigatório'),
+  recipient: z.coerce.number({ invalid_type_error: 'Destinatário é obrigatório' }),
   subject: z.string().min(1, 'Assunto é obrigatório'),
   body: z.string().min(1, 'Mensagem é obrigatória'),
 })
 
 type MessageFormData = z.infer<typeof messageSchema>
 
+interface MessageDetail {
+  sender_name?: string
+  created_at: string
+  subject: string
+  body: string
+}
+
 export default function MessageFormPage() {
   const navigate = useNavigate()
   const { id } = useParams()
   const isViewing = !!id
-  const [loading, setLoading] = useState(isViewing)
   const [submitting, setSubmitting] = useState(false)
-  const [users, setUsers] = useState<any[]>([])
-  const [messageData, setMessageData] = useState<any>(null)
+
+  const usersQuery = useQuery({
+    queryKey: ['messages', 'recipients'],
+    queryFn: () => apiGet<PaginatedResponse<User>>('accounts/users/'),
+  })
+  const users = usersQuery.data?.results ?? []
+
+  const messageQuery = useQuery({
+    queryKey: ['messages', 'detail', id],
+    queryFn: () => apiGet<MessageDetail>(`communications/${id}/`),
+    enabled: isViewing,
+  })
 
   const {
     register,
@@ -33,40 +53,33 @@ export default function MessageFormPage() {
   })
 
   useEffect(() => {
-    apiGet('accounts/users/')
-      .then((data: any) => setUsers(data.results || []))
-      .catch(() => setUsers([]))
-  }, [])
-
-  useEffect(() => {
-    if (isViewing) {
-      apiGet(`communications/${id}/`)
-        .then((data: any) => {
-          setMessageData(data)
-          setLoading(false)
-        })
-        .catch(() => {
-          setLoading(false)
-          alert('Erro ao carregar mensagem')
-        })
+    if (messageQuery.isError) {
+      toast.error('Erro ao carregar mensagem')
     }
-  }, [id, isViewing])
+  }, [messageQuery.isError])
 
   const onSubmit = async (data: MessageFormData) => {
     try {
       setSubmitting(true)
       await apiPost('communications/', data)
-      alert('Mensagem enviada com sucesso!')
+      toast.success('Mensagem enviada com sucesso!')
       navigate('/messages')
-    } catch (error: any) {
-      alert(`Erro ao enviar mensagem: ${error.message}`)
+    } catch (error) {
+      toast.error(getErrorMessage(error))
     } finally {
       setSubmitting(false)
     }
   }
 
-  if (loading) {
-    return <div className="p-6">Carregando...</div>
+  const messageData = messageQuery.data
+
+  if (isViewing && messageQuery.isLoading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-9 w-48" />
+        <Skeleton className="h-64 w-full max-w-2xl" />
+      </div>
+    )
   }
 
   return (
@@ -120,9 +133,7 @@ export default function MessageFormPage() {
           <fieldset disabled={submitting}>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Destinatário
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Destinatário</label>
                 <select
                   {...register('recipient', { valueAsNumber: true })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -140,9 +151,7 @@ export default function MessageFormPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Assunto
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Assunto</label>
                 <input
                   {...register('subject')}
                   type="text"
@@ -155,9 +164,7 @@ export default function MessageFormPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Mensagem
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Mensagem</label>
                 <textarea
                   {...register('body')}
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"

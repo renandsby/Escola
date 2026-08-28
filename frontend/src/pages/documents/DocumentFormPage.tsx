@@ -15,7 +15,7 @@ export default function DocumentFormPage() {
 
   const document = data as any
 
-  if (isLoading) return <div className="p-6">Carregando...</div>
+  if (isLoading) {return <div className="p-6">Carregando...</div>}
 
   return (
     <div className="space-y-6">
