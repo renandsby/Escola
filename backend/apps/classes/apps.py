@@ -4,4 +4,4 @@ from django.apps import AppConfig
 class ClassesConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'apps.classes'
-    verbose_name = 'Turmas'
+    verbose_name = 'Turmas, Salas e Docência'

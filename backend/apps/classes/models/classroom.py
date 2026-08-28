@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+
 from core.models import BaseModel
 
 
@@ -8,7 +9,7 @@ class Classroom(BaseModel):
 
     school = models.ForeignKey(
         'schools.School',
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='classrooms',
         verbose_name=_('Escola'),
     )
