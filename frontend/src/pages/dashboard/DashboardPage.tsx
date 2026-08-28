@@ -14,40 +14,58 @@ interface ActivityItem {
   time_ago: string
 }
 
+interface DashboardSummary {
+  students: number
+  enrollments: number
+  school_classes: number
+  subjects: number
+  schools: number
+  teachers: number
+}
+
 export default function DashboardPage() {
   const user = useAuthStore((state) => state.user)
   const isSme = user?.role === 'sme_admin' || user?.role === 'sme_supervisor'
+
+  const summary = useQuery({
+    queryKey: ['dashboard-summary'],
+    queryFn: () => apiGet<DashboardSummary>('dashboard/summary/'),
+  })
 
   const activities = useQuery({
     queryKey: ['recent_activities'],
     queryFn: () => apiGet<ActivityItem[]>('audit/recent_activities/'),
   })
 
+  const fmt = (n?: number) =>
+    summary.isLoading ? '…' : n === undefined ? '—' : n.toLocaleString('pt-BR')
+
+  const s = summary.data ?? undefined
   const stats = [
     {
       title: 'Alunos',
-      value: '—',
+      value: fmt(s?.students),
       icon: Users,
       color: 'bg-blue-500',
       href: '/students',
     },
     {
       title: 'Turmas',
-      value: '—',
+      value: fmt(s?.school_classes),
       icon: Users2,
       color: 'bg-green-500',
       href: '/classes',
     },
     {
       title: 'Disciplinas',
-      value: '—',
+      value: fmt(s?.subjects),
       icon: BookOpen,
       color: 'bg-purple-500',
       href: '/subjects',
     },
     {
-      title: isSme ? 'Secretaria' : 'Escolas',
-      value: '—',
+      title: 'Escolas',
+      value: fmt(s?.schools),
       icon: isSme ? Building2 : School,
       color: 'bg-orange-500',
       href: isSme ? '/sme' : '/schools',
