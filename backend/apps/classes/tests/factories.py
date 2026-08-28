@@ -91,6 +91,10 @@ class SMEAdminFactory(UserFactory):
     role = UserRole.SME_ADMIN
 
 
+class SMESupervisorFactory(UserFactory):
+    role = UserRole.SME_SUPERVISOR
+
+
 class SchoolDirectorFactory(UserFactory):
     role = UserRole.SCHOOL_DIRECTOR
     education_department = None

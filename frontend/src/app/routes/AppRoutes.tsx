@@ -30,6 +30,8 @@ import DepartmentPage from '@/features/governance/pages/DepartmentPage'
 import MatricesPage from '@/features/governance/pages/MatricesPage'
 import TransfersPage from '@/features/students/pages/TransfersPage'
 import AllocationsPage from '@/features/classes/pages/AllocationsPage'
+import TeachersListPage from '@/features/classes/pages/TeachersListPage'
+import TeacherFormPage from '@/features/classes/pages/TeacherFormPage'
 import DescriptiveEvaluationsPage from '@/features/class-diary/pages/DescriptiveEvaluationsPage'
 
 const SME_ROLES: UserRole[] = ['sme_admin', 'sme_supervisor']
@@ -73,9 +75,12 @@ export function AppRoutes() {
           <Route path="/sme/transfers" element={guard(SME_ROLES, <TransfersPage />)} />
 
           {/* Docência */}
+          <Route path="/teachers" element={guard(['sme_admin'], <TeachersListPage />)} />
+          <Route path="/teachers/create" element={guard(['sme_admin'], <TeacherFormPage />)} />
+          <Route path="/teachers/:id/edit" element={guard(['sme_admin'], <TeacherFormPage />)} />
           <Route
             path="/teachers/allocations"
-            element={guard(['sme_admin', 'school_director'], <AllocationsPage />)}
+            element={guard(['sme_admin', 'sme_supervisor'], <AllocationsPage />)}
           />
           <Route
             path="/evaluations"

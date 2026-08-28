@@ -14,6 +14,7 @@ import {
   UserCog,
   ClipboardList,
   FileSignature,
+  Presentation,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import type { UserRole } from '@/types/api'
@@ -69,10 +70,16 @@ export default function Sidebar({ open, onOpenChange }: SidebarProps) {
       roles: SME_ROLES,
     },
     {
+      title: 'Professores',
+      icon: Presentation,
+      href: '/teachers',
+      roles: ['sme_admin'],
+    },
+    {
       title: 'Alocações',
       icon: UserCog,
       href: '/teachers/allocations',
-      roles: ['sme_admin', 'school_director'],
+      roles: ['sme_admin', 'sme_supervisor'],
     },
     {
       title: 'Escolas',

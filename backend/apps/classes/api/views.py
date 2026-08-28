@@ -2,7 +2,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, permissions, status, viewsets
 from rest_framework.response import Response
 
-from core.permissions import IsSMEStaff
+from core.permissions import IsSMEAdmin, IsSMEStaff
 
 from apps.classes.models import Classroom, SchoolClass, TeacherAllocation, TeacherProfile
 from apps.classes.selectors.classrooms import get_active_classrooms
@@ -93,6 +93,11 @@ class TeacherProfileViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return get_teacher_profiles_for_user(user=self.request.user)
+
+    def get_permissions(self):
+        if self.action in ('create', 'update', 'partial_update', 'destroy'):
+            return [permissions.IsAuthenticated(), IsSMEAdmin()]
+        return [permissions.IsAuthenticated()]
 
     def get_serializer_class(self):
         if self.action == 'list':

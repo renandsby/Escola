@@ -13,6 +13,7 @@ from .factories import (
     SchoolClassFactory,
     SchoolFactory,
     SMEAdminFactory,
+    SMESupervisorFactory,
     TeacherProfileFactory,
 )
 
@@ -67,6 +68,8 @@ class TestClassroomAPI:
 
 @pytest.mark.django_db
 class TestTeacherAPI:
+    URL = '/api/v1/teachers/'
+
     def test_profiles_on_frozen_prefixes(self):
         dept = EducationDepartmentFactory()
         TeacherProfileFactory(user__education_department=dept, education_department=dept)
@@ -76,6 +79,55 @@ class TestTeacherAPI:
             response = _client(admin).get(url)
             assert response.status_code == status.HTTP_200_OK
             assert response.data['count'] == 1
+
+    def test_sme_admin_creates_teacher_profile(self):
+        from django.contrib.auth import get_user_model
+
+        dept = EducationDepartmentFactory()
+        admin = SMEAdminFactory(education_department=dept)
+        teacher_user = get_user_model().objects.create_user(
+            username='prof_novo',
+            email='prof@rede.gov.br',
+            password='x',
+            role='teacher',
+            education_department=dept,
+        )
+
+        response = _client(admin).post(
+            self.URL,
+            {
+                'user': str(teacher_user.id),
+                'education_department': str(dept.id),
+                'registration_number': 'MF-001',
+                'cpf': '12345678901',
+                'formation_area': 'Pedagogia',
+            },
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert teacher_user.teacher_profile.registration_number == 'MF-001'
+
+    def test_supervisor_cannot_create_teacher_profile(self):
+        dept = EducationDepartmentFactory()
+        supervisor = SMESupervisorFactory(education_department=dept)
+
+        response = _client(supervisor).post(
+            self.URL,
+            {'user': '00000000-0000-0000-0000-000000000000', 'education_department': str(dept.id)},
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_soft_delete_teacher(self):
+        dept = EducationDepartmentFactory()
+        teacher = TeacherProfileFactory(user__education_department=dept, education_department=dept)
+        admin = SMEAdminFactory(education_department=dept)
+
+        response = _client(admin).delete(f'{self.URL}{teacher.id}/')
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        teacher.refresh_from_db()
+        assert teacher.deleted_at is not None
 
 
 @pytest.mark.django_db
