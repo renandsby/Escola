@@ -6,7 +6,12 @@ from core.models import BaseModel
 class Report(BaseModel):
     """Modelo de Relatório."""
 
-    school = models.ForeignKey('schools.School', on_delete=models.CASCADE, related_name='reports', verbose_name=_('Escola'))
+    school = models.ForeignKey(
+        'schools.School',
+        on_delete=models.PROTECT,
+        related_name='reports',
+        verbose_name=_('Escola'),
+    )
     title = models.CharField(max_length=255, verbose_name=_('Título'))
     report_type = models.CharField(max_length=50, verbose_name=_('Tipo'))
     file = models.FileField(upload_to='reports/%Y/%m/', verbose_name=_('Arquivo'))

@@ -8,82 +8,142 @@ import {
   MessageSquare,
   FileText,
   ChevronLeft,
+  Building2,
+  Network,
+  ArrowLeftRight,
+  UserCog,
+  ClipboardList,
+  FileSignature,
 } from 'lucide-react'
-import { useAuthStore } from '@/store/auth'
+import { useAuthStore } from '@/stores/authStore'
+import type { UserRole } from '@/types/api'
+import { USER_ROLE_LABELS } from '@/types/api'
 
 interface SidebarProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
+const SME_ROLES: UserRole[] = ['sme_admin', 'sme_supervisor']
+const SCHOOL_MGMT: UserRole[] = ['school_director', 'school_secretary']
+const ALL_ROLES: UserRole[] = [
+  'sme_admin',
+  'sme_supervisor',
+  'school_director',
+  'school_secretary',
+  'teacher',
+  'student_guardian',
+]
+
 export default function Sidebar({ open, onOpenChange }: SidebarProps) {
   const user = useAuthStore((state) => state.user)
 
-  const menuItems = [
+  const menuItems: {
+    title: string
+    icon: typeof LayoutDashboard
+    href: string
+    roles: UserRole[]
+  }[] = [
     {
       title: 'Dashboard',
       icon: LayoutDashboard,
       href: '/dashboard',
-      roles: ['admin', 'director', 'coordinator', 'secretary', 'teacher', 'guardian', 'student'],
+      roles: ALL_ROLES,
+    },
+    {
+      title: 'Secretaria',
+      icon: Building2,
+      href: '/sme',
+      roles: SME_ROLES,
+    },
+    {
+      title: 'Matrizes',
+      icon: Network,
+      href: '/sme/matrices',
+      roles: SME_ROLES,
+    },
+    {
+      title: 'Transferências',
+      icon: ArrowLeftRight,
+      href: '/sme/transfers',
+      roles: SME_ROLES,
+    },
+    {
+      title: 'Alocações',
+      icon: UserCog,
+      href: '/teachers/allocations',
+      roles: ['sme_admin', 'school_director'],
     },
     {
       title: 'Escolas',
       icon: FileText,
       href: '/schools',
-      roles: ['admin', 'director'],
+      roles: [...SME_ROLES, 'school_director'],
     },
     {
       title: 'Alunos',
       icon: GraduationCap,
       href: '/students',
-      roles: ['admin', 'director', 'coordinator', 'secretary'],
+      roles: [...SME_ROLES, ...SCHOOL_MGMT],
+    },
+    {
+      title: 'Matrículas',
+      icon: FileSignature,
+      href: '/enrollments',
+      roles: [...SME_ROLES, ...SCHOOL_MGMT],
     },
     {
       title: 'Turmas',
       icon: Users,
       href: '/classes',
-      roles: ['admin', 'director', 'coordinator', 'secretary', 'teacher'],
+      roles: [...SME_ROLES, ...SCHOOL_MGMT, 'teacher'],
     },
     {
       title: 'Disciplinas',
       icon: BookOpen,
       href: '/subjects',
-      roles: ['admin', 'director', 'coordinator', 'secretary'],
+      roles: [...SME_ROLES, 'school_director'],
     },
     {
-      title: 'Boletins',
+      title: 'Notas',
       icon: BarChart3,
       href: '/grades',
-      roles: ['admin', 'director', 'coordinator', 'teacher', 'guardian', 'student'],
+      roles: [...SME_ROLES, 'school_director', 'teacher', 'student_guardian'],
+    },
+    {
+      title: 'Pareceres',
+      icon: ClipboardList,
+      href: '/evaluations',
+      roles: [...SME_ROLES, 'school_director', 'teacher'],
     },
     {
       title: 'Frequência',
       icon: BarChart3,
       href: '/attendance',
-      roles: ['admin', 'director', 'coordinator', 'teacher'],
+      roles: [...SME_ROLES, 'school_director', 'teacher'],
     },
     {
       title: 'Boletins Consolidados',
       icon: FileText,
       href: '/boletins',
-      roles: ['admin', 'director', 'coordinator', 'teacher'],
+      roles: [...SME_ROLES, 'school_director', 'teacher'],
     },
     {
       title: 'Mensagens',
       icon: MessageSquare,
       href: '/messages',
-      roles: ['admin', 'director', 'coordinator', 'secretary', 'teacher', 'guardian', 'student'],
+      roles: ALL_ROLES,
     },
     {
       title: 'Documentos',
       icon: FileText,
       href: '/documents',
-      roles: ['admin', 'director', 'coordinator', 'secretary', 'teacher', 'guardian', 'student'],
+      roles: ALL_ROLES,
     },
   ]
 
-  const availableItems = menuItems.filter((item) =>
-    user && item.roles.includes(user.role)
+  const availableItems = menuItems.filter(
+    (item) => user && item.roles.includes(user.role)
   )
 
   return (
@@ -93,7 +153,7 @@ export default function Sidebar({ open, onOpenChange }: SidebarProps) {
       } bg-gray-900 text-white transition-all duration-300 flex flex-col`}
     >
       <div className="p-4 flex items-center justify-between">
-        <div className={`font-bold text-lg ${!open && 'hidden'}`}>Escola</div>
+        <div className={`font-bold text-lg ${!open && 'hidden'}`}>Escola SME</div>
         <button
           onClick={() => onOpenChange(!open)}
           className="p-1 hover:bg-gray-800 rounded-md"
@@ -102,7 +162,7 @@ export default function Sidebar({ open, onOpenChange }: SidebarProps) {
         </button>
       </div>
 
-      <nav className="flex-1 space-y-1 px-2 py-4">
+      <nav className="flex-1 space-y-1 px-2 py-4 overflow-y-auto">
         {availableItems.map((item) => {
           const Icon = item.icon
           return (
@@ -123,7 +183,9 @@ export default function Sidebar({ open, onOpenChange }: SidebarProps) {
         <p className={`text-xs text-gray-400 ${!open && 'hidden'}`}>
           {user?.first_name} {user?.last_name}
         </p>
-        <p className={`text-xs text-gray-500 ${!open && 'hidden'}`}>{user?.role}</p>
+        <p className={`text-xs text-gray-500 ${!open && 'hidden'}`}>
+          {user?.role ? USER_ROLE_LABELS[user.role] : ''}
+        </p>
       </div>
     </aside>
   )
