@@ -414,17 +414,4 @@ GET    /api/v1/reports/educacenso-export/
 
 ---
 
-## 7. Estratégia de Migração e Evolução
 
-1. **Fase 1 (Backbone Institucional):**
-   * Criação das tabelas `education_departments`, `academic_years`, `academic_periods`, `education_stages` e `curriculum_matrices`.
-   * Migração de dados legados: Vincular as escolas existentes (`School`) a um departamento de educação padrão do município.
-2. **Fase 2 (Padronização Curricular):**
-   * Mapeamento de componentes curriculares locais (`Subject`) para a base única da BNCC municipal.
-   * Criação das matrizes curriculares e vinculação às turmas (`SchoolClass`).
-3. **Fase 3 (Cadastro Único e Histórico):**
-   * Atribuição de `unique_municipal_id` para os alunos existentes.
-   * Isolamento do módulo de `transfer_requests`.
-4. **Fase 4 (Diário de Classe & Pareceres):**
-   * Implantação de `descriptive_evaluations` para turmas de Educação Infantil.
-   * Ajuste dos endpoints de `Grade` e `Attendance` para respeitarem `TeacherAllocation`.
