@@ -1,168 +1,182 @@
-import pytest
-from django.contrib.auth import get_user_model
-from datetime import date
+"""Testes de modelos do domínio SME (~15 casos focados)."""
 
-User = get_user_model()
+from datetime import date
+from decimal import Decimal
+
+import pytest
+from django.db import IntegrityError
+
+from apps.class_diary.models import Attendance, AttendanceStatus, Grade
+from apps.schools.models import School
+from apps.students.models import Student
+from apps.classes.models import TeacherAllocation
+from core.models import UserRole
+from tests.factories import (
+    AcademicPeriodFactory,
+    AttendanceFactory,
+    EducationDepartmentFactory,
+    EnrollmentFactory,
+    GradeFactory,
+    SchoolClassFactory,
+    SchoolFactory,
+    StudentFactory,
+    SubjectFactory,
+    TeacherAllocationFactory,
+    TeacherProfileFactory,
+)
 
 
 @pytest.mark.django_db
-class TestSchoolModel:
-    """Testes para o modelo School."""
+class TestEducationDepartment:
+    def test_ibge_code_unique(self, department):
+        with pytest.raises(IntegrityError):
+            EducationDepartmentFactory(ibge_code=department.ibge_code)
 
-    def test_create_school(self, school):
-        """Teste criação de escola."""
-        assert school.name == 'Escola Teste'
-        assert school.cnpj == '12.345.678/0001-00'
+    def test_str_contains_municipality(self, department):
+        assert department.municipality_name in str(department)
+
+
+@pytest.mark.django_db
+class TestSchoolSoftDelete:
+    def test_soft_delete_sets_deleted_at(self, school):
+        school.delete()
+        school.refresh_from_db()
+        assert school.deleted_at is not None
+        assert school.is_active is False
+
+    def test_soft_delete_keeps_row(self, school):
+        pk = school.pk
+        school.delete()
+        assert School.objects.filter(pk=pk).exists()
+
+    def test_restore_clears_deleted_at(self, school):
+        school.soft_delete()
+        school.restore()
+        school.refresh_from_db()
+        assert school.deleted_at is None
         assert school.is_active is True
 
-    def test_school_string_representation(self, school):
-        """Teste representação de string da escola."""
-        assert str(school) == school.name
+
+@pytest.mark.django_db
+class TestStudentMunicipalId:
+    def test_unique_municipal_id_constraint(self, student):
+        with pytest.raises(IntegrityError):
+            StudentFactory(
+                education_department=student.education_department,
+                unique_municipal_id=student.unique_municipal_id,
+            )
+
+    def test_registration_number_alias(self, student):
+        assert student.registration_number == student.unique_municipal_id
+
+    def test_user_nullable(self, department):
+        student = StudentFactory(education_department=department, user=None)
+        assert student.user is None
+        assert student.full_name
+        assert student.mother_name
 
 
 @pytest.mark.django_db
-class TestUserModel:
-    """Testes para o modelo User."""
+class TestTeacherAllocation:
+    def test_multi_school_allocation(self, teacher_profile, school_class, school_class_b, subject):
+        alloc_a = TeacherAllocationFactory(
+            teacher_profile=teacher_profile,
+            school_class=school_class,
+            subject=subject,
+        )
+        subject_b = SubjectFactory(
+            education_department=teacher_profile.education_department,
+            name='Português',
+        )
+        alloc_b = TeacherAllocationFactory(
+            teacher_profile=teacher_profile,
+            school_class=school_class_b,
+            subject=subject_b,
+        )
+        schools = {
+            a.school_class.school_id
+            for a in TeacherAllocation.objects.filter(teacher_profile=teacher_profile)
+        }
+        assert alloc_a.school_class.school_id != alloc_b.school_class.school_id
+        assert len(schools) == 2
 
-    def test_create_user(self, user):
-        """Teste criação de usuário."""
-        assert user.username == 'testuser'
-        assert user.email == 'test@example.com'
-        assert user.role == 'student'
-        assert user.is_active is True
-
-    def test_user_string_representation(self, user):
-        """Teste representação de string do usuário."""
-        assert str(user) == user.get_full_name()
-
-    def test_user_check_password(self, user):
-        """Teste verificação de senha."""
-        assert user.check_password('testpass123')
-        assert not user.check_password('wrongpass')
-
-    def test_admin_user(self, admin_user):
-        """Teste criação de usuário admin."""
-        assert admin_user.is_staff is True
-        assert admin_user.is_superuser is True
-        assert admin_user.role == 'admin'
-
-
-@pytest.mark.django_db
-class TestStudentModel:
-    """Testes para o modelo Student."""
-
-    def test_create_student(self, student):
-        """Teste criação de aluno."""
-        assert student.user.role == 'student'
-        assert student.registration_number is not None
-        assert student.is_active is True
-
-    def test_student_birth_date(self, student):
-        """Teste data de nascimento do aluno."""
-        assert isinstance(student.birth_date, date)
-        assert student.birth_date is not None
-
-    def test_student_cpf(self, student):
-        """Teste CPF do aluno."""
-        assert student.cpf is not None
+    def test_regent_allocation_without_subject(self, teacher_profile, school_class):
+        alloc = TeacherAllocationFactory(
+            teacher_profile=teacher_profile,
+            school_class=school_class,
+            subject=None,
+            is_regent=True,
+        )
+        assert alloc.subject is None
+        assert alloc.is_regent is True
 
 
 @pytest.mark.django_db
-class TestTeacherModel:
-    """Testes para o modelo Teacher."""
+class TestGradeConstraints:
+    def test_unique_enrollment_subject_period(
+        self, enrollment, subject, academic_period, teacher_user
+    ):
+        GradeFactory(
+            enrollment=enrollment,
+            subject=subject,
+            academic_period=academic_period,
+            teacher=teacher_user,
+            score=Decimal('8.0'),
+        )
+        with pytest.raises(IntegrityError):
+            GradeFactory(
+                enrollment=enrollment,
+                subject=subject,
+                academic_period=academic_period,
+                teacher=teacher_user,
+                score=Decimal('9.0'),
+            )
 
-    def test_create_teacher(self, teacher):
-        """Teste criação de professor."""
-        assert teacher.user.role == 'teacher'
-        assert teacher.is_active is True
-
-    def test_teacher_cpf(self, teacher):
-        """Teste CPF do professor."""
-        assert teacher.cpf is not None
-
-
-@pytest.mark.django_db
-class TestSubjectModel:
-    """Testes para o modelo Subject."""
-
-    def test_create_subject(self, subject):
-        """Teste criação de disciplina."""
-        assert subject.name is not None
-        assert subject.code is not None
-        assert subject.is_active is True
-
-    def test_subject_string_representation(self, subject):
-        """Teste representação de string da disciplina."""
-        assert str(subject) == subject.name
-
-
-@pytest.mark.django_db
-class TestClassModel:
-    """Testes para o modelo Class."""
-
-    def test_create_class(self, class_obj):
-        """Teste criação de turma."""
-        assert class_obj.name is not None
-        assert class_obj.teacher is not None
-        assert class_obj.classroom is not None
-        assert class_obj.is_active is True
-
-    def test_class_has_subjects(self, class_obj, subject):
-        """Teste se turma tem disciplinas."""
-        assert subject in class_obj.subjects.all()
+    def test_effective_score(self, grade):
+        grade.score = Decimal('7.00')
+        grade.recovery_score = Decimal('8.50')
+        grade.final_score = None
+        assert grade.get_effective_score() == Decimal('8.50')
 
 
 @pytest.mark.django_db
-class TestEnrollmentModel:
-    """Testes para o modelo Enrollment."""
+class TestAttendanceNullableSubject:
+    def test_create_without_subject(self, enrollment, school_class):
+        att = AttendanceFactory(
+            enrollment=enrollment,
+            school_class=school_class,
+            subject=None,
+            status=AttendanceStatus.PRESENT,
+            date=date.today(),
+        )
+        assert att.subject_id is None
+        assert att.status == AttendanceStatus.PRESENT
 
-    def test_create_enrollment(self, enrollment):
-        """Teste criação de matrícula."""
-        assert enrollment.student is not None
-        assert enrollment.class_obj is not None
-        assert enrollment.status == 'active'
-        assert enrollment.is_active is True
-
-    def test_enrollment_student_and_class_match(self, enrollment):
-        """Teste se aluno e turma estão relacionados."""
-        assert enrollment.student.role == 'student'
-
-
-@pytest.mark.django_db
-class TestGradeModel:
-    """Testes para o modelo Grade."""
-
-    def test_create_grade(self, grade):
-        """Teste criação de nota."""
-        assert grade.student is not None
-        assert grade.class_obj is not None
-        assert grade.subject is not None
-        assert grade.first_period is not None
-
-    def test_grade_average_calculation(self, grade):
-        """Teste cálculo automático de média."""
-        assert grade.average is not None
-        expected_avg = (grade.first_period + grade.second_period +
-                       grade.third_period + grade.fourth_period) / 4
-        assert abs(float(grade.average) - float(expected_avg)) < 0.01
-
-    def test_grade_status(self, grade):
-        """Teste determinação do status de aprovação."""
-        assert grade.status in ['approved', 'failed', 'pending']
+    def test_excused_absence_status(self, enrollment, school_class):
+        att = Attendance.objects.create(
+            enrollment=enrollment,
+            school_class=school_class,
+            subject=None,
+            date=date.today(),
+            status=AttendanceStatus.EXCUSED_ABSENCE,
+            justification_note='Atestado médico',
+        )
+        assert att.status == AttendanceStatus.EXCUSED_ABSENCE
 
 
 @pytest.mark.django_db
-class TestAttendanceModel:
-    """Testes para o modelo Attendance."""
+class TestEnrollmentAndUserRoles:
+    def test_enrollment_status_enrolled(self, enrollment):
+        assert enrollment.status == 'ENROLLED'
+        assert enrollment.school_class is not None
 
-    def test_create_attendance(self, attendance):
-        """Teste criação de frequência."""
-        assert attendance.student is not None
-        assert attendance.class_obj is not None
-        assert attendance.date is not None
-        assert attendance.status in ['present', 'absent', 'justified']
-
-    def test_attendance_status_choices(self, attendance):
-        """Teste valores válidos de status."""
-        valid_statuses = ['present', 'absent', 'justified']
-        assert attendance.status in valid_statuses
+    def test_user_roles_values(self):
+        expected = {
+            'sme_admin',
+            'sme_supervisor',
+            'school_director',
+            'school_secretary',
+            'teacher',
+            'student_guardian',
+        }
+        assert set(UserRole.values) == expected

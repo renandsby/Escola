@@ -113,6 +113,11 @@ export async function apiGetPaginated<T>(
 export function getErrorMessage(error: unknown): string {
   if (error instanceof AxiosError) {
     const data = error.response?.data as Record<string, unknown>
+    const errorEnvelope = data?.error as Record<string, unknown> | undefined
+
+    if (errorEnvelope?.message) {
+      return String(errorEnvelope.message)
+    }
 
     if (data?.message) {
       return String(data.message)
@@ -156,6 +161,11 @@ export function getValidationErrors(
 ): Record<string, string[]> {
   if (error instanceof AxiosError) {
     const data = error.response?.data as Record<string, unknown>
+    const errorEnvelope = data?.error as Record<string, unknown> | undefined
+
+    if (errorEnvelope?.details && typeof errorEnvelope.details === 'object') {
+      return errorEnvelope.details as Record<string, string[]>
+    }
 
     if (data?.errors && typeof data.errors === 'object') {
       return data.errors as Record<string, string[]>

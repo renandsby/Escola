@@ -31,15 +31,16 @@ class SoftDeleteModel(BaseModel):
     def soft_delete(self):
         """Marca como deletado sem remover do banco."""
         from django.utils import timezone
+
         self.deleted_at = timezone.now()
         self.is_active = False
-        self.save()
+        self.save(update_fields=['deleted_at', 'is_active', 'updated_at'])
 
     def restore(self):
         """Restaura um registro deletado."""
         self.deleted_at = None
         self.is_active = True
-        self.save()
+        self.save(update_fields=['deleted_at', 'is_active', 'updated_at'])
 
     @classmethod
     def get_active(cls):
@@ -52,7 +53,7 @@ class SchoolMixin(models.Model):
 
     school = models.ForeignKey(
         'schools.School',
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         verbose_name=_('Escola'),
     )
 
@@ -61,36 +62,51 @@ class SchoolMixin(models.Model):
 
 
 class UserRole(models.TextChoices):
-    """Papéis/Permissões de usuários do sistema."""
+    """Papéis do RBAC hierárquico (Design Doc SME §5)."""
 
-    ADMIN = 'admin', _('Administrador')
-    DIRECTOR = 'director', _('Diretor')
-    COORDINATOR = 'coordinator', _('Coordenador')
-    SECRETARY = 'secretary', _('Secretária')
+    SME_ADMIN = 'sme_admin', _('Administrador da SME')
+    SME_SUPERVISOR = 'sme_supervisor', _('Supervisor Pedagógico da SME')
+    SCHOOL_DIRECTOR = 'school_director', _('Diretor / Gestor Escolar')
+    SCHOOL_SECRETARY = 'school_secretary', _('Secretário Escolar')
     TEACHER = 'teacher', _('Professor')
-    GUARDIAN = 'guardian', _('Responsável')
-    STUDENT = 'student', _('Aluno')
+    STUDENT_GUARDIAN = 'student_guardian', _('Aluno / Responsável')
 
 
 class User(AbstractUser):
-    """Modelo de usuário customizado."""
+    """Modelo de usuário customizado com escopo municipal/escolar."""
 
     email = models.EmailField(unique=True, verbose_name=_('Email'))
     phone = models.CharField(max_length=20, blank=True, verbose_name=_('Telefone'))
-    document = models.CharField(max_length=20, unique=True, blank=True, null=True, verbose_name=_('CPF/CNPJ'))
+    document = models.CharField(
+        max_length=20,
+        unique=True,
+        blank=True,
+        null=True,
+        verbose_name=_('CPF/CNPJ'),
+    )
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True, verbose_name=_('Avatar'))
     bio = models.TextField(blank=True, verbose_name=_('Biografia'))
     role = models.CharField(
-        max_length=20,
+        max_length=30,
         choices=UserRole.choices,
-        default=UserRole.STUDENT,
+        default=UserRole.STUDENT_GUARDIAN,
         verbose_name=_('Papel'),
     )
-    school_id = models.CharField(
-        max_length=36,
+    education_department = models.ForeignKey(
+        'governance.EducationDepartment',
+        on_delete=models.PROTECT,
         null=True,
         blank=True,
-        verbose_name=_('ID da Escola'),
+        related_name='users',
+        verbose_name=_('Secretaria Municipal'),
+    )
+    school = models.ForeignKey(
+        'schools.School',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='users',
+        verbose_name=_('Escola'),
     )
     last_login_ip = models.GenericIPAddressField(null=True, blank=True, verbose_name=_('Último IP de login'))
     last_login_agent = models.TextField(blank=True, verbose_name=_('Último agente'))
@@ -105,6 +121,8 @@ class User(AbstractUser):
             models.Index(fields=['email']),
             models.Index(fields=['document']),
             models.Index(fields=['role']),
+            models.Index(fields=['education_department', 'role']),
+            models.Index(fields=['school', 'role']),
         ]
 
     def __str__(self):

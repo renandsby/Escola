@@ -1,123 +1,281 @@
-import pytest
-from django.contrib.auth import get_user_model
-from rest_framework.test import APIClient
-from apps.schools.models import School
-from tests.factories import (
-    UserFactory, AdminUserFactory, SchoolFactory, StudentFactory,
-    TeacherFactory, GuardianFactory, SubjectFactory, ClassDetailFactory,
-    EnrollmentFactory, GradeFactory, AttendanceFactory, ClassroomFactory
-)
+"""Fixtures pytest para o domínio SME."""
 
-User = get_user_model()
+import pytest
+from rest_framework.test import APIClient
+
+from core.models import UserRole
+from tests.factories import (
+    AcademicPeriodFactory,
+    AcademicYearFactory,
+    AttendanceFactory,
+    CurriculumMatrixFactory,
+    EducationDepartmentFactory,
+    EducationStageFactory,
+    EnrollmentFactory,
+    GradeFactory,
+    SchoolClassFactory,
+    SchoolFactory,
+    SMEAdminFactory,
+    StudentFactory,
+    StudentGuardianUserFactory,
+    SubjectFactory,
+    TeacherAllocationFactory,
+    TeacherProfileFactory,
+    TeacherUserFactory,
+    UserFactory,
+)
 
 
 @pytest.fixture
 def api_client():
-    """Retorna um cliente API."""
     return APIClient()
 
 
 @pytest.fixture
-def user(db):
-    """Cria um usuário teste."""
-    return UserFactory(username='testuser', email='test@example.com')
+def department(db):
+    return EducationDepartmentFactory(municipality_name='São Paulo Teste', ibge_code='3550399')
+
+
+@pytest.fixture
+def academic_year(db, department):
+    return AcademicYearFactory(education_department=department, year=2026)
+
+
+@pytest.fixture
+def academic_period(db, academic_year):
+    return AcademicPeriodFactory(
+        academic_year=academic_year,
+        name='1º Bimestre',
+        period_number=1,
+    )
+
+
+@pytest.fixture
+def education_stage(db):
+    return EducationStageFactory(code='EF_AI_TEST', name='Fundamental Anos Iniciais')
+
+
+@pytest.fixture
+def curriculum_matrix(db, department, education_stage):
+    return CurriculumMatrixFactory(
+        education_department=department,
+        education_stage=education_stage,
+        name='Matriz EF AI',
+    )
+
+
+@pytest.fixture
+def school(db, department):
+    return SchoolFactory(
+        education_department=department,
+        name='Escola Teste',
+        school_type='FUNDAMENTAL_1',
+    )
+
+
+@pytest.fixture
+def school_b(db, department):
+    return SchoolFactory(
+        education_department=department,
+        name='Escola Secundária',
+        school_type='FUNDAMENTAL_1',
+    )
+
+
+@pytest.fixture
+def user(db, department):
+    return UserFactory(
+        username='testuser',
+        email='test@example.com',
+        education_department=department,
+        role=UserRole.STUDENT_GUARDIAN,
+    )
+
+
+@pytest.fixture
+def admin_user(db, department):
+    return SMEAdminFactory(
+        username='admin',
+        email='admin@example.com',
+        education_department=department,
+    )
 
 
 @pytest.fixture
 def authenticated_client(db, user):
-    """Retorna um cliente API autenticado."""
     client = APIClient()
     client.force_authenticate(user=user)
     return client
 
 
 @pytest.fixture
-def admin_user(db):
-    """Cria um usuário admin."""
-    return AdminUserFactory(username='admin', email='admin@example.com')
-
-
-@pytest.fixture
 def admin_client(db, admin_user):
-    """Retorna um cliente API autenticado como admin."""
     client = APIClient()
     client.force_authenticate(user=admin_user)
     return client
 
 
 @pytest.fixture
-def school(db):
-    """Cria uma escola teste."""
-    return SchoolFactory(name='Escola Teste', cnpj='12.345.678/0001-00')
+def teacher_user(db, department):
+    return TeacherUserFactory(
+        username='professor',
+        email='professor@example.com',
+        education_department=department,
+    )
 
 
 @pytest.fixture
-def user_with_school(db, school):
-    """Cria um usuário com escola."""
-    return UserFactory(username='schooluser', email='schooluser@example.com', school=school, role='director')
+def teacher_profile(db, teacher_user, department):
+    return TeacherProfileFactory(
+        user=teacher_user,
+        education_department=department,
+    )
 
 
 @pytest.fixture
-def authenticated_school_client(db, user_with_school):
-    """Retorna um cliente API autenticado com escola."""
+def teacher(teacher_profile):
+    """Alias: perfil docente."""
+    return teacher_profile
+
+
+@pytest.fixture
+def student_user(db, department, school):
+    return StudentGuardianUserFactory(
+        username='aluno',
+        email='aluno@example.com',
+        education_department=department,
+        school=school,
+    )
+
+
+@pytest.fixture
+def student(db, department, student_user):
+    return StudentFactory(
+        education_department=department,
+        user=student_user,
+        full_name='Aluno Teste',
+        mother_name='Mãe Teste',
+        unique_municipal_id='MUN00009999',
+    )
+
+
+@pytest.fixture
+def other_student(db, department):
+    return StudentFactory(
+        education_department=department,
+        full_name='Outro Aluno',
+        mother_name='Outra Mãe',
+        unique_municipal_id='MUN00008888',
+    )
+
+
+@pytest.fixture
+def subject(db, department):
+    return SubjectFactory(
+        education_department=department,
+        name='Matemática',
+        bncc_code='MAT',
+        area_of_knowledge='Matemática',
+    )
+
+
+@pytest.fixture
+def school_class(db, school, academic_year, curriculum_matrix):
+    return SchoolClassFactory(
+        school=school,
+        academic_year=academic_year,
+        curriculum_matrix=curriculum_matrix,
+        name='5º Ano A',
+    )
+
+
+@pytest.fixture
+def school_class_b(db, school_b, academic_year, curriculum_matrix):
+    return SchoolClassFactory(
+        school=school_b,
+        academic_year=academic_year,
+        curriculum_matrix=curriculum_matrix,
+        name='5º Ano B',
+    )
+
+
+@pytest.fixture
+def class_obj(school_class):
+    """Alias legado."""
+    return school_class
+
+
+@pytest.fixture
+def teacher_allocation(db, teacher_profile, school_class, subject):
+    return TeacherAllocationFactory(
+        teacher_profile=teacher_profile,
+        school_class=school_class,
+        subject=subject,
+    )
+
+
+@pytest.fixture
+def enrollment(db, student, school_class):
+    return EnrollmentFactory(
+        student=student,
+        school_class=school_class,
+        enrollment_number='ENR-TEST-001',
+        status='ENROLLED',
+    )
+
+
+@pytest.fixture
+def other_enrollment(db, other_student, school_class_b):
+    return EnrollmentFactory(
+        student=other_student,
+        school_class=school_class_b,
+        enrollment_number='ENR-TEST-002',
+        status='ENROLLED',
+    )
+
+
+@pytest.fixture
+def grade(db, enrollment, subject, academic_period, teacher_user):
+    return GradeFactory(
+        enrollment=enrollment,
+        subject=subject,
+        academic_period=academic_period,
+        teacher=teacher_user,
+        score='8.50',
+    )
+
+
+@pytest.fixture
+def other_grade(db, other_enrollment, subject, academic_period, teacher_user):
+    return GradeFactory(
+        enrollment=other_enrollment,
+        subject=subject,
+        academic_period=academic_period,
+        teacher=teacher_user,
+        score='7.00',
+    )
+
+
+@pytest.fixture
+def attendance(db, enrollment, school_class):
+    return AttendanceFactory(
+        enrollment=enrollment,
+        school_class=school_class,
+        subject=None,
+        status='PRESENT',
+    )
+
+
+@pytest.fixture
+def student_client(db, student_user):
     client = APIClient()
-    client.force_authenticate(user=user_with_school)
+    client.force_authenticate(user=student_user)
     return client
 
 
 @pytest.fixture
-def teacher(db, school):
-    """Cria um professor."""
-    return TeacherFactory(school=school)
-
-
-@pytest.fixture
-def student(db, school):
-    """Cria um aluno."""
-    return StudentFactory(school=school)
-
-
-@pytest.fixture
-def guardian(db, school, student):
-    """Cria um responsável e o vincula a um aluno."""
-    guardian_obj = GuardianFactory(school=school)
-    guardian_obj.students.add(student.user)
-    return guardian_obj
-
-
-@pytest.fixture
-def subject(db, school):
-    """Cria uma disciplina."""
-    return SubjectFactory(school=school)
-
-
-@pytest.fixture
-def classroom(db, school):
-    """Cria uma sala de aula."""
-    return ClassroomFactory(school=school)
-
-
-@pytest.fixture
-def class_obj(db, teacher, classroom, school, subject):
-    """Cria uma turma com professor e sala."""
-    klass = ClassDetailFactory(teacher=teacher, classroom=classroom, school=school)
-    klass.subjects.add(subject)
-    return klass
-
-
-@pytest.fixture
-def enrollment(db, student, class_obj):
-    """Cria uma matrícula."""
-    return EnrollmentFactory(student=student.user, class_obj=class_obj, school=class_obj.school)
-
-
-@pytest.fixture
-def grade(db, student, class_obj, subject):
-    """Cria uma nota."""
-    return GradeFactory(student=student.user, class_obj=class_obj, subject=subject, school=class_obj.school)
-
-
-@pytest.fixture
-def attendance(db, student, class_obj):
-    """Cria um registro de frequência."""
-    return AttendanceFactory(student=student.user, class_obj=class_obj, school=class_obj.school)
+def teacher_client(db, teacher_user, teacher_allocation):
+    """Cliente autenticado como professor (com alocação criada)."""
+    client = APIClient()
+    client.force_authenticate(user=teacher_user)
+    return client

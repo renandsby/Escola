@@ -1,237 +1,119 @@
-import pytest
-from rest_framework import status
-from rest_framework_simplejwt.tokens import RefreshToken
-from django.urls import reverse
-from django.contrib.auth import get_user_model
+"""Testes críticos de API do domínio SME."""
 
-User = get_user_model()
+import pytest
+from django.urls import reverse
+from rest_framework import status
+
+from apps.schools.models import School
+from core.models import UserRole
 
 
 @pytest.mark.django_db
 class TestAuthenticationAPI:
-    """Testes para autenticação."""
-
-    def test_login_success(self, api_client, user):
-        """Teste login com sucesso."""
-        url = reverse('token_obtain_pair')
-        response = api_client.post(url, {
-            'username': 'testuser',
-            'password': 'testpass123'
-        })
+    def test_login_returns_sme_admin_role(self, api_client, admin_user):
+        url = reverse('login')
+        response = api_client.post(
+            url,
+            {'username': 'admin', 'password': 'testpass123'},
+            format='json',
+        )
         assert response.status_code == status.HTTP_200_OK
         assert 'access' in response.data
-        assert 'refresh' in response.data
+        assert response.data['user']['role'] == UserRole.SME_ADMIN
 
-    def test_login_invalid_credentials(self, api_client, user):
-        """Teste login com credenciais inválidas."""
-        url = reverse('token_obtain_pair')
-        response = api_client.post(url, {
-            'username': 'testuser',
-            'password': 'wrongpassword'
-        })
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
-
-    def test_refresh_token(self, api_client, user):
-        """Teste renovação de token."""
-        refresh = RefreshToken.for_user(user)
-        url = reverse('token_refresh')
-        response = api_client.post(url, {
-            'refresh': str(refresh)
-        })
-        assert response.status_code == status.HTTP_200_OK
-        assert 'access' in response.data
+    def test_login_invalid_credentials(self, api_client, admin_user):
+        url = reverse('login')
+        response = api_client.post(
+            url,
+            {'username': 'admin', 'password': 'wrong'},
+            format='json',
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
 @pytest.mark.django_db
-class TestSchoolAPI:
-    """Testes para API de escolas."""
-
-    def test_list_schools(self, authenticated_client, school):
-        """Teste listagem de escolas."""
+class TestSchoolPermissions:
+    def test_student_cannot_post_schools(self, student_client, department):
         url = reverse('school-list')
-        response = authenticated_client.get(url)
-        assert response.status_code == status.HTTP_200_OK
-        assert 'results' in response.data or isinstance(response.data, list)
-
-    def test_create_school_admin(self, admin_client):
-        """Teste criar escola como admin."""
-        url = reverse('school-list')
-        data = {
-            'name': 'Nova Escola',
-            'cnpj': '98.765.432/0001-11',
-            'email': 'novaeescola@example.com'
-        }
-        response = admin_client.post(url, data)
-        assert response.status_code == status.HTTP_201_CREATED
-        assert response.data['name'] == 'Nova Escola'
-
-    def test_retrieve_school(self, authenticated_client, school):
-        """Teste recuperar escola específica."""
-        url = reverse('school-detail', kwargs={'pk': school.pk})
-        response = authenticated_client.get(url)
-        assert response.status_code == status.HTTP_200_OK
-        assert response.data['name'] == school.name
-
-    def test_update_school(self, authenticated_school_client, school):
-        """Teste atualizar escola."""
-        url = reverse('school-detail', kwargs={'pk': school.pk})
-        data = {'name': 'Escola Atualizada'}
-        response = authenticated_school_client.patch(url, data)
-        assert response.status_code == status.HTTP_200_OK
-
-
-@pytest.mark.django_db
-class TestStudentAPI:
-    """Testes para API de alunos."""
-
-    def test_list_students(self, authenticated_client, student):
-        """Teste listagem de alunos."""
-        url = reverse('student-list')
-        response = authenticated_client.get(url)
-        assert response.status_code == status.HTTP_200_OK
-
-    def test_create_student(self, authenticated_school_client):
-        """Teste criar aluno."""
-        url = reverse('student-list')
-        data = {
-            'user': {
-                'username': 'newaluno',
-                'email': 'newaluno@example.com',
-                'first_name': 'Novo',
-                'last_name': 'Aluno',
-                'password': 'pass123456'
+        response = student_client.post(
+            url,
+            {
+                'education_department': str(department.pk),
+                'name': 'Escola Intrusa',
+                'school_type': 'CRECHE',
             },
-            'registration_number': '000123',
-            'gender': 'M'
-        }
-        response = authenticated_school_client.post(url, data, format='json')
-        assert response.status_code in [status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST]
+            format='json',
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    def test_retrieve_student(self, authenticated_client, student):
-        """Teste recuperar aluno específico."""
-        url = reverse('student-detail', kwargs={'pk': student.pk})
-        response = authenticated_client.get(url)
-        assert response.status_code == status.HTTP_200_OK
-
-
-@pytest.mark.django_db
-class TestClassAPI:
-    """Testes para API de turmas."""
-
-    def test_list_classes(self, authenticated_client, class_obj):
-        """Teste listagem de turmas."""
-        url = reverse('class-list')
-        response = authenticated_client.get(url)
-        assert response.status_code == status.HTTP_200_OK
-
-    def test_retrieve_class(self, authenticated_client, class_obj):
-        """Teste recuperar turma específica."""
-        url = reverse('class-detail', kwargs={'pk': class_obj.pk})
-        response = authenticated_client.get(url)
-        assert response.status_code == status.HTTP_200_OK
-
-    def test_class_has_subjects(self, authenticated_client, class_obj):
-        """Teste se turma contém disciplinas."""
-        url = reverse('class-detail', kwargs={'pk': class_obj.pk})
-        response = authenticated_client.get(url)
-        assert response.status_code == status.HTTP_200_OK
-        assert 'subjects' in response.data or 'subjects_count' in response.data
+    def test_soft_delete_school_returns_204(self, admin_client, school):
+        url = reverse('school-detail', kwargs={'pk': school.pk})
+        response = admin_client.delete(url)
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        school.refresh_from_db()
+        assert school.deleted_at is not None
+        assert School.objects.filter(pk=school.pk).exists()
 
 
 @pytest.mark.django_db
-class TestGradeAPI:
-    """Testes para API de notas."""
-
-    def test_list_grades(self, authenticated_client, grade):
-        """Teste listagem de notas."""
-        url = reverse('grade-list')
-        response = authenticated_client.get(url)
-        assert response.status_code == status.HTTP_200_OK
-
-    def test_retrieve_grade(self, authenticated_client, grade):
-        """Teste recuperar nota específica."""
+class TestGradePermissionsAndScope:
+    def test_student_cannot_patch_grades(self, student_client, grade):
         url = reverse('grade-detail', kwargs={'pk': grade.pk})
-        response = authenticated_client.get(url)
-        assert response.status_code == status.HTTP_200_OK
-        assert 'average' in response.data
+        response = student_client.patch(url, {'score': '10.00'}, format='json')
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    def test_filter_grades_by_student(self, authenticated_client, grade):
-        """Teste filtrar notas por aluno."""
+    def test_student_only_sees_own_grades(
+        self, student_client, grade, other_grade, student
+    ):
         url = reverse('grade-list')
-        response = authenticated_client.get(f'{url}?student={grade.student.pk}')
+        response = student_client.get(url)
         assert response.status_code == status.HTTP_200_OK
+        results = response.data.get('results', response.data)
+        ids = {str(item['id']) for item in results}
+        assert str(grade.pk) in ids
+        assert str(other_grade.pk) not in ids
+
+    def test_student_filter_on_grades(self, admin_client, grade, other_grade, student):
+        url = reverse('grade-list')
+        response = admin_client.get(url, {'student': str(student.pk)})
+        assert response.status_code == status.HTTP_200_OK
+        results = response.data.get('results', response.data)
+        assert len(results) >= 1
+        for item in results:
+            # list serializer includes enrollment; filter must exclude other student
+            assert str(item['id']) != str(other_grade.pk) or item.get('enrollment') == str(
+                grade.enrollment_id
+            )
+        ids = {str(item['id']) for item in results}
+        assert str(grade.pk) in ids
+        assert str(other_grade.pk) not in ids
 
 
 @pytest.mark.django_db
-class TestAttendanceAPI:
-    """Testes para API de frequência."""
-
-    def test_list_attendance(self, authenticated_client, attendance):
-        """Teste listagem de frequência."""
-        url = reverse('attendance-list')
-        response = authenticated_client.get(url)
+class TestTeacherClassScope:
+    def test_teacher_only_sees_allocated_classes(
+        self, teacher_client, school_class, school_class_b, teacher_allocation
+    ):
+        url = reverse('class-list')
+        response = teacher_client.get(url)
         assert response.status_code == status.HTTP_200_OK
-
-    def test_retrieve_attendance(self, authenticated_client, attendance):
-        """Teste recuperar frequência específica."""
-        url = reverse('attendance-detail', kwargs={'pk': attendance.pk})
-        response = authenticated_client.get(url)
-        assert response.status_code == status.HTTP_200_OK
-
-    def test_update_attendance_status(self, authenticated_school_client, attendance):
-        """Teste atualizar status de frequência."""
-        url = reverse('attendance-detail', kwargs={'pk': attendance.pk})
-        data = {'status': 'absent'}
-        response = authenticated_school_client.patch(url, data)
-        assert response.status_code == status.HTTP_200_OK
+        results = response.data.get('results', response.data)
+        ids = {str(item['id']) for item in results}
+        assert str(school_class.pk) in ids
+        assert str(school_class_b.pk) not in ids
 
 
 @pytest.mark.django_db
-class TestEnrollmentAPI:
-    """Testes para API de matrículas."""
-
-    def test_list_enrollments(self, authenticated_client, enrollment):
-        """Teste listagem de matrículas."""
-        url = reverse('enrollment-list')
-        response = authenticated_client.get(url)
+class TestSMEEndpoints:
+    def test_departments_accessible_to_sme_admin(self, admin_client, department):
+        url = reverse('sme-department-list')
+        response = admin_client.get(url)
         assert response.status_code == status.HTTP_200_OK
+        results = response.data.get('results', response.data)
+        ids = {str(item['id']) for item in results}
+        assert str(department.pk) in ids
 
-    def test_retrieve_enrollment(self, authenticated_client, enrollment):
-        """Teste recuperar matrícula específica."""
-        url = reverse('enrollment-detail', kwargs={'pk': enrollment.pk})
-        response = authenticated_client.get(url)
-        assert response.status_code == status.HTTP_200_OK
-
-
-@pytest.mark.django_db
-class TestSubjectAPI:
-    """Testes para API de disciplinas."""
-
-    def test_list_subjects(self, authenticated_client, subject):
-        """Teste listagem de disciplinas."""
-        url = reverse('subject-list')
-        response = authenticated_client.get(url)
-        assert response.status_code == status.HTTP_200_OK
-
-    def test_retrieve_subject(self, authenticated_client, subject):
-        """Teste recuperar disciplina específica."""
-        url = reverse('subject-detail', kwargs={'pk': subject.pk})
-        response = authenticated_client.get(url)
-        assert response.status_code == status.HTTP_200_OK
-
-
-@pytest.mark.django_db
-class TestPermissions:
-    """Testes para permissões."""
-
-    def test_unauthenticated_access_denied(self, api_client, school):
-        """Teste acesso negado para não autenticados."""
-        url = reverse('school-list')
-        response = api_client.get(url)
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
-
-    def test_authenticated_access_allowed(self, authenticated_client, school):
-        """Teste acesso permitido para autenticados."""
-        url = reverse('school-list')
-        response = authenticated_client.get(url)
-        assert response.status_code == status.HTTP_200_OK
+    def test_departments_forbidden_to_student(self, student_client, department):
+        url = reverse('sme-department-list')
+        response = student_client.get(url)
+        assert response.status_code == status.HTTP_403_FORBIDDEN

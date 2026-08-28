@@ -88,3 +88,6 @@ db.sqlite3
 
 # IDE
 *.code-workspace
+
+# WSL / Windows metadata
+*:Zone.Identifier

@@ -35,25 +35,19 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'drf_spectacular',
     'django_filters',
     'django_redis',
     'core',
     'apps.health',
-    'apps.accounts',
+    'apps.authentication',
+    'apps.governance',
     'apps.schools',
     'apps.students',
-    'apps.guardians',
-    'apps.teachers',
-    'apps.subjects',
     'apps.classes',
-    'apps.classrooms',
-    'apps.enrollments',
-    'apps.grades',
-    'apps.attendance',
-    'apps.diary',
+    'apps.class_diary',
     'apps.curriculum',
-    'apps.history',
     'apps.communications',
     'apps.notifications',
     'apps.documents',
@@ -146,8 +140,6 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
-    ) if not DEBUG else (
-        'rest_framework.permissions.AllowAny',
     ),
     'DEFAULT_FILTER_BACKENDS': (
         'django_filters.rest_framework.DjangoFilterBackend',
@@ -156,9 +148,9 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
-    'DEFAULT_THROTTLE_CLASSES': () if DEBUG else (
+    'DEFAULT_THROTTLE_CLASSES': (
         'rest_framework.throttling.AnonRateThrottle',
-        'rest_framework.throttling.UserRateThrottle'
+        'rest_framework.throttling.UserRateThrottle',
     ),
     'DEFAULT_THROTTLE_RATES': {
         'anon': '100/hour',

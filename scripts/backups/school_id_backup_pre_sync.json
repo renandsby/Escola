@@ -1,0 +1,52 @@
+[
+  {
+    "username": "admin",
+    "pk": 2,
+    "school_id": "4aabe097-0963-4077-b61a-9512c085673f"
+  },
+  {
+    "username": "aluno1",
+    "pk": 6,
+    "school_id": "4aabe097-0963-4077-b61a-9512c085673f"
+  },
+  {
+    "username": "aluno2",
+    "pk": 7,
+    "school_id": "4aabe097-0963-4077-b61a-9512c085673f"
+  },
+  {
+    "username": "aluno3",
+    "pk": 8,
+    "school_id": "4aabe097-0963-4077-b61a-9512c085673f"
+  },
+  {
+    "username": "aluno4",
+    "pk": 9,
+    "school_id": "4aabe097-0963-4077-b61a-9512c085673f"
+  },
+  {
+    "username": "aluno5",
+    "pk": 10,
+    "school_id": "4aabe097-0963-4077-b61a-9512c085673f"
+  },
+  {
+    "username": "diretor",
+    "pk": 3,
+    "school_id": "4aabe097-0963-4077-b61a-9512c085673f"
+  },
+  {
+    "username": "professor1",
+    "pk": 4,
+    "school_id": "4aabe097-0963-4077-b61a-9512c085673f"
+  },
+  {
+    "username": "professor2",
+    "pk": 5,
+    "school_id": "4aabe097-0963-4077-b61a-9512c085673f"
+  },
+  {
+    "username": "sergiohenrique",
+    "pk": 1,
+    "school_id": null
+  }
+]

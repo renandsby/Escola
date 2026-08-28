@@ -116,7 +116,7 @@ export function formatNumber(value: number, decimals = 0): string {
  * Formata tamanho de arquivo (bytes)
  */
 export function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 Bytes'
+  if (bytes === 0) {return '0 Bytes'}
 
   const k = 1024
   const sizes = ['Bytes', 'KB', 'MB', 'GB']
@@ -129,7 +129,7 @@ export function formatFileSize(bytes: number): string {
  * Trunca texto em tamanho máximo
  */
 export function truncateText(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text
+  if (text.length <= maxLength) {return text}
   return text.substring(0, maxLength) + '...'
 }
 
@@ -178,6 +178,9 @@ export function formatStatus(status?: string): string {
     present: 'Presente',
     absent: 'Ausente',
     justified: 'Justificado',
+    PRESENT: 'Presente',
+    ABSENT: 'Ausente',
+    EXCUSED_ABSENCE: 'Falta justificada',
   }
   return statuses[status || ''] || status || 'Desconhecido'
 }

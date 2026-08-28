@@ -1,10 +1,16 @@
 /**
- * Tipos e interfaces da API do Sistema de Gestão Escolar
+ * Tipos e interfaces da API — domínio SME (Gestão Municipal)
  */
 
 // ============ AUTH ============
 
-export type UserRole = 'admin' | 'director' | 'coordinator' | 'secretary' | 'teacher' | 'guardian' | 'student'
+export type UserRole =
+  | 'sme_admin'
+  | 'sme_supervisor'
+  | 'school_director'
+  | 'school_secretary'
+  | 'teacher'
+  | 'student_guardian'
 
 export interface User {
   id: string
@@ -17,10 +23,11 @@ export interface User {
   avatar?: string
   bio?: string
   role: UserRole
-  school?: string
+  school: string | null
+  education_department: string | null
   is_active: boolean
-  created_at: string
-  updated_at: string
+  created_at?: string
+  updated_at?: string
 }
 
 export interface LoginRequest {
@@ -43,6 +50,7 @@ export interface RegisterRequest {
   last_name?: string
   role?: UserRole
   school?: string
+  education_department?: string
 }
 
 export interface ChangePasswordRequest {
@@ -51,51 +59,198 @@ export interface ChangePasswordRequest {
   new_password_confirm: string
 }
 
+// ============ SME / EDUCATION DEPARTMENT ============
+
+export interface EducationDepartment {
+  id: string
+  municipality_name: string
+  ibge_code: string
+  secretary_name?: string
+  min_passing_grade?: number
+  min_attendance_percentage?: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type AcademicYearStatus = 'PLANNED' | 'ACTIVE' | 'CLOSED'
+
+export interface AcademicYear {
+  id: string
+  education_department: string
+  education_department_name?: string
+  year: number
+  status: AcademicYearStatus
+  start_date: string
+  end_date: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface AcademicPeriod {
+  id: string
+  academic_year: string
+  academic_year_label?: number
+  name: string
+  period_number: number
+  start_date: string
+  end_date: string
+  grade_deadline: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type StageType = 'INFANTIL' | 'FUNDAMENTAL_I' | 'FUNDAMENTAL_II' | 'EJA'
+export type EvaluationType = 'NUMERIC' | 'CONCEPT' | 'DESCRIPTIVE'
+
+export interface EducationStage {
+  id: string
+  name: string
+  code: string
+  stage_type: StageType
+  evaluation_type: EvaluationType
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface CurriculumMatrixItem {
+  id: string
+  curriculum_matrix: string
+  subject: string
+  subject_name?: string
+  weekly_hours: number
+  annual_hours: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface CurriculumMatrix {
+  id: string
+  education_department: string
+  education_stage: string
+  education_stage_name?: string
+  name: string
+  items?: CurriculumMatrixItem[]
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type TransferStatus =
+  | 'PENDING_SME'
+  | 'APPROVED_BY_SME'
+  | 'ACCEPTED_BY_DESTINATION'
+  | 'REJECTED'
+  | 'CANCELLED'
+
+export interface TransferRequest {
+  id: string
+  student: string
+  student_name?: string
+  origin_school: string
+  origin_school_name?: string
+  destination_school?: string | null
+  destination_school_name?: string | null
+  academic_year: string
+  reason: string
+  status: TransferStatus
+  requested_at: string
+  resolved_at?: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateTransferRequestPayload {
+  student: string
+  origin_school: string
+  destination_school?: string | null
+  academic_year: string
+  reason: string
+}
+
 // ============ SCHOOLS ============
+
+export type SchoolType =
+  | 'CRECHE'
+  | 'PRE_ESCOLA'
+  | 'FUNDAMENTAL_1'
+  | 'FUNDAMENTAL_2'
+  | 'EJA'
+  | 'MISTA'
 
 export interface School {
   id: string
+  education_department: string
+  education_department_name?: string
+  inep_code?: string | null
   name: string
-  cnpj: string
-  email: string
+  cnpj?: string | null
+  school_type: SchoolType
+  director_user?: string | null
+  director_name?: string
+  email?: string
   phone?: string
   website?: string
-  address?: string
-  city?: string
-  state?: string
-  zip_code?: string
+  address_street?: string
+  address_number?: string
+  address_neighborhood?: string
+  address_city?: string
+  address_state?: string
+  address_zip_code?: string
+  max_students_per_class?: number
   is_active: boolean
   created_at: string
   updated_at: string
 }
 
 export interface CreateSchoolRequest {
+  education_department: string
   name: string
-  cnpj: string
-  email: string
+  school_type: SchoolType
+  inep_code?: string
+  cnpj?: string
+  director_user?: string
+  email?: string
   phone?: string
   website?: string
-  address?: string
-  city?: string
-  state?: string
-  zip_code?: string
+  address_street?: string
+  address_number?: string
+  address_neighborhood?: string
+  address_city?: string
+  address_state?: string
+  address_zip_code?: string
+  max_students_per_class?: number
 }
 
 // ============ STUDENTS ============
 
 export interface Student {
   id: string
-  user?: User
-  user_name?: string
-  user_email?: string
-  school?: School
+  education_department: string
+  user?: string | null
+  user_name?: string | null
+  user_email?: string | null
+  unique_municipal_id: string
   registration_number?: string
-  birth_date?: string
-  gender?: 'M' | 'F'
-  nationality?: string
-  status?: 'active' | 'inactive'
-  cpf?: string
-  rg?: string
+  inep_id?: string | null
+  full_name: string
+  social_name?: string
+  cpf?: string | null
+  birth_certificate?: string
+  nis_code?: string
+  birth_date: string
+  gender?: string
+  race_color?: string
+  mother_name: string
+  father_name?: string
+  has_special_needs?: boolean
+  special_needs_details?: string
+  notes?: string
   age?: number
   is_active: boolean
   created_at: string
@@ -103,126 +258,154 @@ export interface Student {
 }
 
 export interface CreateStudentRequest {
-  username: string
-  email: string
-  first_name: string
-  last_name: string
+  education_department: string
+  unique_municipal_id: string
+  full_name: string
+  mother_name: string
   birth_date: string
-  gender?: 'M' | 'F'
-  nationality?: string
-  school: string
+  social_name?: string
+  cpf?: string
+  inep_id?: string
+  gender?: string
+  race_color?: string
+  father_name?: string
+  has_special_needs?: boolean
+  special_needs_details?: string
+  user?: string
 }
 
 // ============ GUARDIANS ============
 
+export type KinshipType = 'MOTHER' | 'FATHER' | 'LEGAL_GUARDIAN' | 'GRANDPARENT'
+
 export interface Guardian {
   id: string
-  user: User
-  school: School
-  relationship: 'parent' | 'guardian' | 'other'
-  occupation?: string
-  is_active: boolean
-  created_at: string
-  updated_at: string
-}
-
-export interface CreateGuardianRequest {
-  username: string
-  email: string
-  first_name: string
-  last_name: string
-  relationship: 'parent' | 'guardian' | 'other'
-  occupation?: string
-  school: string
+  user?: string | null
+  full_name: string
+  cpf: string
+  phone: string
+  email?: string
+  address?: string
+  is_active?: boolean
+  created_at?: string
+  updated_at?: string
 }
 
 // ============ TEACHERS ============
 
-export interface Teacher {
+export interface TeacherProfile {
   id: string
-  user: User
-  school: School
+  user: string
+  user_name?: string
+  user_email?: string
+  education_department: string
   registration_number: string
-  subjects: Subject[]
+  cpf: string
+  formation_area?: string
+  birth_date?: string
+  hiring_date?: string
   is_active: boolean
   created_at: string
   updated_at: string
 }
 
-export interface CreateTeacherRequest {
-  username: string
-  email: string
-  first_name: string
-  last_name: string
-  registration_number: string
-  school: string
-  subjects?: string[]
+/** Alias legado */
+export type Teacher = TeacherProfile
+
+export interface TeacherAllocation {
+  id: string
+  teacher_profile: string
+  teacher_name?: string
+  school_class: string
+  school_class_name?: string
+  subject?: string | null
+  subject_name?: string | null
+  is_regent: boolean
+  created_at: string
 }
 
 // ============ SUBJECTS ============
 
 export interface Subject {
   id: string
-  school: School
+  education_department: string
   name: string
-  code: string
+  bncc_code?: string
+  area_of_knowledge: string
   description?: string
+  minimum_passing_grade?: number
   is_active: boolean
   created_at: string
   updated_at: string
 }
 
 export interface CreateSubjectRequest {
+  education_department: string
   name: string
-  code: string
+  area_of_knowledge: string
+  bncc_code?: string
   description?: string
-  school: string
+  minimum_passing_grade?: number
 }
 
-// ============ CLASSES ============
+// ============ CLASSES (SchoolClass) ============
 
-export type ClassStatus = 'active' | 'inactive' | 'archived'
+export type Shift = 'MORNING' | 'AFTERNOON' | 'FULL_TIME' | 'NIGHT'
 
-export interface Class {
+export interface SchoolClass {
   id: string
-  school?: School
-  name?: string
-  code?: string
-  year?: number
-  semester?: number
-  grade_level?: string
-  status?: ClassStatus
-  teacher?: Teacher
-  teacher_name?: string
-  students?: Student[]
+  school: string
+  school_name?: string
+  academic_year: string
+  academic_year_label?: number | string
+  curriculum_matrix: string
+  curriculum_matrix_name?: string
+  name: string
+  shift: Shift
+  max_capacity?: number
+  room_number?: string
+  inep_class_code?: string
+  classroom?: string | null
+  classroom_number?: string | null
   student_count?: number
-  subjects?: Subject[]
-  classroom?: string
-  classroom_number?: string
   is_active: boolean
   created_at: string
   updated_at: string
 }
 
+/** Alias legado usado em páginas existentes */
+export type Class = SchoolClass
+
 export interface CreateClassRequest {
-  name: string
-  code: string
-  year: number
-  semester: number
   school: string
-  teacher?: string
-  subjects?: string[]
+  academic_year: string
+  curriculum_matrix: string
+  name: string
+  shift: Shift
+  max_capacity?: number
+  room_number?: string
 }
 
 // ============ ENROLLMENTS ============
 
-export type EnrollmentStatus = 'active' | 'inactive' | 'transferred' | 'dropped'
+export type EnrollmentStatus =
+  | 'ENROLLED'
+  | 'APPROVED'
+  | 'FAILED_ACADEMIC'
+  | 'FAILED_ATTENDANCE'
+  | 'TRANSFERRED_INTERNAL'
+  | 'TRANSFERRED_EXTERNAL'
+  | 'DROPOUT'
+  | 'DECEASED'
 
 export interface Enrollment {
   id: string
-  school: School
-  student: Student
-  class: Class
+  student: string
+  student_name?: string
+  school_class: string
+  school_class_name?: string
+  school?: string
+  enrollment_number: string
   enrollment_date: string
   status: EnrollmentStatus
   is_active: boolean
@@ -232,61 +415,60 @@ export interface Enrollment {
 
 export interface CreateEnrollmentRequest {
   student: string
-  class: string
-  school: string
-  enrollment_date?: string
+  school_class: string
+  enrollment_number?: string
 }
 
 // ============ GRADES ============
 
 export interface Grade {
   id: string
-  student?: Student
+  enrollment: string
   student_name?: string
-  subject?: Subject
+  subject: string
   subject_name?: string
-  class?: Class
-  class_name?: string
-  first_period?: number
-  second_period?: number
-  third_period?: number
-  fourth_period?: number
-  participation?: number
-  behavior?: number
-  average?: number
-  final_exam?: number
-  final_grade?: number
+  academic_period: string
+  academic_period_name?: string
+  teacher: string
+  teacher_name?: string
+  score: number
+  recovery_score?: number | null
+  final_score?: number | null
+  effective_score?: number
+  assessment_type?: string
   notes?: string
-  status?: 'approved' | 'failed' | 'pending'
+  is_active?: boolean
   created_at: string
   updated_at: string
 }
 
 export interface CreateGradeRequest {
-  student: string
+  enrollment: string
   subject: string
-  class: string
-  first_period?: number
-  second_period?: number
-  third_period?: number
-  fourth_period?: number
-  final_exam?: number
+  academic_period: string
+  teacher?: string
+  score: number
+  recovery_score?: number
+  final_score?: number
+  assessment_type?: string
+  notes?: string
 }
 
 // ============ ATTENDANCE ============
 
-export type AttendanceStatus = 'present' | 'absent' | 'justified' | 'excused'
+export type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'EXCUSED_ABSENCE'
 
 export interface Attendance {
   id: string
-  student?: Student
+  enrollment: string
   student_name?: string
-  class?: Class
-  class_name?: string
-  subject?: Subject
-  subject_name?: string
+  school_class: string
+  school_class_name?: string
+  subject?: string | null
+  subject_name?: string | null
   date: string
   status: AttendanceStatus
+  justification_note?: string
   observation?: string
   is_active?: boolean
   created_at: string
@@ -294,45 +476,85 @@ export interface Attendance {
 }
 
 export interface CreateAttendanceRequest {
-  student: string
-  class: string
+  enrollment: string
+  school_class: string
   date: string
   status: AttendanceStatus
-  observation?: string
+  subject?: string | null
+  justification_note?: string
+}
+
+// ============ EVALUATIONS ============
+
+export interface DescriptiveEvaluation {
+  id: string
+  enrollment: string
+  student_name?: string
+  academic_period: string
+  academic_period_name?: string
+  teacher: string
+  teacher_name?: string
+  development_report: string
+  learning_milestones?: Record<string, boolean> | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateDescriptiveEvaluationRequest {
+  enrollment: string
+  academic_period: string
+  teacher?: string
+  development_report: string
+  learning_milestones?: Record<string, boolean>
 }
 
 // ============ DOCUMENTS ============
 
-export type DocumentType = 'rg' | 'cpf' | 'birth_certificate' | 'address_proof' | 'previous_school' | 'other'
+export type DocumentType =
+  | 'rg'
+  | 'cpf'
+  | 'birth_certificate'
+  | 'address_proof'
+  | 'previous_school'
+  | 'other'
 
 export interface Document {
   id: string
-  student: Student
-  document_type: DocumentType
+  student: string
+  student_name?: string
+  document_type: DocumentType | string
   file: string
   file_name: string
-  file_size: number
-  uploaded_at: string
+  description?: string
+  expiration_date?: string
+  uploaded_by?: string
+  uploaded_by_name?: string
+  is_active?: boolean
   created_at: string
   updated_at: string
 }
 
 export interface UploadDocumentRequest {
   student: string
-  document_type: DocumentType
+  document_type: DocumentType | string
   file: File
+  description?: string
 }
 
 // ============ MESSAGES ============
 
 export interface Message {
   id: string
-  sender: User
-  recipient: User
+  sender?: string
+  sender_name?: string
+  recipient: string
+  recipient_name?: string
   subject: string
   body: string
   read: boolean
   read_at?: string
+  is_active?: boolean
   created_at: string
   updated_at: string
 }
@@ -349,7 +571,7 @@ export type NotificationType = 'email' | 'whatsapp' | 'in_app'
 
 export interface Notification {
   id: string
-  user: User
+  user: string
   title: string
   message: string
   type: NotificationType
@@ -405,4 +627,56 @@ export interface ReadyResponse {
     redis: boolean
     cache: boolean
   }
+}
+
+// ============ LABELS HELPERS ============
+
+export const SCHOOL_TYPE_LABELS: Record<SchoolType, string> = {
+  CRECHE: 'Creche',
+  PRE_ESCOLA: 'Pré-escola',
+  FUNDAMENTAL_1: 'Fundamental I',
+  FUNDAMENTAL_2: 'Fundamental II',
+  EJA: 'EJA',
+  MISTA: 'Mista',
+}
+
+export const SHIFT_LABELS: Record<Shift, string> = {
+  MORNING: 'Manhã',
+  AFTERNOON: 'Tarde',
+  FULL_TIME: 'Integral',
+  NIGHT: 'Noite',
+}
+
+export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
+  PRESENT: 'Presente',
+  ABSENT: 'Ausente',
+  EXCUSED_ABSENCE: 'Falta justificada',
+}
+
+export const TRANSFER_STATUS_LABELS: Record<TransferStatus, string> = {
+  PENDING_SME: 'Pendente SME',
+  APPROVED_BY_SME: 'Aprovada pela SME',
+  ACCEPTED_BY_DESTINATION: 'Aceita pelo destino',
+  REJECTED: 'Rejeitada',
+  CANCELLED: 'Cancelada',
+}
+
+export const ENROLLMENT_STATUS_LABELS: Record<EnrollmentStatus, string> = {
+  ENROLLED: 'Matriculado',
+  APPROVED: 'Aprovado',
+  FAILED_ACADEMIC: 'Reprovado por nota',
+  FAILED_ATTENDANCE: 'Reprovado por frequência',
+  TRANSFERRED_INTERNAL: 'Transferido (interno)',
+  TRANSFERRED_EXTERNAL: 'Transferido (externo)',
+  DROPOUT: 'Desistente',
+  DECEASED: 'Falecido',
+}
+
+export const USER_ROLE_LABELS: Record<UserRole, string> = {
+  sme_admin: 'Administrador SME',
+  sme_supervisor: 'Supervisor SME',
+  school_director: 'Diretor Escolar',
+  school_secretary: 'Secretário Escolar',
+  teacher: 'Professor',
+  student_guardian: 'Aluno / Responsável',
 }

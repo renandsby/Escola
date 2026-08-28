@@ -19,10 +19,9 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     ordering_fields = ['created_at']
     ordering = ['-created_at']
 
-    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated, IsAdmin])
     def recent_activities(self, request):
-        """Retorna atividades recentes do dashboard"""
-        # Buscar últimas 10 atividades dos últimos 7 dias
+        """Retorna atividades recentes do dashboard (apenas SME admin)."""
         seven_days_ago = now() - timedelta(days=7)
         activities = AuditLog.objects.filter(created_at__gte=seven_days_ago)[:10]
 
