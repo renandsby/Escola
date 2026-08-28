@@ -1,143 +1,144 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
+import { Search, Plus, Pencil, Trash2 } from 'lucide-react'
 import { useCrud } from '@/hooks/useCrud'
 import type { Subject } from '@/types/api'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/Skeleton'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { ScopeBar, useScope } from '@/components/ui/ScopeBar'
+import { DataTable, type Column } from '@/components/ui/DataTable'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
 import { getErrorMessage } from '@/utils/api-helpers'
-import { Plus, Trash2, Edit } from 'lucide-react'
-
-const SKELETON_ROWS = 5
+import { ROUTES } from '@/app/routes/paths'
 
 export default function SubjectsListPage() {
   const navigate = useNavigate()
+  const scope = useScope()
   const { list, delete_ } = useCrud<Subject>('subjects/', 'subjects')
-  const [searchTerm, setSearchTerm] = useState('')
-  const [subjectToDelete, setSubjectToDelete] = useState<Subject | null>(null)
+  const [term, setTerm] = useState('')
+  const [toDelete, setToDelete] = useState<Subject | null>(null)
 
-  const handleDeleteConfirm = async () => {
-    if (!subjectToDelete) {
+  const q = term.toLowerCase()
+  const rows = (list.data?.results ?? []).filter(
+    (s: Subject) =>
+      s.name?.toLowerCase().includes(q) ||
+      s.bncc_code?.toLowerCase().includes(q) ||
+      s.area_of_knowledge?.toLowerCase().includes(q)
+  )
+
+  const confirmDelete = async () => {
+    if (!toDelete) {
       return
     }
     try {
-      await delete_.mutateAsync(subjectToDelete.id)
-      toast.success('Disciplina excluída com sucesso!')
+      await delete_.mutateAsync(toDelete.id)
+      toast.success('Disciplina excluída.')
     } catch (error) {
       toast.error(getErrorMessage(error))
     } finally {
-      setSubjectToDelete(null)
+      setToDelete(null)
     }
   }
 
-  const term = searchTerm.toLowerCase()
-  const filteredData = (list.data?.results ?? []).filter(
-    (subject: Subject) =>
-      subject.name?.toLowerCase().includes(term) ||
-      subject.bncc_code?.toLowerCase().includes(term) ||
-      subject.area_of_knowledge?.toLowerCase().includes(term)
-  )
+  const columns: Column<Subject>[] = [
+    {
+      key: 'bncc',
+      header: 'BNCC',
+      mono: true,
+      align: 'right',
+      width: '120px',
+      render: (s) => s.bncc_code || '—',
+    },
+    { key: 'name', header: 'Nome', render: (s) => s.name },
+    { key: 'area', header: 'Área do conhecimento', render: (s) => s.area_of_knowledge },
+    {
+      key: 'min',
+      header: 'Nota mínima',
+      align: 'right',
+      mono: true,
+      render: (s) => s.minimum_passing_grade ?? '—',
+    },
+  ]
 
   if (list.isError) {
-    return <div className="p-6 text-red-600">Erro ao carregar disciplinas</div>
+    return (
+      <>
+        <PageHeader title="Currículo e matrizes" />
+        <EmptyState
+          title="Erro ao carregar"
+          description="Não foi possível carregar as disciplinas."
+        />
+      </>
+    )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Disciplinas</h1>
-        <Button onClick={() => navigate('/subjects/create')}>
-          <Plus className="w-4 h-4 mr-2" />
-          Nova Disciplina
-        </Button>
-      </div>
+    <>
+      <PageHeader
+        breadcrumb={[{ label: 'Rede' }, { label: 'Currículo' }]}
+        title="Currículo e matrizes"
+        tabs={[
+          { label: 'Disciplinas', to: ROUTES.curriculum },
+          { label: 'Matrizes curriculares', to: ROUTES.curriculumMatrices },
+        ]}
+        activeTab={ROUTES.curriculum}
+        actions={
+          <Button
+            variant="primary"
+            iconLeft={<Plus className="h-4 w-4" />}
+            onClick={() => navigate(ROUTES.subjectNew)}
+          >
+            Nova disciplina
+          </Button>
+        }
+      />
+      <ScopeBar level={scope.level} title={scope.title} />
 
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
         <input
-          type="text"
-          placeholder="Buscar por nome, BNCC ou área..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          value={term}
+          onChange={(e) => setTerm(e.target.value)}
+          placeholder="Buscar por nome, código BNCC ou área…"
+          className="h-control w-full rounded border border-line-strong bg-white pl-9 pr-3 text-base"
         />
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">BNCC</th>
-              <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Nome</th>
-              <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">
-                Área do conhecimento
-              </th>
-              <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Nota mínima</th>
-              <th className="px-6 py-3 text-right text-sm font-medium text-gray-700">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {list.isLoading &&
-              Array.from({ length: SKELETON_ROWS }).map((_, index) => (
-                <tr key={`skeleton-${index}`}>
-                  <td className="px-6 py-4"><Skeleton className="h-4 w-20" /></td>
-                  <td className="px-6 py-4"><Skeleton className="h-4 w-40" /></td>
-                  <td className="px-6 py-4"><Skeleton className="h-4 w-36" /></td>
-                  <td className="px-6 py-4"><Skeleton className="h-4 w-10" /></td>
-                  <td className="px-6 py-4 text-right"><Skeleton className="h-8 w-20 ml-auto" /></td>
-                </tr>
-              ))}
-
-            {!list.isLoading &&
-              filteredData.map((subject: Subject) => (
-                <tr key={subject.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    {subject.bncc_code || '—'}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{subject.name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{subject.area_of_knowledge}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    {subject.minimum_passing_grade ?? '—'}
-                  </td>
-                  <td className="px-6 py-4 text-right space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate(`/subjects/${subject.id}/edit`)}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSubjectToDelete(subject)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-
-            {!list.isLoading && filteredData.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                  Nenhuma disciplina encontrada
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        columns={columns}
+        rows={rows}
+        rowKey={(s) => s.id}
+        isLoading={list.isLoading}
+        onRowClick={(s) => navigate(ROUTES.subjectEdit(s.id))}
+        empty={
+          <EmptyState
+            title="Nenhuma disciplina encontrada"
+            description={term ? 'Ajuste a busca.' : 'Cadastre as disciplinas da base municipal.'}
+          />
+        }
+        rowActions={(s) => (
+          <>
+            <Button size="sm" variant="ghost" onClick={() => navigate(ROUTES.subjectEdit(s.id))}>
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setToDelete(s)}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </>
+        )}
+      />
 
       <ConfirmDialog
-        open={!!subjectToDelete}
+        open={!!toDelete}
         title="Excluir disciplina"
-        description={`Tem certeza que deseja excluir ${subjectToDelete?.name || 'esta disciplina'}? Esta ação não pode ser desfeita.`}
-        onConfirm={handleDeleteConfirm}
-        onCancel={() => setSubjectToDelete(null)}
+        description={`Excluir ${toDelete?.name || 'esta disciplina'}?`}
+        onConfirm={confirmDelete}
+        onCancel={() => setToDelete(null)}
         confirmLabel="Excluir"
         destructive
       />
-    </div>
+    </>
   )
 }

@@ -1,12 +1,16 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
+import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
-import { apiPost, getErrorMessage } from '@/utils/api-helpers'
-import { ArrowLeft } from 'lucide-react'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { Field, Input, Select } from '@/components/ui/Field'
+import { FormSection, StickyActions } from '@/components/ui/FormSection'
+import { Button } from '@/components/ui/Button'
+import { FormError } from '@/components/feedback/FormError'
+import { apiPost } from '@/utils/api-helpers'
+import { ROUTES } from '@/app/routes/paths'
 import { useStudentsQuery } from '../hooks/useStudentsQuery'
 import { useSchoolClassesQuery } from '../hooks/useSchoolClassesQuery'
 
@@ -21,126 +25,90 @@ type EnrollmentFormData = z.infer<typeof enrollmentSchema>
 export default function EnrollmentFormPage() {
   const navigate = useNavigate()
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<unknown>(null)
 
   const studentsQuery = useStudentsQuery()
   const classesQuery = useSchoolClassesQuery()
   const students = studentsQuery.data?.results || []
   const classes = classesQuery.data?.results || []
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<EnrollmentFormData>({
+  const methods = useForm<EnrollmentFormData>({
     resolver: zodResolver(enrollmentSchema),
-    defaultValues: {
-      student: '',
-      school_class: '',
-      enrollment_number: '',
-    },
+    defaultValues: { student: '', school_class: '', enrollment_number: '' },
   })
+  const { register, handleSubmit } = methods
 
   const onSubmit = async (data: EnrollmentFormData) => {
+    setSubmitError(null)
+    setSubmitting(true)
     try {
-      setSubmitting(true)
       await apiPost('enrollments/', data)
-      toast.success('Matrícula criada com sucesso!')
-      navigate('/enrollments')
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error))
+      toast.success('Matrícula criada.')
+      navigate(ROUTES.enrollments)
+    } catch (error) {
+      setSubmitError(error)
     } finally {
       setSubmitting(false)
     }
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="sm" onClick={() => navigate('/enrollments')}>
-          <ArrowLeft className="w-4 h-4" />
-        </Button>
-        <h1 className="text-3xl font-bold text-gray-900">Nova Matrícula</h1>
-      </div>
+    <FormProvider {...methods}>
+      <PageHeader
+        breadcrumb={[{ label: 'Matrículas', to: ROUTES.enrollments }, { label: 'Nova matrícula' }]}
+        title="Nova matrícula"
+      />
 
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="bg-white rounded-lg shadow p-8 space-y-6 max-w-2xl"
-      >
-        <fieldset disabled={submitting}>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Aluno</label>
-              <select
-                {...register('student')}
-                disabled={studentsQuery.isLoading}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
+      <form onSubmit={handleSubmit(onSubmit)} className="grid gap-1">
+        {!!submitError && <FormError error={submitError} />}
+
+        <fieldset disabled={submitting} className="grid gap-1">
+          <FormSection title="Vínculo" description="Aluno e turma de destino." first>
+            <Field label="Aluno" name="student" required className="sm:col-span-2">
+              <Select {...register('student')} disabled={studentsQuery.isLoading}>
                 <option value="">
-                  {studentsQuery.isLoading ? 'Carregando...' : 'Selecionar'}
+                  {studentsQuery.isLoading ? 'Carregando…' : 'Selecionar'}
                 </option>
                 {students.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.full_name}
                   </option>
                 ))}
-              </select>
-              {errors.student && (
-                <p className="text-red-600 text-sm mt-1">{errors.student.message}</p>
-              )}
-            </div>
-
-            <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Turma</label>
-              <select
-                {...register('school_class')}
-                disabled={classesQuery.isLoading}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
+              </Select>
+            </Field>
+            <Field label="Turma" name="school_class" required className="sm:col-span-2">
+              <Select {...register('school_class')} disabled={classesQuery.isLoading}>
                 <option value="">
-                  {classesQuery.isLoading ? 'Carregando...' : 'Selecionar'}
+                  {classesQuery.isLoading ? 'Carregando…' : 'Selecionar'}
                 </option>
                 {classes.map((sc) => (
                   <option key={sc.id} value={sc.id}>
                     {sc.school_name ? `${sc.name} — ${sc.school_name}` : sc.name}
                   </option>
                 ))}
-              </select>
-              {errors.school_class && (
-                <p className="text-red-600 text-sm mt-1">{errors.school_class.message}</p>
-              )}
-            </div>
-
-            <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Número da matrícula
-              </label>
-              <input
-                {...register('enrollment_number')}
-                type="text"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Ex: MAT2026000123"
-              />
-              {errors.enrollment_number && (
-                <p className="text-red-600 text-sm mt-1">{errors.enrollment_number.message}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="flex gap-2 pt-4">
-            <Button type="submit" disabled={submitting}>
-              {submitting ? 'Salvando...' : 'Salvar'}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate('/enrollments')}
-              disabled={submitting}
+              </Select>
+            </Field>
+            <Field
+              label="Número da matrícula"
+              name="enrollment_number"
+              required
+              mono
+              className="sm:col-span-2"
             >
-              Cancelar
-            </Button>
-          </div>
+              <Input {...register('enrollment_number')} placeholder="Ex.: MAT2026000123" />
+            </Field>
+          </FormSection>
         </fieldset>
+
+        <StickyActions>
+          <Button type="button" variant="secondary" onClick={() => navigate(ROUTES.enrollments)}>
+            Cancelar
+          </Button>
+          <Button type="submit" variant="primary" loading={submitting}>
+            Criar matrícula
+          </Button>
+        </StickyActions>
       </form>
-    </div>
+    </FormProvider>
   )
 }

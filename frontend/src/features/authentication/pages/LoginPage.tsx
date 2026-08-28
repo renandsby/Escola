@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
+import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { authService } from '@/services/api'
 import { useAuthStore } from '@/stores/authStore'
 import { getErrorMessage } from '@/utils/api-helpers'
-import { AlertCircle, Loader2 } from 'lucide-react'
+import { Field, Input } from '@/components/ui/Field'
+import { Button } from '@/components/ui/Button'
+import { InlineError } from '@/components/ui/InlineError'
+import { ROUTES } from '@/app/routes/paths'
 
 const loginSchema = z.object({
   username: z.string().min(1, 'Usuário é obrigatório'),
@@ -21,27 +24,21 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
-  })
+  const methods = useForm<LoginFormData>({ resolver: zodResolver(loginSchema) })
+  const { register, handleSubmit } = methods
 
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true)
     setError(null)
-
     try {
       const response = await authService.login(data.username, data.password)
       login(response.data.access, response.data.refresh, response.data.user)
-      navigate('/dashboard')
+      navigate(ROUTES.home)
     } catch (err: unknown) {
       const message = getErrorMessage(err)
       setError(
         message.includes('401') || message.toLowerCase().includes('inválid')
-          ? 'Usuário ou senha inválidos'
+          ? 'Usuário ou senha inválidos.'
           : message
       )
     } finally {
@@ -50,67 +47,32 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-md p-8 bg-white rounded-lg shadow-md">
-        <h1 className="text-3xl font-bold text-center mb-2">Gestão Escolar</h1>
-        <p className="text-center text-gray-600 mb-8">Bem-vindo ao sistema</p>
+    <div className="flex min-h-screen items-center justify-center bg-surface-canvas px-4">
+      <div className="w-full max-w-sm rounded-lg border border-line bg-white p-8 shadow-overlay">
+        <div className="mb-6 grid gap-1 text-center">
+          <h1 className="text-page text-ink-900">Rede Municipal</h1>
+          <p className="text-help text-ink-400">Sistema de Gestão Escolar</p>
+        </div>
 
         {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-red-600" />
-            <p className="text-red-600">{error}</p>
+          <div className="mb-4">
+            <InlineError title="Não foi possível entrar" message={error} />
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div>
-            <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
-              Usuário
-            </label>
-            <input
-              id="username"
-              type="text"
-              placeholder="Digite seu usuário"
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              {...register('username')}
-            />
-            {errors.username && (
-              <p className="text-red-600 text-sm mt-1">{errors.username.message}</p>
-            )}
-          </div>
-
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-              Senha
-            </label>
-            <input
-              id="password"
-              type="password"
-              placeholder="Digite sua senha"
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              {...register('password')}
-            />
-            {errors.password && (
-              <p className="text-red-600 text-sm mt-1">{errors.password.message}</p>
-            )}
-          </div>
-
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full bg-blue-600 text-white py-2 rounded-md font-medium hover:bg-blue-700 disabled:bg-gray-400 flex items-center justify-center gap-2"
-          >
-            {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-            {isLoading ? 'Entrando...' : 'Entrar'}
-          </button>
-        </form>
-
-        <p className="text-center text-gray-600 text-sm mt-6">
-          Não tem uma conta?{' '}
-          <a href="#" className="text-blue-600 hover:underline">
-            Solicite acesso
-          </a>
-        </p>
+        <FormProvider {...methods}>
+          <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
+            <Field label="Usuário" name="username" required>
+              <Input autoFocus placeholder="Digite seu usuário" {...register('username')} />
+            </Field>
+            <Field label="Senha" name="password" required>
+              <Input type="password" placeholder="Digite sua senha" {...register('password')} />
+            </Field>
+            <Button type="submit" variant="primary" loading={isLoading} className="w-full">
+              Entrar
+            </Button>
+          </form>
+        </FormProvider>
       </div>
     </div>
   )

@@ -1,134 +1,120 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { Search, Trash2 } from 'lucide-react'
 import { useCrud } from '@/hooks/useCrud'
-import { type SchoolClass, SHIFT_LABELS } from '@/types/api'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/Skeleton'
+import type { SchoolClass } from '@/types/api'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { ScopeBar, useScope } from '@/components/ui/ScopeBar'
+import { DataTable, type Column } from '@/components/ui/DataTable'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { Badge } from '@/components/ui/Badge'
+import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
 import { getErrorMessage } from '@/utils/api-helpers'
-import { Trash2 } from 'lucide-react'
-
-const SKELETON_ROWS = 5
+import { SHIFT } from '@/components/ui/statusMaps'
 
 export default function ClassesListPage() {
+  const scope = useScope()
   const { list, delete_ } = useCrud<SchoolClass>('classes/', 'classes')
-  const [searchTerm, setSearchTerm] = useState('')
-  const [classToDelete, setClassToDelete] = useState<SchoolClass | null>(null)
+  const [term, setTerm] = useState('')
+  const [toDelete, setToDelete] = useState<SchoolClass | null>(null)
 
-  const handleDeleteConfirm = async () => {
-    if (!classToDelete) {
+  const q = term.toLowerCase()
+  const rows = (list.data?.results ?? []).filter(
+    (c: SchoolClass) =>
+      c.name?.toLowerCase().includes(q) || c.school_name?.toLowerCase().includes(q)
+  )
+
+  const confirmDelete = async () => {
+    if (!toDelete) {
       return
     }
     try {
-      await delete_.mutateAsync(classToDelete.id)
-      toast.success('Turma excluída com sucesso!')
+      await delete_.mutateAsync(toDelete.id)
+      toast.success('Turma excluída.')
     } catch (error) {
       toast.error(getErrorMessage(error))
     } finally {
-      setClassToDelete(null)
+      setToDelete(null)
     }
   }
 
-  const term = searchTerm.toLowerCase()
-  const filteredData = (list.data?.results ?? []).filter(
-    (cls: SchoolClass) =>
-      cls.name?.toLowerCase().includes(term) ||
-      cls.school_name?.toLowerCase().includes(term)
-  )
+  const columns: Column<SchoolClass>[] = [
+    { key: 'name', header: 'Turma', render: (c) => c.name },
+    { key: 'shift', header: 'Turno', render: (c) => SHIFT[c.shift] || c.shift },
+    {
+      key: 'school',
+      header: 'Escola',
+      render: (c) => <span title={c.school_name}>{c.school_name || '—'}</span>,
+    },
+    { key: 'count', header: 'Alunos', align: 'right', mono: true, render: (c) => c.student_count ?? 0 },
+    {
+      key: 'status',
+      header: 'Situação',
+      render: (c) =>
+        c.is_active ? <Badge tone="ok">Ativa</Badge> : <Badge tone="neutral" shape="square">Inativa</Badge>,
+    },
+  ]
 
   if (list.isError) {
-    return <div className="p-6 text-red-600">Erro ao carregar turmas</div>
+    return (
+      <>
+        <PageHeader title="Turmas" />
+        <EmptyState title="Erro ao carregar" description="Não foi possível carregar as turmas." />
+      </>
+    )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Turmas</h1>
-      </div>
+    <>
+      <PageHeader breadcrumb={[{ label: 'Vida escolar' }, { label: 'Turmas' }]} title="Turmas" />
+      <ScopeBar
+        level={scope.level}
+        title={scope.title}
+        detail={list.data ? `${list.data.count} turma(s)` : undefined}
+      />
 
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
         <input
-          type="text"
-          placeholder="Buscar por nome ou escola..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          value={term}
+          onChange={(e) => setTerm(e.target.value)}
+          placeholder="Buscar por nome ou escola…"
+          className="h-control w-full rounded border border-line-strong bg-white pl-9 pr-3 text-base"
         />
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Nome</th>
-              <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Turno</th>
-              <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Escola</th>
-              <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Alunos</th>
-              <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Status</th>
-              <th className="px-6 py-3 text-right text-sm font-medium text-gray-700">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {list.isLoading &&
-              Array.from({ length: SKELETON_ROWS }).map((_, index) => (
-                <tr key={`skeleton-${index}`}>
-                  <td className="px-6 py-4"><Skeleton className="h-4 w-32" /></td>
-                  <td className="px-6 py-4"><Skeleton className="h-4 w-20" /></td>
-                  <td className="px-6 py-4"><Skeleton className="h-4 w-40" /></td>
-                  <td className="px-6 py-4"><Skeleton className="h-4 w-8" /></td>
-                  <td className="px-6 py-4"><Skeleton className="h-5 w-16 rounded-full" /></td>
-                  <td className="px-6 py-4 text-right"><Skeleton className="h-8 w-10 ml-auto" /></td>
-                </tr>
-              ))}
-
-            {!list.isLoading &&
-              filteredData.map((cls: SchoolClass) => (
-                <tr key={cls.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{cls.name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    {SHIFT_LABELS[cls.shift] || cls.shift}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{cls.school_name || '—'}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{cls.student_count ?? 0}</td>
-                  <td className="px-6 py-4 text-sm">
-                    <span
-                      className={`px-2 py-1 rounded text-xs font-medium ${
-                        cls.is_active
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {cls.is_active ? 'Ativa' : 'Inativa'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => setClassToDelete(cls)}>
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-
-            {!list.isLoading && filteredData.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                  Nenhuma turma encontrada
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        columns={columns}
+        rows={rows}
+        rowKey={(c) => c.id}
+        isLoading={list.isLoading}
+        empty={
+          <EmptyState
+            title="Nenhuma turma encontrada"
+            description={
+              term
+                ? 'Ajuste a busca.'
+                : 'As turmas vêm da carga do Censo. Novas turmas são criadas pela Secretaria.'
+            }
+          />
+        }
+        rowActions={(c) => (
+          <Button size="sm" variant="ghost" onClick={() => setToDelete(c)}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
+      />
 
       <ConfirmDialog
-        open={!!classToDelete}
+        open={!!toDelete}
         title="Excluir turma"
-        description={`Tem certeza que deseja excluir ${classToDelete?.name || 'esta turma'}? Esta ação não pode ser desfeita.`}
-        onConfirm={handleDeleteConfirm}
-        onCancel={() => setClassToDelete(null)}
+        description={`Excluir ${toDelete?.name || 'esta turma'}? A turma é desativada, não apagada.`}
+        onConfirm={confirmDelete}
+        onCancel={() => setToDelete(null)}
         confirmLabel="Excluir"
         destructive
       />
-    </div>
+    </>
   )
 }

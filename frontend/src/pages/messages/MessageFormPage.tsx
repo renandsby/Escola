@@ -1,15 +1,19 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
+import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/Skeleton'
-import { apiGet, apiPost, getErrorMessage } from '@/utils/api-helpers'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { Field, Input, Select, Textarea } from '@/components/ui/Field'
+import { FormSection, StickyActions } from '@/components/ui/FormSection'
+import { Button } from '@/components/ui/Button'
+import { FormError } from '@/components/feedback/FormError'
+import { TableSkeleton } from '@/components/ui/TableSkeleton'
+import { apiGet, apiPost } from '@/utils/api-helpers'
 import type { PaginatedResponse, User } from '@/types/api'
-import { ArrowLeft } from 'lucide-react'
+import { ROUTES } from '@/app/routes/paths'
 
 const messageSchema = z.object({
   recipient: z.coerce.number({ invalid_type_error: 'Destinatário é obrigatório' }),
@@ -31,6 +35,7 @@ export default function MessageFormPage() {
   const { id } = useParams()
   const isViewing = !!id
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<unknown>(null)
 
   const usersQuery = useQuery({
     queryKey: ['messages', 'recipients'],
@@ -44,13 +49,8 @@ export default function MessageFormPage() {
     enabled: isViewing,
   })
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<MessageFormData>({
-    resolver: zodResolver(messageSchema),
-  })
+  const methods = useForm<MessageFormData>({ resolver: zodResolver(messageSchema) })
+  const { register, handleSubmit } = methods
 
   useEffect(() => {
     if (messageQuery.isError) {
@@ -59,13 +59,14 @@ export default function MessageFormPage() {
   }, [messageQuery.isError])
 
   const onSubmit = async (data: MessageFormData) => {
+    setSubmitError(null)
+    setSubmitting(true)
     try {
-      setSubmitting(true)
       await apiPost('communications/', data)
-      toast.success('Mensagem enviada com sucesso!')
-      navigate('/messages')
+      toast.success('Mensagem enviada.')
+      navigate(ROUTES.messages)
     } catch (error) {
-      toast.error(getErrorMessage(error))
+      setSubmitError(error)
     } finally {
       setSubmitting(false)
     }
@@ -75,124 +76,80 @@ export default function MessageFormPage() {
 
   if (isViewing && messageQuery.isLoading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-9 w-48" />
-        <Skeleton className="h-64 w-full max-w-2xl" />
-      </div>
+      <>
+        <PageHeader breadcrumb={[{ label: 'Mensagens', to: ROUTES.messages }]} title="Mensagem" />
+        <TableSkeleton rows={4} cols={1} />
+      </>
+    )
+  }
+
+  if (isViewing && messageData) {
+    return (
+      <>
+        <PageHeader
+          breadcrumb={[{ label: 'Mensagens', to: ROUTES.messages }, { label: messageData.subject }]}
+          title={messageData.subject}
+          meta={
+            <>
+              <span>De: {messageData.sender_name || '—'}</span>
+              <span className="tabular-nums">
+                {new Date(messageData.created_at).toLocaleString('pt-BR')}
+              </span>
+            </>
+          }
+          actions={
+            <Button variant="secondary" onClick={() => navigate(ROUTES.messages)}>
+              Voltar
+            </Button>
+          }
+        />
+        <div className="whitespace-pre-wrap rounded-lg border border-line bg-white p-6 text-base text-ink-700">
+          {messageData.body}
+        </div>
+      </>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="sm" onClick={() => navigate('/messages')}>
-          <ArrowLeft className="w-4 h-4" />
-        </Button>
-        <h1 className="text-3xl font-bold text-gray-900">
-          {isViewing ? 'Mensagem' : 'Nova Mensagem'}
-        </h1>
-      </div>
+    <FormProvider {...methods}>
+      <PageHeader
+        breadcrumb={[{ label: 'Mensagens', to: ROUTES.messages }, { label: 'Nova mensagem' }]}
+        title="Nova mensagem"
+      />
 
-      {isViewing && messageData ? (
-        <div className="bg-white rounded-lg shadow p-8 space-y-4 max-w-2xl">
-          <div className="border-b pb-4">
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">De:</label>
-                <p className="text-gray-900 mt-1">{messageData.sender_name}</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Data:</label>
-                <p className="text-gray-900 mt-1">
-                  {new Date(messageData.created_at).toLocaleString('pt-BR')}
-                </p>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Assunto:</label>
-              <p className="text-gray-900 mt-1 font-semibold">{messageData.subject}</p>
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Mensagem:</label>
-            <div className="bg-gray-50 p-4 rounded-md text-gray-900 whitespace-pre-wrap">
-              {messageData.body}
-            </div>
-          </div>
-          <div className="flex gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => navigate('/messages')}>
-              Voltar
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          className="bg-white rounded-lg shadow p-8 space-y-6 max-w-2xl"
-        >
-          <fieldset disabled={submitting}>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Destinatário</label>
-                <select
-                  {...register('recipient', { valueAsNumber: true })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Selecionar</option>
-                  {users.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.first_name} {user.last_name}
-                    </option>
-                  ))}
-                </select>
-                {errors.recipient && (
-                  <p className="text-red-600 text-sm mt-1">{errors.recipient.message}</p>
-                )}
-              </div>
+      <form onSubmit={handleSubmit(onSubmit)} className="grid gap-1">
+        {!!submitError && <FormError error={submitError} />}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Assunto</label>
-                <input
-                  {...register('subject')}
-                  type="text"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Assunto da mensagem"
-                />
-                {errors.subject && (
-                  <p className="text-red-600 text-sm mt-1">{errors.subject.message}</p>
-                )}
-              </div>
+        <fieldset disabled={submitting} className="grid gap-1">
+          <FormSection title="Mensagem" description="Escolha o destinatário e escreva o conteúdo." first>
+            <Field label="Destinatário" name="recipient" required className="sm:col-span-2">
+              <Select {...register('recipient', { valueAsNumber: true })}>
+                <option value="">Selecionar</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.first_name} {u.last_name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Assunto" name="subject" required className="sm:col-span-2">
+              <Input {...register('subject')} placeholder="Assunto da mensagem" />
+            </Field>
+            <Field label="Mensagem" name="body" required className="sm:col-span-2">
+              <Textarea rows={6} {...register('body')} placeholder="Digite sua mensagem…" />
+            </Field>
+          </FormSection>
+        </fieldset>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Mensagem</label>
-                <textarea
-                  {...register('body')}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Digite sua mensagem..."
-                  rows={6}
-                />
-                {errors.body && (
-                  <p className="text-red-600 text-sm mt-1">{errors.body.message}</p>
-                )}
-              </div>
-            </div>
-
-            <div className="flex gap-2 pt-4">
-              <Button type="submit" disabled={submitting}>
-                {submitting ? 'Enviando...' : 'Enviar'}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate('/messages')}
-                disabled={submitting}
-              >
-                Cancelar
-              </Button>
-            </div>
-          </fieldset>
-        </form>
-      )}
-    </div>
+        <StickyActions>
+          <Button type="button" variant="secondary" onClick={() => navigate(ROUTES.messages)}>
+            Cancelar
+          </Button>
+          <Button type="submit" variant="primary" loading={submitting}>
+            Enviar
+          </Button>
+        </StickyActions>
+      </form>
+    </FormProvider>
   )
 }

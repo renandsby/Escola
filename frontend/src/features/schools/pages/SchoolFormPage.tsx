@@ -1,14 +1,19 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
+import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 import { useCrud } from '@/hooks/useCrud'
 import type { School } from '@/types/api'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/Skeleton'
-import { getErrorMessage } from '@/utils/api-helpers'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { Field, Input, Select } from '@/components/ui/Field'
+import { FormSection, StickyActions } from '@/components/ui/FormSection'
+import { Button } from '@/components/ui/Button'
+import { FormError } from '@/components/feedback/FormError'
+import { TableSkeleton } from '@/components/ui/TableSkeleton'
 import { useAuthStore } from '@/stores/authStore'
+import { ROUTES } from '@/app/routes/paths'
+import { SCHOOL_TYPE } from '@/components/ui/statusMaps'
 import { schoolSchema, type SchoolFormData } from '../schemas/schoolSchema'
 import {
   useEducationDepartmentsQuery,
@@ -16,34 +21,28 @@ import {
   useSchoolQuery,
 } from '../hooks/useSchoolFormData'
 
-const FIELD_CLASS =
-  'mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm'
-
 export default function SchoolFormPage() {
   const navigate = useNavigate()
   const { id } = useParams()
-  const user = useAuthStore((state) => state.user)
+  const user = useAuthStore((s) => s.user)
   const { create, update } = useCrud<School>('schools/', 'schools')
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<unknown>(null)
 
   const departmentsQuery = useEducationDepartmentsQuery()
   const directorsQuery = useSchoolDirectorsQuery()
   const schoolQuery = useSchoolQuery(id)
-
   const departments = departmentsQuery.data?.results ?? []
   const directors = directorsQuery.data?.results ?? []
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<SchoolFormData>({
+  const methods = useForm<SchoolFormData>({
     resolver: zodResolver(schoolSchema),
     defaultValues: {
       education_department: user?.education_department || '',
       school_type: 'FUNDAMENTAL_1',
     },
   })
+  const { register, handleSubmit, reset } = methods
 
   useEffect(() => {
     if (schoolQuery.data) {
@@ -57,161 +56,128 @@ export default function SchoolFormPage() {
     }
   }, [schoolQuery.isError])
 
-  const [submitting, setSubmitting] = useState(false)
-
   const onSubmit = async (data: SchoolFormData) => {
+    setSubmitError(null)
+    setSubmitting(true)
     try {
-      setSubmitting(true)
       if (id) {
         await update.mutateAsync({ id, data })
-        toast.success('Escola atualizada com sucesso!')
+        toast.success('Escola atualizada.')
       } else {
         await create.mutateAsync(data)
-        toast.success('Escola criada com sucesso!')
+        toast.success('Escola criada.')
       }
-      navigate('/schools')
+      navigate(ROUTES.schools)
     } catch (error) {
-      toast.error(getErrorMessage(error))
+      setSubmitError(error)
     } finally {
       setSubmitting(false)
     }
   }
 
+  const title = id ? 'Editar escola' : 'Nova escola'
+
   if (id && schoolQuery.isLoading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-9 w-56" />
-        <div className="bg-white rounded-lg shadow p-6 grid grid-cols-2 gap-4">
-          {Array.from({ length: 10 }).map((_, index) => (
-            <div key={`field-skeleton-${index}`} className="space-y-2">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-          ))}
-        </div>
-      </div>
+      <>
+        <PageHeader breadcrumb={[{ label: 'Escolas', to: ROUTES.schools }]} title={title} />
+        <TableSkeleton rows={6} cols={2} />
+      </>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-gray-900">{id ? 'Editar Escola' : 'Nova Escola'}</h1>
+    <FormProvider {...methods}>
+      <PageHeader
+        breadcrumb={[{ label: 'Escolas', to: ROUTES.schools }, { label: title }]}
+        title={title}
+      />
 
-      <div className="bg-white rounded-lg shadow p-6">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <fieldset disabled={submitting} className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700">Nome</label>
-              <input {...register('name')} className={FIELD_CLASS} />
-              {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>}
-            </div>
+      <form onSubmit={handleSubmit(onSubmit)} className="grid gap-1">
+        {!!submitError && <FormError error={submitError} />}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Secretaria Municipal</label>
-              <select {...register('education_department')} className={FIELD_CLASS}>
-                <option value="">Selecionar</option>
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.municipality_name}
+        <fieldset disabled={submitting} className="grid gap-1">
+          <FormSection title="Identificação" description="Nome, código e direção da unidade." first>
+            <Field label="Nome" name="name" required className="sm:col-span-2">
+              <Input {...register('name')} />
+            </Field>
+            <Field label="Tipo" name="school_type" required>
+              <Select {...register('school_type')}>
+                {Object.entries(SCHOOL_TYPE).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
                   </option>
                 ))}
-              </select>
-              {errors.education_department && (
-                <p className="mt-1 text-sm text-red-600">{errors.education_department.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Tipo</label>
-              <select {...register('school_type')} className={FIELD_CLASS}>
-                <option value="CRECHE">Creche</option>
-                <option value="PRE_ESCOLA">Pré-escola</option>
-                <option value="FUNDAMENTAL_1">Fundamental I</option>
-                <option value="FUNDAMENTAL_2">Fundamental II</option>
-                <option value="EJA">EJA</option>
-                <option value="MISTA">Mista</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Diretor(a)</label>
-              <select {...register('director_user')} className={FIELD_CLASS}>
+              </Select>
+            </Field>
+            <Field label="Diretor(a)" name="director_user">
+              <Select {...register('director_user')}>
                 <option value="">Selecionar</option>
                 {directors.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.first_name} {d.last_name}
                   </option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </Field>
+            <Field label="Código INEP" name="inep_code" mono>
+              <Input {...register('inep_code')} />
+            </Field>
+            <Field label="CNPJ" name="cnpj" mono>
+              <Input {...register('cnpj')} />
+            </Field>
+            <Field label="Secretaria Municipal" name="education_department" required>
+              <Select {...register('education_department')}>
+                <option value="">Selecionar</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.municipality_name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </FormSection>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Código INEP</label>
-              <input {...register('inep_code')} className={FIELD_CLASS} />
-            </div>
+          <FormSection title="Endereço">
+            <Field label="Logradouro" name="address_street" className="sm:col-span-2">
+              <Input {...register('address_street')} />
+            </Field>
+            <Field label="Número" name="address_number">
+              <Input {...register('address_number')} />
+            </Field>
+            <Field label="Bairro" name="address_neighborhood">
+              <Input {...register('address_neighborhood')} />
+            </Field>
+            <Field label="Cidade" name="address_city">
+              <Input {...register('address_city')} />
+            </Field>
+            <Field label="UF" name="address_state">
+              <Input maxLength={2} {...register('address_state')} />
+            </Field>
+            <Field label="CEP" name="address_zip_code" mono>
+              <Input {...register('address_zip_code')} />
+            </Field>
+          </FormSection>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">CNPJ</label>
-              <input {...register('cnpj')} className={FIELD_CLASS} />
-            </div>
+          <FormSection title="Contato">
+            <Field label="E-mail" name="email">
+              <Input type="email" {...register('email')} />
+            </Field>
+            <Field label="Telefone" name="phone" mono>
+              <Input {...register('phone')} />
+            </Field>
+          </FormSection>
+        </fieldset>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Email</label>
-              <input type="email" {...register('email')} className={FIELD_CLASS} />
-              {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Telefone</label>
-              <input {...register('phone')} className={FIELD_CLASS} />
-            </div>
-
-            <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700">Logradouro</label>
-              <input {...register('address_street')} className={FIELD_CLASS} />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Número</label>
-              <input {...register('address_number')} className={FIELD_CLASS} />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Bairro</label>
-              <input {...register('address_neighborhood')} className={FIELD_CLASS} />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Cidade</label>
-              <input {...register('address_city')} className={FIELD_CLASS} />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">UF</label>
-              <input {...register('address_state')} maxLength={2} className={FIELD_CLASS} />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">CEP</label>
-              <input {...register('address_zip_code')} className={FIELD_CLASS} />
-            </div>
-          </fieldset>
-
-          <div className="flex space-x-4 pt-6">
-            <Button type="submit" disabled={submitting}>
-              {submitting ? 'Salvando...' : id ? 'Atualizar' : 'Criar'}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate('/schools')}
-              disabled={submitting}
-            >
-              Cancelar
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <StickyActions>
+          <Button type="button" variant="secondary" onClick={() => navigate(ROUTES.schools)}>
+            Cancelar
+          </Button>
+          <Button type="submit" variant="primary" loading={submitting}>
+            {id ? 'Atualizar' : 'Criar'}
+          </Button>
+        </StickyActions>
+      </form>
+    </FormProvider>
   )
 }

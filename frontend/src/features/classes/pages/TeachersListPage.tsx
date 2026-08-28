@@ -2,161 +2,156 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { Search, Plus, Pencil, Trash2, UserCog } from 'lucide-react'
 import type { TeacherProfile } from '@/types/api'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/Skeleton'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { ScopeBar, useScope } from '@/components/ui/ScopeBar'
+import { DataTable, type Column } from '@/components/ui/DataTable'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { Badge } from '@/components/ui/Badge'
+import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
 import { getErrorMessage } from '@/utils/api-helpers'
-import { Plus, Edit, Trash2, UserCog } from 'lucide-react'
+import { ROUTES } from '@/app/routes/paths'
 import { deleteTeacher } from '../api/teachersApi'
 import { useTeachersQuery } from '../hooks/useTeachersQuery'
 
-const SKELETON_ROWS = 5
-
 export default function TeachersListPage() {
   const navigate = useNavigate()
+  const scope = useScope()
   const queryClient = useQueryClient()
   const teachers = useTeachersQuery()
-  const [searchTerm, setSearchTerm] = useState('')
-  const [teacherToDelete, setTeacherToDelete] = useState<TeacherProfile | null>(null)
+  const [term, setTerm] = useState('')
+  const [toDelete, setToDelete] = useState<TeacherProfile | null>(null)
 
-  const removeMutation = useMutation({
+  const remove = useMutation({
     mutationFn: (id: string) => deleteTeacher(id),
     onSuccess: () => {
-      toast.success('Professor removido com sucesso!')
+      toast.success('Professor removido.')
       queryClient.invalidateQueries({ queryKey: ['classes', 'teachers'] })
     },
     onError: (error) => toast.error(getErrorMessage(error)),
-    onSettled: () => setTeacherToDelete(null),
+    onSettled: () => setToDelete(null),
   })
 
-  const term = searchTerm.toLowerCase()
-  const filteredData = (teachers.data?.results ?? []).filter(
+  const q = term.toLowerCase()
+  const rows = (teachers.data?.results ?? []).filter(
     (t: TeacherProfile) =>
-      t.user_name?.toLowerCase().includes(term) ||
-      t.registration_number?.toLowerCase().includes(term) ||
+      t.user_name?.toLowerCase().includes(q) ||
+      t.registration_number?.toLowerCase().includes(q) ||
       t.cpf?.includes(term) ||
-      t.formation_area?.toLowerCase().includes(term)
+      t.formation_area?.toLowerCase().includes(q)
   )
 
+  const columns: Column<TeacherProfile>[] = [
+    {
+      key: 'reg',
+      header: 'Matrícula',
+      mono: true,
+      align: 'right',
+      width: '120px',
+      render: (t) => t.registration_number,
+    },
+    { key: 'name', header: 'Nome', render: (t) => t.user_name || '—' },
+    { key: 'area', header: 'Área de formação', render: (t) => t.formation_area || '—' },
+    {
+      key: 'status',
+      header: 'Situação',
+      render: (t) =>
+        t.is_active ? <Badge tone="ok">Ativo</Badge> : <Badge tone="neutral" shape="square">Inativo</Badge>,
+    },
+  ]
+
   if (teachers.isError) {
-    return <div className="p-6 text-red-600">Erro ao carregar professores</div>
+    return (
+      <>
+        <PageHeader title="Professores e alocações" />
+        <EmptyState title="Erro ao carregar" description="Não foi possível carregar o quadro docente." />
+      </>
+    )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Professores</h1>
-          <p className="text-gray-600 mt-1">Quadro docente da rede municipal</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate('/teachers/allocations')}>
-            <UserCog className="w-4 h-4 mr-2" />
-            Alocações
-          </Button>
-          <Button onClick={() => navigate('/teachers/create')}>
-            <Plus className="w-4 h-4 mr-2" />
-            Novo Professor
-          </Button>
-        </div>
-      </div>
+    <>
+      <PageHeader
+        breadcrumb={[{ label: 'Pessoas' }, { label: 'Professores' }]}
+        title="Professores e alocações"
+        tabs={[
+          { label: 'Professores', to: ROUTES.teachers },
+          { label: 'Alocações', to: ROUTES.allocations },
+        ]}
+        activeTab={ROUTES.teachers}
+        actions={
+          <>
+            <Button
+              variant="secondary"
+              iconLeft={<UserCog className="h-4 w-4" />}
+              onClick={() => navigate(ROUTES.allocations)}
+            >
+              Alocações
+            </Button>
+            <Button
+              variant="primary"
+              iconLeft={<Plus className="h-4 w-4" />}
+              onClick={() => navigate(ROUTES.teacherNew)}
+            >
+              Novo professor
+            </Button>
+          </>
+        }
+      />
+      <ScopeBar level={scope.level} title={scope.title} />
 
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
         <input
-          type="text"
-          placeholder="Buscar por nome, matrícula, CPF ou área de formação..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          value={term}
+          onChange={(e) => setTerm(e.target.value)}
+          placeholder="Buscar por nome, matrícula, CPF ou área de formação…"
+          className="h-control w-full rounded border border-line-strong bg-white pl-9 pr-3 text-base"
         />
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Matrícula</th>
-              <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Nome</th>
-              <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">
-                Área de formação
-              </th>
-              <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Status</th>
-              <th className="px-6 py-3 text-right text-sm font-medium text-gray-700">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {teachers.isLoading &&
-              Array.from({ length: SKELETON_ROWS }).map((_, index) => (
-                <tr key={`skeleton-${index}`}>
-                  <td className="px-6 py-4"><Skeleton className="h-4 w-20" /></td>
-                  <td className="px-6 py-4"><Skeleton className="h-4 w-40" /></td>
-                  <td className="px-6 py-4"><Skeleton className="h-4 w-32" /></td>
-                  <td className="px-6 py-4"><Skeleton className="h-5 w-16 rounded-full" /></td>
-                  <td className="px-6 py-4 text-right"><Skeleton className="h-8 w-20 ml-auto" /></td>
-                </tr>
-              ))}
-
-            {!teachers.isLoading &&
-              filteredData.map((teacher: TeacherProfile) => (
-                <tr key={teacher.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    {teacher.registration_number}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{teacher.user_name || '—'}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    {teacher.formation_area || '—'}
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    <span
-                      className={`px-2 py-1 rounded text-xs font-medium ${
-                        teacher.is_active
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {teacher.is_active ? 'Ativo' : 'Inativo'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate(`/teachers/${teacher.id}/edit`)}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setTeacherToDelete(teacher)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-
-            {!teachers.isLoading && filteredData.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                  Nenhum professor cadastrado
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        columns={columns}
+        rows={rows}
+        rowKey={(t) => t.id}
+        isLoading={teachers.isLoading}
+        onRowClick={(t) => navigate(ROUTES.teacherEdit(t.id))}
+        empty={
+          <EmptyState
+            title="Nenhum professor cadastrado"
+            description={term ? 'Ajuste a busca.' : 'Cadastre o quadro docente da rede.'}
+            actions={
+              !term && (
+                <Button variant="primary" onClick={() => navigate(ROUTES.teacherNew)}>
+                  Novo professor
+                </Button>
+              )
+            }
+          />
+        }
+        rowActions={(t) => (
+          <>
+            <Button size="sm" variant="ghost" onClick={() => navigate(ROUTES.teacherEdit(t.id))}>
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setToDelete(t)}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </>
+        )}
+      />
 
       <ConfirmDialog
-        open={!!teacherToDelete}
+        open={!!toDelete}
         title="Remover professor"
-        description={`Remover ${teacherToDelete?.user_name || 'este professor'} do quadro? As alocações associadas também serão removidas.`}
-        onConfirm={() => teacherToDelete && removeMutation.mutate(teacherToDelete.id)}
-        onCancel={() => setTeacherToDelete(null)}
+        description={`Remover ${toDelete?.user_name || 'este professor'} do quadro? As alocações associadas também deixam de valer.`}
+        onConfirm={() => toDelete && remove.mutate(toDelete.id)}
+        onCancel={() => setToDelete(null)}
         confirmLabel="Remover"
         destructive
       />
-    </div>
+    </>
   )
 }

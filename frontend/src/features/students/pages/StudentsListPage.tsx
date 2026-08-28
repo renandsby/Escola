@@ -1,166 +1,150 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
+import { Search, Plus, Eye, Pencil, Trash2 } from 'lucide-react'
 import { useCrud } from '@/hooks/useCrud'
-import { Student } from '@/types/api'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/Skeleton'
+import type { Student } from '@/types/api'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { ScopeBar, useScope } from '@/components/ui/ScopeBar'
+import { DataTable, type Column } from '@/components/ui/DataTable'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { Badge } from '@/components/ui/Badge'
+import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
 import { getErrorMessage } from '@/utils/api-helpers'
-import { Plus, Edit, Trash2, Eye } from 'lucide-react'
-
-const SKELETON_ROWS = 5
+import { ROUTES } from '@/app/routes/paths'
 
 export default function StudentsListPage() {
   const navigate = useNavigate()
+  const scope = useScope()
+  const [params] = useSearchParams()
   const { list, delete_ } = useCrud<Student>('students/', 'students')
-  const [searchTerm, setSearchTerm] = useState('')
-  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null)
+  const [term, setTerm] = useState(params.get('q') ?? '')
+  const [toDelete, setToDelete] = useState<Student | null>(null)
 
-  const handleDeleteConfirm = async () => {
-    if (!studentToDelete) {
+  const q = term.toLowerCase()
+  const rows = (list.data?.results ?? []).filter(
+    (s: Student) =>
+      s.full_name?.toLowerCase().includes(q) ||
+      s.unique_municipal_id?.toLowerCase().includes(q) ||
+      s.mother_name?.toLowerCase().includes(q)
+  )
+
+  const confirmDelete = async () => {
+    if (!toDelete) {
       return
     }
     try {
-      await delete_.mutateAsync(studentToDelete.id)
-      toast.success('Aluno excluído com sucesso!')
+      await delete_.mutateAsync(toDelete.id)
+      toast.success('Aluno excluído.')
     } catch (error) {
       toast.error(getErrorMessage(error))
     } finally {
-      setStudentToDelete(null)
+      setToDelete(null)
     }
   }
 
-  const filteredData =
-    list.data?.results?.filter(
-      (student: Student) =>
-        student.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        student.unique_municipal_id?.includes(searchTerm) ||
-        student.mother_name?.toLowerCase().includes(searchTerm.toLowerCase())
-    ) || []
+  const columns: Column<Student>[] = [
+    {
+      key: 'id',
+      header: 'ID municipal',
+      mono: true,
+      align: 'right',
+      width: '140px',
+      render: (s) => s.unique_municipal_id,
+    },
+    { key: 'name', header: 'Nome', render: (s) => <span title={s.full_name}>{s.full_name}</span> },
+    { key: 'mother', header: 'Nome da mãe', render: (s) => s.mother_name },
+    {
+      key: 'status',
+      header: 'Situação',
+      render: (s) =>
+        s.is_active ? (
+          <Badge tone="ok">Ativo</Badge>
+        ) : (
+          <Badge tone="neutral" shape="square">
+            Inativo
+          </Badge>
+        ),
+    },
+  ]
 
   if (list.isError) {
-    return <div className="p-6 text-red-600">Erro ao carregar alunos</div>
+    return (
+      <>
+        <PageHeader title="Alunos" />
+        <EmptyState title="Erro ao carregar" description="Não foi possível carregar os alunos." />
+      </>
+    )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Alunos</h1>
-        <Button onClick={() => navigate('/students/create')}>
-          <Plus className="w-4 h-4 mr-2" />
-          Novo Aluno
-        </Button>
-      </div>
+    <>
+      <PageHeader
+        breadcrumb={[{ label: 'Pessoas' }, { label: 'Alunos' }]}
+        title="Alunos"
+        actions={
+          <Button
+            variant="primary"
+            iconLeft={<Plus className="h-4 w-4" />}
+            onClick={() => navigate(ROUTES.studentNew)}
+          >
+            Novo aluno
+          </Button>
+        }
+      />
+      <ScopeBar
+        level={scope.level}
+        title={scope.title}
+        detail={list.data ? `${list.data.count} aluno(s)` : undefined}
+      />
 
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
         <input
-          type="text"
-          placeholder="Buscar por nome, ID municipal ou nome da mãe..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          value={term}
+          onChange={(e) => setTerm(e.target.value)}
+          placeholder="Buscar por nome, ID municipal ou nome da mãe…"
+          className="h-control w-full rounded border border-line-strong bg-white pl-9 pr-3 text-base"
         />
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">ID Municipal</th>
-              <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Nome</th>
-              <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Nome da mãe</th>
-              <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Status</th>
-              <th className="px-6 py-3 text-right text-sm font-medium text-gray-700">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {list.isLoading &&
-              Array.from({ length: SKELETON_ROWS }).map((_, index) => (
-                <tr key={`skeleton-${index}`}>
-                  <td className="px-6 py-4">
-                    <Skeleton className="h-4 w-24" />
-                  </td>
-                  <td className="px-6 py-4">
-                    <Skeleton className="h-4 w-40" />
-                  </td>
-                  <td className="px-6 py-4">
-                    <Skeleton className="h-4 w-40" />
-                  </td>
-                  <td className="px-6 py-4">
-                    <Skeleton className="h-5 w-16 rounded-full" />
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <Skeleton className="h-8 w-24 ml-auto" />
-                  </td>
-                </tr>
-              ))}
-
-            {!list.isLoading &&
-              filteredData.map((student: Student) => (
-                <tr key={student.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    {student.unique_municipal_id}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{student.full_name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{student.mother_name}</td>
-                  <td className="px-6 py-4 text-sm">
-                    <span
-                      className={`px-2 py-1 rounded text-xs font-medium ${
-                        student.is_active
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {student.is_active ? 'Ativo' : 'Inativo'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate(`/students/${student.id}`)}
-                    >
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate(`/students/${student.id}/edit`)}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setStudentToDelete(student)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-
-            {!list.isLoading && filteredData.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                  Nenhum aluno encontrado
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        columns={columns}
+        rows={rows}
+        rowKey={(s) => s.id}
+        isLoading={list.isLoading}
+        onRowClick={(s) => navigate(ROUTES.student(s.id))}
+        empty={
+          <EmptyState
+            title="Nenhum aluno encontrado"
+            description={term ? 'Ajuste a busca.' : 'Cadastre o primeiro aluno da rede.'}
+          />
+        }
+        rowActions={(s) => (
+          <>
+            <Button size="sm" variant="ghost" onClick={() => navigate(ROUTES.student(s.id))}>
+              <Eye className="h-4 w-4" />
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => navigate(ROUTES.studentEdit(s.id))}>
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setToDelete(s)}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </>
+        )}
+      />
 
       <ConfirmDialog
-        open={!!studentToDelete}
+        open={!!toDelete}
         title="Excluir aluno"
-        description={`Tem certeza que deseja excluir ${studentToDelete?.full_name || 'este aluno'}? Esta ação não pode ser desfeita.`}
-        onConfirm={handleDeleteConfirm}
-        onCancel={() => setStudentToDelete(null)}
+        description={`Excluir ${toDelete?.full_name || 'este aluno'}? O cadastro é desativado, não apagado.`}
+        onConfirm={confirmDelete}
+        onCancel={() => setToDelete(null)}
         confirmLabel="Excluir"
         destructive
       />
-    </div>
+    </>
   )
 }

@@ -1,16 +1,22 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
+import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/Skeleton'
-import { apiGet, apiPost, apiPut, getErrorMessage } from '@/utils/api-helpers'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { Field, Input, Select, Textarea, Checkbox } from '@/components/ui/Field'
+import { FormSection, StickyActions } from '@/components/ui/FormSection'
+import { Button } from '@/components/ui/Button'
+import { FormError } from '@/components/feedback/FormError'
+import { PersonLookupStep } from '@/components/feedback/PersonLookupStep'
+import { TableSkeleton } from '@/components/ui/TableSkeleton'
+import { apiGet, apiPost, apiPut } from '@/utils/api-helpers'
 import { useAuthStore } from '@/stores/authStore'
-import { ArrowLeft } from 'lucide-react'
-import type { Student } from '@/types/api'
+import { ROUTES } from '@/app/routes/paths'
+import { GENDER, RACE_COLOR } from '@/components/ui/statusMaps'
+import type { PaginatedResponse, Student } from '@/types/api'
 import { useEducationDepartmentsQuery } from '../hooks/useEducationDepartmentsQuery'
 
 const studentSchema = z.object({
@@ -38,6 +44,8 @@ export default function StudentFormPage() {
   const isEditing = !!id
   const user = useAuthStore((state) => state.user)
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<unknown>(null)
+  const [showForm, setShowForm] = useState(isEditing)
 
   const departmentsQuery = useEducationDepartmentsQuery()
   const departments = departmentsQuery.data?.results || []
@@ -48,18 +56,15 @@ export default function StudentFormPage() {
     enabled: isEditing,
   })
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<StudentFormData>({
+  const methods = useForm<StudentFormData>({
     resolver: zodResolver(studentSchema),
     defaultValues: {
       education_department: user?.education_department || '',
       has_special_needs: false,
     },
   })
+  const { register, handleSubmit, reset, watch } = methods
+  const hasSpecialNeeds = watch('has_special_needs')
 
   useEffect(() => {
     if (studentQuery.data) {
@@ -90,267 +95,172 @@ export default function StudentFormPage() {
   }, [studentQuery.isError])
 
   const onSubmit = async (data: StudentFormData) => {
+    setSubmitError(null)
+    setSubmitting(true)
     try {
-      setSubmitting(true)
       if (id) {
         await apiPut(`students/${id}/`, data)
-        toast.success('Aluno atualizado com sucesso!')
+        toast.success('Aluno atualizado.')
       } else {
         await apiPost('students/', data)
-        toast.success('Aluno criado com sucesso!')
+        toast.success('Aluno criado.')
       }
-      navigate('/students')
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error))
+      navigate(ROUTES.students)
+    } catch (error) {
+      setSubmitError(error)
     } finally {
       setSubmitting(false)
     }
   }
 
-  const loading = isEditing && studentQuery.isLoading
+  const title = isEditing ? 'Editar aluno' : 'Novo aluno'
 
-  if (loading) {
+  if (isEditing && studentQuery.isLoading) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Skeleton className="h-9 w-9 rounded-md" />
-          <Skeleton className="h-8 w-48" />
-        </div>
-        <div className="bg-white rounded-lg shadow p-8 space-y-6 max-w-2xl">
-          <div className="grid grid-cols-2 gap-4">
-            {Array.from({ length: 8 }).map((_, index) => (
-              <div key={`field-skeleton-${index}`} className="space-y-2">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-10 w-full" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      <>
+        <PageHeader breadcrumb={[{ label: 'Alunos', to: ROUTES.students }]} title={title} />
+        <TableSkeleton rows={8} cols={2} />
+      </>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="sm" onClick={() => navigate('/students')}>
-          <ArrowLeft className="w-4 h-4" />
-        </Button>
-        <h1 className="text-3xl font-bold text-gray-900">
-          {id ? 'Editar Aluno' : 'Novo Aluno'}
-        </h1>
-      </div>
+    <>
+      <PageHeader
+        breadcrumb={[{ label: 'Alunos', to: ROUTES.students }, { label: title }]}
+        title={title}
+      />
 
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="bg-white rounded-lg shadow p-8 space-y-6 max-w-2xl"
-      >
-        <fieldset disabled={submitting}>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nome completo
-              </label>
-              <input
-                {...register('full_name')}
-                type="text"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Nome completo do aluno"
-              />
-              {errors.full_name && (
-                <p className="text-red-600 text-sm mt-1">{errors.full_name.message}</p>
-              )}
-            </div>
+      {!isEditing && !showForm && (
+        <PersonLookupStep
+          title="Buscar aluno na rede"
+          placeholder="Nome, ID municipal ou CPF…"
+          queryKey="student"
+          search={async (term) => {
+            const page = await apiGet<PaginatedResponse<Student>>('students/', { search: term })
+            return (page?.results ?? []).map((s) => ({
+              id: s.id,
+              name: s.full_name,
+              identifiers: [s.unique_municipal_id, s.cpf].filter(Boolean) as string[],
+              detail: s.mother_name ? `mãe: ${s.mother_name}` : undefined,
+            }))
+          }}
+          onPick={(r) => navigate(ROUTES.student(r.id))}
+          onSkip={() => setShowForm(true)}
+          skipLabel="Nenhum é — cadastrar novo aluno"
+        />
+      )}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                ID municipal
-              </label>
-              <input
-                {...register('unique_municipal_id')}
-                type="text"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Ex: MUN20260001"
-              />
-              {errors.unique_municipal_id && (
-                <p className="text-red-600 text-sm mt-1">{errors.unique_municipal_id.message}</p>
-              )}
-            </div>
+      {showForm && (
+        <FormProvider {...methods}>
+          <form onSubmit={handleSubmit(onSubmit)} className="grid gap-1">
+            {!!submitError && <FormError error={submitError} />}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nome da mãe
-              </label>
-              <input
-                {...register('mother_name')}
-                type="text"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              {errors.mother_name && (
-                <p className="text-red-600 text-sm mt-1">{errors.mother_name.message}</p>
-              )}
-            </div>
+            <fieldset disabled={submitting} className="grid gap-1">
+              <FormSection title="Identificação" description="Dados civis do aluno." first>
+                <Field label="Nome completo" name="full_name" required className="sm:col-span-2">
+                  <Input {...register('full_name')} />
+                </Field>
+                <Field label="Nome social" name="social_name">
+                  <Input {...register('social_name')} />
+                </Field>
+                <Field label="Data de nascimento" name="birth_date" required>
+                  <Input type="date" {...register('birth_date')} />
+                </Field>
+                <Field label="Gênero" name="gender">
+                  <Select {...register('gender')}>
+                    <option value="">Selecionar</option>
+                    {Object.entries(GENDER).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Raça / cor" name="race_color">
+                  <Select {...register('race_color')}>
+                    <option value="">Selecionar</option>
+                    {Object.entries(RACE_COLOR).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              </FormSection>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nome do pai
-              </label>
-              <input
-                {...register('father_name')}
-                type="text"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
+              <FormSection title="Filiação" description="Responsáveis familiares.">
+                <Field label="Nome da mãe" name="mother_name" required>
+                  <Input {...register('mother_name')} />
+                </Field>
+                <Field label="Nome do pai" name="father_name">
+                  <Input {...register('father_name')} />
+                </Field>
+              </FormSection>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nome social
-              </label>
-              <input
-                {...register('social_name')}
-                type="text"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
+              <FormSection title="Documentos" description="Códigos oficiais e programas sociais.">
+                <Field label="ID municipal" name="unique_municipal_id" required mono>
+                  <Input {...register('unique_municipal_id')} placeholder="Ex.: MUN20260001" />
+                </Field>
+                <Field label="CPF" name="cpf" mono>
+                  <Input {...register('cpf')} placeholder="00000000000" />
+                </Field>
+                <Field label="Código INEP" name="inep_id" mono>
+                  <Input {...register('inep_id')} />
+                </Field>
+                <Field
+                  label="NIS"
+                  name="nis_code"
+                  mono
+                  help="Bolsa Família / Auxílio Municipal"
+                >
+                  <Input {...register('nis_code')} />
+                </Field>
+                <Field label="Secretaria Municipal" name="education_department" required className="sm:col-span-2">
+                  <Select {...register('education_department')}>
+                    <option value="">Selecionar</option>
+                    {departments.map((dept) => (
+                      <option key={dept.id} value={dept.id}>
+                        {dept.municipality_name}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              </FormSection>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">CPF</label>
-              <input
-                {...register('cpf')}
-                type="text"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="00000000000"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Data de nascimento
-              </label>
-              <input
-                {...register('birth_date')}
-                type="date"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              {errors.birth_date && (
-                <p className="text-red-600 text-sm mt-1">{errors.birth_date.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Gênero</label>
-              <select
-                {...register('gender')}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              <FormSection
+                title="Atendimento educacional especializado"
+                description="Informe se o aluno é público-alvo da educação especial (AEE)."
               >
-                <option value="">Selecionar</option>
-                <option value="M">Masculino</option>
-                <option value="F">Feminino</option>
-                <option value="O">Outro</option>
-              </select>
-            </div>
+                <div className="sm:col-span-2 grid gap-3">
+                  <Checkbox
+                    label="Aluno é público-alvo da educação especial (AEE)"
+                    {...register('has_special_needs')}
+                  />
+                  {hasSpecialNeeds && (
+                    <Field
+                      label="Detalhamento do atendimento"
+                      name="special_needs_details"
+                      help="Barreiras, recursos de acessibilidade e apoios necessários."
+                    >
+                      <Textarea rows={3} {...register('special_needs_details')} />
+                    </Field>
+                  )}
+                </div>
+              </FormSection>
+            </fieldset>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Código INEP
-              </label>
-              <input
-                {...register('inep_id')}
-                type="text"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                NIS (Bolsa Família / Auxílio Municipal)
-              </label>
-              <input
-                {...register('nis_code')}
-                type="text"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Raça/Cor
-              </label>
-              <select
-                {...register('race_color')}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Selecionar</option>
-                <option value="BRANCA">Branca</option>
-                <option value="PRETA">Preta</option>
-                <option value="PARDA">Parda</option>
-                <option value="AMARELA">Amarela</option>
-                <option value="INDIGENA">Indígena</option>
-                <option value="NAO_DECLARADA">Não declarada</option>
-              </select>
-            </div>
-
-            <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Secretaria Municipal
-              </label>
-              <select
-                {...register('education_department')}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Selecionar</option>
-                {departments.map((dept) => (
-                  <option key={dept.id} value={dept.id}>
-                    {dept.municipality_name}
-                  </option>
-                ))}
-              </select>
-              {errors.education_department && (
-                <p className="text-red-600 text-sm mt-1">
-                  {errors.education_department.message}
-                </p>
-              )}
-            </div>
-
-            <div className="col-span-2 flex items-center gap-2">
-              <input
-                type="checkbox"
-                {...register('has_special_needs')}
-                id="has_special_needs"
-                className="rounded border-gray-300"
-              />
-              <label htmlFor="has_special_needs" className="text-sm text-gray-700">
-                Possui necessidades especiais
-              </label>
-            </div>
-
-            <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Detalhes das necessidades especiais
-              </label>
-              <textarea
-                {...register('special_needs_details')}
-                rows={3}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-2 pt-4">
-            <Button type="submit" disabled={submitting}>
-              {submitting ? 'Salvando...' : 'Salvar'}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate('/students')}
-              disabled={submitting}
-            >
-              Cancelar
-            </Button>
-          </div>
-        </fieldset>
-      </form>
-    </div>
+            <StickyActions>
+              <Button type="button" variant="secondary" onClick={() => navigate(ROUTES.students)}>
+                Cancelar
+              </Button>
+              <Button type="submit" variant="primary" loading={submitting}>
+                {id ? 'Atualizar' : 'Criar'}
+              </Button>
+            </StickyActions>
+          </form>
+        </FormProvider>
+      )}
+    </>
   )
 }

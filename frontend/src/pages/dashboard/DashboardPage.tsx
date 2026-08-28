@@ -1,18 +1,14 @@
-import { useAuthStore } from '@/stores/authStore'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { apiGet } from '@/utils/api-helpers'
-import { Users, School, BookOpen, Users2, Activity, Building2 } from 'lucide-react'
-import { USER_ROLE_LABELS } from '@/types/api'
-
-interface ActivityItem {
-  id: string
-  user: string
-  action: string
-  model: string
-  timestamp: string
-  time_ago: string
-}
+import type { PaginatedResponse } from '@/types/api'
+import { useAuthStore } from '@/stores/authStore'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { ScopeBar, useScope } from '@/components/ui/ScopeBar'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { Button } from '@/components/ui/Button'
+import { ROUTES } from '@/app/routes/paths'
+import { cn } from '@/utils/cn'
 
 interface DashboardSummary {
   students: number
@@ -23,151 +19,148 @@ interface DashboardSummary {
   teachers: number
 }
 
+const num = (n: number | undefined, loading: boolean) =>
+  loading ? '…' : n === undefined ? '—' : n.toLocaleString('pt-BR')
+
 export default function DashboardPage() {
   const user = useAuthStore((state) => state.user)
-  const isSme = user?.role === 'sme_admin' || user?.role === 'sme_supervisor'
+  const scope = useScope()
 
   const summary = useQuery({
-    queryKey: ['dashboard-summary'],
+    queryKey: ['dashboard', 'summary'],
     queryFn: () => apiGet<DashboardSummary>('dashboard/summary/'),
   })
-
-  const activities = useQuery({
-    queryKey: ['recent_activities'],
-    queryFn: () => apiGet<ActivityItem[]>('audit/recent_activities/'),
+  const pendingTransfers = useQuery({
+    queryKey: ['dashboard', 'pending-transfers'],
+    queryFn: () => apiGet<PaginatedResponse<unknown>>('sme/transfers/', { status: 'PENDING_SME' }),
   })
 
-  const fmt = (n?: number) =>
-    summary.isLoading ? '…' : n === undefined ? '—' : n.toLocaleString('pt-BR')
-
   const s = summary.data ?? undefined
-  const stats = [
-    {
-      title: 'Alunos',
-      value: fmt(s?.students),
-      icon: Users,
-      color: 'bg-blue-500',
-      href: '/students',
-    },
-    {
-      title: 'Turmas',
-      value: fmt(s?.school_classes),
-      icon: Users2,
-      color: 'bg-green-500',
-      href: '/classes',
-    },
-    {
-      title: 'Disciplinas',
-      value: fmt(s?.subjects),
-      icon: BookOpen,
-      color: 'bg-purple-500',
-      href: '/subjects',
-    },
-    {
-      title: 'Escolas',
-      value: fmt(s?.schools),
-      icon: isSme ? Building2 : School,
-      color: 'bg-orange-500',
-      href: isSme ? '/sme' : '/schools',
-    },
+  const loading = summary.isLoading
+  const transfersCount = pendingTransfers.data?.count ?? 0
+  const noStudents = !loading && s?.students === 0
+
+  const rede: { label: string; value: number | undefined; to: string; critical?: boolean }[] = [
+    { label: 'Escolas', value: s?.schools, to: ROUTES.schools },
+    { label: 'Turmas', value: s?.school_classes, to: ROUTES.classes },
+    { label: 'Alunos', value: s?.students, to: ROUTES.students, critical: noStudents },
+    { label: 'Matrículas ativas', value: s?.enrollments, to: ROUTES.enrollments },
+    { label: 'Professores', value: s?.teachers, to: ROUTES.teachers },
+    { label: 'Disciplinas', value: s?.subjects, to: ROUTES.curriculum },
   ]
 
-  const quickMenu = isSme
-    ? [
-        { label: 'Secretaria', href: '/sme' },
-        { label: 'Matrizes', href: '/sme/matrices' },
-        { label: 'Transferências', href: '/sme/transfers' },
-        { label: 'Alunos', href: '/students' },
-      ]
-    : [
-        { label: 'Alunos', href: '/students' },
-        { label: 'Turmas', href: '/classes' },
-        { label: 'Boletins', href: '/boletins' },
-        { label: 'Frequência', href: '/attendance' },
-      ]
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">
-          Bem-vindo, {user?.first_name || user?.username}!
-        </h1>
-        <p className="text-gray-600 mt-1">
-          {user?.role ? USER_ROLE_LABELS[user.role] : ''}
-          {isSme
-            ? ' — visão da rede municipal'
-            : ' — resumo da sua unidade escolar'}
-        </p>
-      </div>
+    <>
+      <PageHeader
+        title={`Bom dia, ${user?.first_name || user?.username || ''}`}
+        meta={<span>Painel do dia</span>}
+      />
+      <ScopeBar level={scope.level} title={scope.title} />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => {
-          const Icon = stat.icon
-          return (
-            <Link
-              key={stat.title}
-              to={stat.href}
-              className="bg-white rounded-lg shadow p-6 hover:shadow-lg hover:scale-105 transition-all text-left"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-600 text-sm font-medium">{stat.title}</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-2">{stat.value}</p>
-                </div>
-                <div className={`${stat.color} rounded-lg p-3`}>
-                  <Icon className="w-6 h-6 text-white" />
-                </div>
+      <div className="grid gap-5 lg:grid-cols-[1.25fr_1fr]">
+        {/* Precisa de você */}
+        <section className="rounded-lg border border-line bg-white">
+          <h2 className="border-b border-line px-4 py-3 text-section text-ink-900">Precisa de você</h2>
+          <div className="divide-y divide-line-soft">
+            {transfersCount > 0 ? (
+              <PendingRow
+                severity="warn"
+                title={`${transfersCount} ${transfersCount === 1 ? 'transferência aguardando' : 'transferências aguardando'} autorização`}
+                subtitle="Solicitações pendentes de análise pela Secretaria."
+                to={ROUTES.transfers}
+                action="Analisar"
+              />
+            ) : null}
+
+            {transfersCount === 0 && !loading && (
+              <div className="px-4 py-6">
+                <EmptyState
+                  title="Nada pendente"
+                  description="Não há ações aguardando você no momento."
+                />
               </div>
-            </Link>
-          )
-        })}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-lg shadow p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Activity className="w-5 h-5 text-blue-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Atividade Recente</h2>
-          </div>
-          <div className="space-y-4">
-            {activities.isLoading ? (
-              <p className="text-gray-600 text-center py-8">Carregando atividades...</p>
-            ) : activities.data && activities.data.length > 0 ? (
-              activities.data.map((activity) => (
-                <div
-                  key={activity.id}
-                  className="flex items-start gap-4 p-3 hover:bg-gray-50 rounded-lg transition-colors"
-                >
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900">
-                      <span className="text-blue-600">{activity.user}</span> {activity.action}
-                    </p>
-                    <p className="text-sm text-gray-600 mt-1">{activity.model}</p>
-                  </div>
-                  <p className="text-xs text-gray-500 whitespace-nowrap">{activity.time_ago}</p>
-                </div>
-              ))
-            ) : (
-              <p className="text-gray-600 text-center py-8">Nenhuma atividade recente</p>
             )}
           </div>
-        </div>
+        </section>
 
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Menu Rápido</h2>
-          <nav className="space-y-2">
-            {quickMenu.map((item) => (
-              <Link
-                key={item.href}
-                to={item.href}
-                className="block px-4 py-2 rounded-md hover:bg-blue-50 text-gray-700 hover:text-blue-600 font-medium transition-colors"
-              >
-                {item.label}
-              </Link>
+        {/* A rede hoje */}
+        <section className="rounded-lg border border-line bg-white">
+          <h2 className="border-b border-line px-4 py-3 text-section text-ink-900">
+            {scope.level === 'network' ? 'A rede hoje' : 'Sua unidade hoje'}
+          </h2>
+          <dl className="divide-y divide-line-soft">
+            {rede.map((row) => (
+              <div key={row.label} className="flex items-center justify-between px-4 py-2.5">
+                <dt>
+                  <Link to={row.to} className="text-base text-ink-700 hover:text-brand-600">
+                    {row.label}
+                  </Link>
+                </dt>
+                <dd
+                  className={cn(
+                    'font-mono tabular-nums text-base',
+                    row.critical ? 'text-danger-fg' : 'text-ink-900'
+                  )}
+                >
+                  {num(row.value, loading)}
+                </dd>
+              </div>
             ))}
-          </nav>
-        </div>
+          </dl>
+        </section>
       </div>
+
+      {noStudents && (
+        <EmptyState
+          title="Nenhum aluno cadastrado ainda"
+          description="A carga do Censo Escolar traz escolas e turmas, mas não os microdados individuais dos alunos. Cadastre os alunos ou importe uma planilha da rede."
+          actions={
+            <>
+              <Link to={ROUTES.studentNew}>
+                <Button variant="primary">Cadastrar aluno</Button>
+              </Link>
+              <Link to={ROUTES.students}>
+                <Button variant="secondary">Ver alunos</Button>
+              </Link>
+            </>
+          }
+        />
+      )}
+    </>
+  )
+}
+
+function PendingRow({
+  severity,
+  title,
+  subtitle,
+  to,
+  action,
+}: {
+  severity: 'warn' | 'danger'
+  title: string
+  subtitle: string
+  to: string
+  action: string
+}) {
+  return (
+    <div className="flex items-start gap-3 px-4 py-3.5">
+      <span
+        aria-hidden
+        className={cn(
+          'mt-1.5 h-2 w-2 shrink-0 rounded-pill',
+          severity === 'danger' ? 'bg-danger-base' : 'bg-warn-base'
+        )}
+      />
+      <div className="min-w-0 flex-1">
+        <p className="text-label text-ink-700">{title}</p>
+        <p className="text-help text-ink-500">{subtitle}</p>
+      </div>
+      <Link to={to}>
+        <Button size="sm" variant="secondary">
+          {action}
+        </Button>
+      </Link>
     </div>
   )
 }

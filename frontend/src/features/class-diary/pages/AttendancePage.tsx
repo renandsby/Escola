@@ -1,176 +1,203 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { Plus, CheckCheck, Search } from 'lucide-react'
 import { useCrud } from '@/hooks/useCrud'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/Skeleton'
-import {
-  Attendance,
-  ATTENDANCE_STATUS_LABELS,
-  AttendanceStatus,
-} from '@/types/api'
+import type { Attendance, AttendanceStatus } from '@/types/api'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { ScopeBar, useScope } from '@/components/ui/ScopeBar'
+import { DataTable, type Column } from '@/components/ui/DataTable'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { Badge } from '@/components/ui/Badge'
+import { Button } from '@/components/ui/Button'
+import { Field, Select, Input } from '@/components/ui/Field'
+import { FormError } from '@/components/feedback/FormError'
+import { ROUTES } from '@/app/routes/paths'
+import { apiPost } from '@/utils/api-helpers'
 import { formatDate } from '@/utils/formatting'
-import { apiPost, getErrorMessage } from '@/utils/api-helpers'
-import { Plus, CheckCheck } from 'lucide-react'
+import { ATTENDANCE_STATUS, labelOf } from '@/components/ui/statusMaps'
+import { DIARY_TABS } from '../diaryTabs'
+import { BatchGrid, type BatchCellValues, type BatchColumn } from '../components/BatchGrid'
 import { useSchoolClassesQuery } from '../hooks/useSchoolClassesQuery'
 import { useSubjectsQuery } from '../hooks/useSubjectsQuery'
 import { useEnrollmentRosterQuery } from '../hooks/useEnrollmentRosterQuery'
 import { useExistingAttendanceQuery } from '../hooks/useExistingAttendanceQuery'
 
-const SKELETON_ROWS = 5
+type RosterRow = { id: string; student_name?: string }
 
-const STATUS_OPTIONS: { value: AttendanceStatus; label: string }[] = [
-  { value: 'PRESENT', label: 'Presente' },
-  { value: 'ABSENT', label: 'Falta' },
-  { value: 'EXCUSED_ABSENCE', label: 'Falta Justificada' },
+const GRID_COLUMNS: BatchColumn<RosterRow>[] = [
+  {
+    key: 'status',
+    header: 'Frequência',
+    kind: 'segment',
+    options: [
+      { value: 'PRESENT', label: 'Presente', activeClass: 'border-transparent bg-ok-base text-white' },
+      { value: 'ABSENT', label: 'Falta', activeClass: 'border-transparent bg-danger-base text-white' },
+      {
+        value: 'EXCUSED_ABSENCE',
+        label: 'Justificada',
+        activeClass: 'border-transparent bg-warn-base text-ink-900',
+      },
+    ],
+  },
 ]
 
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'PRESENT':
-      return 'bg-green-100 text-green-800'
-    case 'ABSENT':
-      return 'bg-red-100 text-red-800'
-    case 'EXCUSED_ABSENCE':
-      return 'bg-yellow-100 text-yellow-800'
-    default:
-      return 'bg-gray-100 text-gray-800'
-  }
-}
+const attendanceToneOf = (s: string) => ATTENDANCE_STATUS[s]?.tone ?? 'neutral'
 
 export default function AttendancePage() {
   const queryClient = useQueryClient()
+  const scope = useScope()
   const { list } = useCrud<Attendance>('attendance/', 'attendance')
-  const [searchTerm, setSearchTerm] = useState('')
+  const [term, setTerm] = useState('')
 
-  // ---- Lançar Frequência (batch entry) state ----
-  const [showEntryForm, setShowEntryForm] = useState(false)
-  const [selectedClassId, setSelectedClassId] = useState('')
-  const [selectedSubjectId, setSelectedSubjectId] = useState('')
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [showSheet, setShowSheet] = useState(false)
+  const [classId, setClassId] = useState('')
+  const [subjectId, setSubjectId] = useState('')
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
 
-  const [rowStatus, setRowStatus] = useState<Record<string, AttendanceStatus | undefined>>({})
+  const [values, setValues] = useState<BatchCellValues>({})
+  const [baseline, setBaseline] = useState<BatchCellValues>({})
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<unknown>(null)
 
   const classesQuery = useSchoolClassesQuery()
   const subjectsQuery = useSubjectsQuery()
   const classes = classesQuery.data?.results || []
   const subjects = subjectsQuery.data?.results || []
 
-  const rosterQuery = useEnrollmentRosterQuery(selectedClassId)
-  const existingAttendanceQuery = useExistingAttendanceQuery(
-    selectedClassId,
-    selectedDate,
-    selectedSubjectId
-  )
-  const roster = rosterQuery.data?.results || []
-  const loadingRoster = rosterQuery.isLoading || existingAttendanceQuery.isLoading
+  const rosterQuery = useEnrollmentRosterQuery(classId)
+  const existingQuery = useExistingAttendanceQuery(classId, date, subjectId)
+  const roster = (rosterQuery.data?.results || []) as RosterRow[]
+
+  const ready = !!(classId && date)
+  const rosterLoading = rosterQuery.isLoading || existingQuery.isLoading
 
   useEffect(() => {
-    if (!selectedClassId || !selectedDate) {
-      setRowStatus({})
+    if (!ready || !rosterQuery.data) {
+      setValues({})
+      setBaseline({})
       return
     }
-    if (!rosterQuery.data) {
-      return
-    }
-
     const enrollments = rosterQuery.data.results || []
-    const existing = existingAttendanceQuery.data?.results || []
-
-    const nextStatus: Record<string, AttendanceStatus | undefined> = {}
-    enrollments.forEach((enrollment) => {
-      const match = existing.find((att) => att.enrollment === enrollment.id)
-      nextStatus[enrollment.id] = match?.status
+    const existing = existingQuery.data?.results || []
+    const next: BatchCellValues = {}
+    enrollments.forEach((enr) => {
+      const match = existing.find((a) => a.enrollment === enr.id)
+      next[enr.id] = { status: match?.status ?? '' }
     })
+    setValues(next)
+    setBaseline(JSON.parse(JSON.stringify(next)))
+  }, [ready, rosterQuery.data, existingQuery.data])
 
-    setRowStatus(nextStatus)
-  }, [selectedClassId, selectedDate, rosterQuery.data, existingAttendanceQuery.data])
+  const q = term.toLowerCase()
+  const rows = useMemo(
+    () =>
+      list.data?.results?.filter((a: Attendance) => a.student_name?.toLowerCase().includes(q)) || [],
+    [list.data, q]
+  )
 
-  const filteredData =
-    list.data?.results?.filter((att: Attendance) =>
-      att.student_name?.toLowerCase().includes(searchTerm.toLowerCase())
-    ) || []
-
-  const handleToggleEntryForm = () => {
-    setShowEntryForm((prev) => !prev)
+  const handleChange = (rk: string, ck: string, value: string) => {
+    setValues((prev) => ({ ...prev, [rk]: { ...prev[rk], [ck]: value } }))
   }
 
-  const handleSetRowStatus = (enrollmentId: string, status: AttendanceStatus) => {
-    setRowStatus((prev) => ({
-      ...prev,
-      [enrollmentId]: prev[enrollmentId] === status ? undefined : status,
-    }))
-  }
-
-  const handleMarkAllPresent = () => {
-    setRowStatus((prev) => {
+  const markAllPresent = () => {
+    setValues((prev) => {
       const next = { ...prev }
-      roster.forEach((enrollment) => {
-        if (!next[enrollment.id]) {
-          next[enrollment.id] = 'PRESENT'
-        }
+      roster.forEach((r) => {
+        if (!next[r.id]?.status) {next[r.id] = { ...next[r.id], status: 'PRESENT' }}
       })
       return next
     })
   }
 
-  const handleSaveAttendance = async () => {
-    const items = roster
-      .filter((enrollment) => rowStatus[enrollment.id])
-      .map((enrollment) => ({
-        enrollment: enrollment.id,
-        school_class: selectedClassId,
-        subject: selectedSubjectId || null,
-        date: selectedDate,
-        status: rowStatus[enrollment.id] as AttendanceStatus,
+  const resetSheet = () => {
+    setShowSheet(false)
+    setClassId('')
+    setSubjectId('')
+    setValues({})
+    setBaseline({})
+    setSaveError(null)
+  }
+
+  const handleSave = async () => {
+    const items = Object.entries(values)
+      .filter(([, row]) => (row.status ?? '').trim() !== '')
+      .map(([enrollment, row]) => ({
+        enrollment,
+        school_class: classId,
+        subject: subjectId || null,
+        date,
+        status: row.status as AttendanceStatus,
       }))
 
     if (items.length === 0) {
-      toast.error('Marque a frequência de ao menos um aluno antes de salvar')
+      toast.error('Marque a frequência de ao menos um aluno.')
       return
     }
 
+    setSaveError(null)
+    setSaving(true)
     try {
-      setSaving(true)
       await apiPost('attendance/batch-upsert/', { items })
-      toast.success('Frequência salva com sucesso!')
+      toast.success('Frequência salva.')
       queryClient.invalidateQueries({ queryKey: ['attendance', 'list'] })
-      setShowEntryForm(false)
+      resetSheet()
     } catch (error) {
-      toast.error(getErrorMessage(error))
+      setSaveError(error)
     } finally {
       setSaving(false)
     }
   }
 
+  const columns: Column<Attendance>[] = [
+    { key: 'student', header: 'Aluno', render: (a) => a.student_name },
+    { key: 'class', header: 'Turma', render: (a) => a.school_class_name || '—' },
+    { key: 'date', header: 'Data', render: (a) => formatDate(a.date) },
+    { key: 'subject', header: 'Disciplina', render: (a) => a.subject_name || 'Diária' },
+    {
+      key: 'status',
+      header: 'Situação',
+      render: (a) => (
+        <Badge tone={attendanceToneOf(a.status)}>{labelOf(ATTENDANCE_STATUS, a.status)}</Badge>
+      ),
+    },
+  ]
+
   if (list.isError) {
-    return <div className="p-6 text-red-600">Erro ao carregar frequência</div>
+    return (
+      <>
+        <PageHeader title="Diário de classe" />
+        <EmptyState title="Erro ao carregar" description="Não foi possível carregar a frequência." />
+      </>
+    )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Frequência</h1>
-        <Button onClick={handleToggleEntryForm}>
-          <Plus className="w-4 h-4 mr-1" />
-          Lançar Frequência
-        </Button>
-      </div>
+    <>
+      <PageHeader
+        breadcrumb={[{ label: 'Diário de classe' }, { label: 'Frequência' }]}
+        title="Diário de classe"
+        tabs={DIARY_TABS}
+        activeTab={ROUTES.diaryAttendance}
+        actions={
+          <Button
+            variant={showSheet ? 'secondary' : 'primary'}
+            iconLeft={<Plus className="h-4 w-4" />}
+            onClick={() => (showSheet ? resetSheet() : setShowSheet(true))}
+          >
+            {showSheet ? 'Fechar lançamento' : 'Lançar frequência'}
+          </Button>
+        }
+      />
+      <ScopeBar level={scope.level} title={scope.title} />
 
-      {showEntryForm && (
-        <div className="bg-white rounded-lg shadow p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900">Lançar Frequência</h2>
-
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Turma</label>
-              <select
-                required
-                value={selectedClassId}
-                onChange={(e) => setSelectedClassId(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
+      {showSheet && (
+        <div className="grid gap-4 rounded-lg border border-line bg-white p-6">
+          <h2 className="text-section text-ink-900">Lançar frequência</h2>
+          {!!saveError && <FormError error={saveError} />}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field label="Turma" name="class">
+              <Select value={classId} onChange={(e) => setClassId(e.target.value)}>
                 <option value="">Selecionar</option>
                 {classes.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -178,182 +205,69 @@ export default function AttendancePage() {
                     {c.school_name ? ` — ${c.school_name}` : ''}
                   </option>
                 ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Disciplina</label>
-              <select
-                value={selectedSubjectId}
-                onChange={(e) => setSelectedSubjectId(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Frequência diária (sem disciplina)</option>
+              </Select>
+            </Field>
+            <Field label="Disciplina" name="subject" help="Vazio = frequência diária">
+              <Select value={subjectId} onChange={(e) => setSubjectId(e.target.value)}>
+                <option value="">Frequência diária</option>
                 {subjects.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
                   </option>
                 ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Data</label>
-              <input
-                type="date"
-                required
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
+              </Select>
+            </Field>
+            <Field label="Data" name="date">
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </Field>
           </div>
 
-          {selectedClassId && selectedDate && (
-            <div className="space-y-3">
-              {loadingRoster ? (
-                <div className="space-y-2">
-                  {Array.from({ length: 4 }).map((_, index) => (
-                    <Skeleton key={`roster-skeleton-${index}`} className="h-10 w-full" />
-                  ))}
-                </div>
-              ) : roster.length === 0 ? (
-                <div className="text-gray-500 py-4">Nenhum aluno matriculado nesta turma</div>
-              ) : (
-                <>
-                  <div className="flex justify-between items-center">
-                    <p className="text-sm text-gray-600">{roster.length} aluno(s)</p>
-                    <Button type="button" variant="outline" size="sm" onClick={handleMarkAllPresent}>
-                      <CheckCheck className="w-4 h-4 mr-1" />
-                      Marcar todos como presentes
-                    </Button>
-                  </div>
-
-                  <div className="border border-gray-200 rounded-md divide-y">
-                    {roster.map((enrollment) => {
-                      const currentStatus = rowStatus[enrollment.id]
-                      return (
-                        <div
-                          key={enrollment.id}
-                          className="flex items-center justify-between px-4 py-2"
-                        >
-                          <span className="text-gray-900">{enrollment.student_name}</span>
-                          <div className="flex space-x-2">
-                            {STATUS_OPTIONS.map((option) => {
-                              const isActive = currentStatus === option.value
-                              return (
-                                <button
-                                  key={option.value}
-                                  type="button"
-                                  onClick={() => handleSetRowStatus(enrollment.id, option.value)}
-                                  className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${
-                                    isActive
-                                      ? `${getStatusColor(option.value)} border-transparent`
-                                      : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50'
-                                  }`}
-                                >
-                                  {option.label}
-                                </button>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
+          {ready && (
+            <BatchGrid<RosterRow>
+              rows={roster}
+              rowKey={(r) => r.id}
+              rowLabel={(r) => r.student_name || '—'}
+              columns={GRID_COLUMNS}
+              values={values}
+              baseline={baseline}
+              onChange={handleChange}
+              onSave={handleSave}
+              onCancel={resetSheet}
+              saving={saving}
+              isLoading={rosterLoading}
+              bulkActions={
+                <Button type="button" variant="secondary" size="sm" onClick={markAllPresent}>
+                  <CheckCheck className="mr-1 h-4 w-4" />
+                  Marcar todos presentes
+                </Button>
+              }
+            />
           )}
-
-          <div className="flex space-x-4 pt-2">
-            <Button
-              type="button"
-              disabled={saving || roster.length === 0}
-              onClick={handleSaveAttendance}
-            >
-              Salvar Frequência
-            </Button>
-            <Button type="button" variant="outline" onClick={() => setShowEntryForm(false)}>
-              Cancelar
-            </Button>
-          </div>
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
         <input
-          type="text"
-          placeholder="Buscar aluno..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          value={term}
+          onChange={(e) => setTerm(e.target.value)}
+          placeholder="Buscar por aluno…"
+          className="h-control w-full rounded border border-line-strong bg-white pl-9 pr-3 text-base"
         />
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-700">Aluno</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-700">Turma</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-700">Data</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-700">Disciplina</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-700">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {list.isLoading &&
-              Array.from({ length: SKELETON_ROWS }).map((_, index) => (
-                <tr key={`skeleton-${index}`}>
-                  <td className="px-4 py-3">
-                    <Skeleton className="h-4 w-32" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <Skeleton className="h-4 w-24" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <Skeleton className="h-4 w-20" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <Skeleton className="h-4 w-24" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <Skeleton className="h-5 w-20 rounded-full" />
-                  </td>
-                </tr>
-              ))}
-
-            {!list.isLoading &&
-              filteredData.map((attendance: Attendance) => (
-                <tr key={attendance.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-gray-900">{attendance.student_name}</td>
-                  <td className="px-4 py-3 text-gray-600">
-                    {attendance.school_class_name || '—'}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">{formatDate(attendance.date)}</td>
-                  <td className="px-4 py-3 text-gray-600">
-                    {attendance.subject_name || 'Diária'}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(attendance.status)}`}
-                    >
-                      {ATTENDANCE_STATUS_LABELS[attendance.status] || attendance.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            {!list.isLoading && filteredData.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                  Nenhum registro encontrado
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+      <DataTable
+        columns={columns}
+        rows={rows}
+        rowKey={(a) => a.id}
+        isLoading={list.isLoading}
+        empty={
+          <EmptyState
+            title="Nenhum registro"
+            description={term ? 'Ajuste a busca.' : 'Use "Lançar frequência" para registrar a chamada.'}
+          />
+        }
+      />
+    </>
   )
 }

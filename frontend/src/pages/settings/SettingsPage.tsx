@@ -1,197 +1,179 @@
 import { useState } from 'react'
+import { LogOut } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
-import { Button } from '@/components/ui/button'
-import { Bell, Lock, Palette, LogOut } from 'lucide-react'
-import { USER_ROLE_LABELS } from '@/types/api'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { Button } from '@/components/ui/Button'
+import { Select } from '@/components/ui/Field'
+import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
+import { USER_ROLE } from '@/components/ui/statusMaps'
+import { cn } from '@/utils/cn'
+
+function Card({
+  title,
+  description,
+  children,
+}: {
+  title: string
+  description?: string
+  children: React.ReactNode
+}) {
+  return (
+    <section className="grid gap-4 rounded-lg border border-line bg-white p-6">
+      <div>
+        <h2 className="text-section text-ink-900">{title}</h2>
+        {description && <p className="mt-1 text-help text-ink-400">{description}</p>}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function Toggle({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string
+  description: string
+  checked: boolean
+  onChange: (v: boolean) => void
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-line-soft pb-4 last:border-0 last:pb-0">
+      <div>
+        <p className="text-label text-ink-700">{label}</p>
+        <p className="mt-0.5 text-help text-ink-400">{description}</p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={cn(
+          'relative inline-flex h-6 w-11 shrink-0 items-center rounded-pill transition-colors',
+          checked ? 'bg-brand-600' : 'bg-line-strong'
+        )}
+      >
+        <span
+          className={cn(
+            'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+            checked ? 'translate-x-6' : 'translate-x-1'
+          )}
+        />
+      </button>
+    </div>
+  )
+}
+
+function Row({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div className="grid gap-1">
+      <p className="text-help text-ink-400">{label}</p>
+      <p className="text-base text-ink-700">{value || '—'}</p>
+    </div>
+  )
+}
 
 export default function SettingsPage() {
   const { user, logout } = useAuthStore()
   const [notifications, setNotifications] = useState(true)
   const [emailNotifications, setEmailNotifications] = useState(true)
   const [darkMode, setDarkMode] = useState(false)
-
-  const handleLogout = () => {
-    if (confirm('Tem certeza que deseja sair?')) {
-      logout()
-      window.location.href = '/login'
-    }
-  }
+  const [confirmLogout, setConfirmLogout] = useState(false)
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Configurações</h1>
-        <p className="text-gray-600 mt-1">Gerencie suas preferências e configurações de conta</p>
-      </div>
+    <>
+      <PageHeader
+        breadcrumb={[{ label: 'Configurações' }]}
+        title="Configurações"
+        meta="Preferências da conta e da interface."
+      />
 
-      {/* Perfil */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Perfil</h2>
+      <Card title="Perfil">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Row label="Nome" value={`${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim()} />
+          <Row label="Usuário" value={user?.username} />
+          <Row label="E-mail" value={user?.email} />
+          <Row label="Função" value={user?.role ? USER_ROLE[user.role] : '—'} />
         </div>
-        <div className="px-6 py-6 space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Nome</label>
-              <div className="px-4 py-2 bg-gray-50 rounded-md text-gray-700 border border-gray-300">
-                {user?.first_name} {user?.last_name}
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Usuário</label>
-              <div className="px-4 py-2 bg-gray-50 rounded-md text-gray-700 border border-gray-300">
-                {user?.username}
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-              <div className="px-4 py-2 bg-gray-50 rounded-md text-gray-700 border border-gray-300">
-                {user?.email}
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Função</label>
-              <div className="px-4 py-2 bg-gray-50 rounded-md text-gray-700 border border-gray-300">
-                {user?.role ? USER_ROLE_LABELS[user.role] : '—'}
-              </div>
-            </div>
-          </div>
-          <Button variant="outline">Editar Perfil</Button>
+        <div>
+          <Button variant="secondary">Editar perfil</Button>
         </div>
-      </div>
+      </Card>
 
-      {/* Notificações */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
-          <Bell className="w-5 h-5 text-blue-600" />
-          <h2 className="text-lg font-semibold text-gray-900">Notificações</h2>
-        </div>
-        <div className="px-6 py-6 space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium text-gray-900">Notificações no App</h3>
-              <p className="text-xs text-gray-600 mt-1">Receba notificações dentro da aplicação</p>
-            </div>
-            <button
-              onClick={() => setNotifications(!notifications)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                notifications ? 'bg-blue-600' : 'bg-gray-300'
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  notifications ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
-          </div>
+      <Card title="Notificações" description="Como você quer ser avisado.">
+        <Toggle
+          label="Notificações no app"
+          description="Receba avisos dentro da aplicação."
+          checked={notifications}
+          onChange={setNotifications}
+        />
+        <Toggle
+          label="Notificações por e-mail"
+          description="Receba atualizações no e-mail cadastrado."
+          checked={emailNotifications}
+          onChange={setEmailNotifications}
+        />
+      </Card>
 
-          <div className="border-t border-gray-200" />
-
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium text-gray-900">Notificações por Email</h3>
-              <p className="text-xs text-gray-600 mt-1">Receba atualizações por email</p>
-            </div>
-            <button
-              onClick={() => setEmailNotifications(!emailNotifications)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                emailNotifications ? 'bg-blue-600' : 'bg-gray-300'
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  emailNotifications ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
-          </div>
+      <Card title="Aparência">
+        <Toggle
+          label="Modo escuro"
+          description="Ative o tema escuro para a interface."
+          checked={darkMode}
+          onChange={setDarkMode}
+        />
+        <div className="grid gap-1.5">
+          <label htmlFor="lang" className="text-label text-ink-700">
+            Idioma
+          </label>
+          <Select id="lang" name="lang" defaultValue="pt" className="sm:max-w-xs">
+            <option value="pt">Português (BR)</option>
+            <option value="en">English (US)</option>
+            <option value="es">Español</option>
+          </Select>
         </div>
-      </div>
+      </Card>
 
-      {/* Aparência */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
-          <Palette className="w-5 h-5 text-purple-600" />
-          <h2 className="text-lg font-semibold text-gray-900">Aparência</h2>
+      <Card title="Segurança">
+        <div className="grid gap-3 sm:max-w-sm">
+          <Button variant="secondary">Alterar senha</Button>
+          <Button variant="secondary">Ativar autenticação em dois fatores</Button>
+          <Button variant="secondary">Revisar sessões ativas</Button>
         </div>
-        <div className="px-6 py-6 space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium text-gray-900">Modo Escuro</h3>
-              <p className="text-xs text-gray-600 mt-1">Ative o tema escuro para a interface</p>
-            </div>
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                darkMode ? 'bg-blue-600' : 'bg-gray-300'
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  darkMode ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
-          </div>
+      </Card>
 
-          <div className="border-t border-gray-200" />
-
-          <div>
-            <h3 className="text-sm font-medium text-gray-900 mb-4">Idioma</h3>
-            <select className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-              <option value="pt">Português (BR)</option>
-              <option value="en">English (US)</option>
-              <option value="es">Español</option>
-            </select>
-          </div>
+      <section className="grid gap-4 rounded-lg border border-danger-border bg-danger-bg p-6">
+        <div>
+          <h2 className="text-section text-danger-fg">Zona de perigo</h2>
+          <p className="mt-1 text-help text-danger-fg/80">
+            Você será desconectado de todas as sessões.
+          </p>
         </div>
-      </div>
-
-      {/* Segurança */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
-          <Lock className="w-5 h-5 text-red-600" />
-          <h2 className="text-lg font-semibold text-gray-900">Segurança</h2>
-        </div>
-        <div className="px-6 py-6 space-y-4">
-          <Button variant="outline" className="w-full">
-            Alterar Senha
-          </Button>
-          <Button variant="outline" className="w-full">
-            Ativar Autenticação de Dois Fatores
-          </Button>
-          <Button variant="outline" className="w-full">
-            Revisar Sessões Ativas
-          </Button>
-        </div>
-      </div>
-
-      {/* Zona de Perigo */}
-      <div className="bg-white rounded-lg shadow overflow-hidden border-2 border-red-100">
-        <div className="px-6 py-4 border-b border-red-100 bg-red-50">
-          <h2 className="text-lg font-semibold text-red-900">Zona de Perigo</h2>
-        </div>
-        <div className="px-6 py-6 space-y-4">
-          <div className="p-4 bg-red-50 rounded-md border border-red-200">
-            <p className="text-sm text-red-900 font-medium">Sair da Conta</p>
-            <p className="text-xs text-red-700 mt-1">Você será desconectado de todas as sessões</p>
-          </div>
+        <div>
           <Button
-            onClick={handleLogout}
-            className="w-full bg-red-600 hover:bg-red-700 text-white"
+            variant="danger"
+            iconLeft={<LogOut className="h-4 w-4" />}
+            onClick={() => setConfirmLogout(true)}
           >
-            <LogOut className="w-4 h-4 mr-2" />
-            Sair
+            Sair da conta
           </Button>
         </div>
-      </div>
+      </section>
 
-      <div className="text-center py-6">
-        <p className="text-sm text-gray-600">
-          Tem dúvidas? <a href="#" className="text-blue-600 hover:underline">Entre em contato com o suporte</a>
-        </p>
-      </div>
-    </div>
+      <ConfirmDialog
+        open={confirmLogout}
+        title="Sair da conta"
+        description="Você será desconectado e precisará entrar novamente."
+        onConfirm={() => {
+          logout()
+          window.location.href = '/login'
+        }}
+        onCancel={() => setConfirmLogout(false)}
+        confirmLabel="Sair"
+        destructive
+      />
+    </>
   )
 }
