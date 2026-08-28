@@ -91,3 +91,6 @@ db.sqlite3
 
 # WSL / Windows metadata
 *:Zone.Identifier
+
+# Microdados INEP (dados brutos volumosos — os filtrados de Igarassu ficam em backend/apps/governance/data/)
+/censo_2025/
