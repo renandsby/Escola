@@ -107,6 +107,14 @@ export const createApiClient = (): AxiosInstance => {
         }
       }
 
+      // Falha de rede (sem resposta do servidor) — toast único; erros com
+      // resposta ficam a cargo da página (FormError inline / toast).
+      if (!error.response && error.code !== 'ERR_CANCELED') {
+        void import('sonner').then(({ toast }) =>
+          toast.error('Sem conexão com o servidor. Verifique sua internet.')
+        )
+      }
+
       return Promise.reject(error)
     }
   )

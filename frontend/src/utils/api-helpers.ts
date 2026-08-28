@@ -107,6 +107,35 @@ export async function apiGetPaginated<T>(
   }
 }
 
+/** Extrai o `error.code` do envelope `{ success:false, error:{ code } }`. */
+export function getErrorCode(error: unknown): string | undefined {
+  if (error instanceof AxiosError) {
+    const data = error.response?.data as Record<string, unknown> | undefined
+    const envelope = data?.error as Record<string, unknown> | undefined
+    if (envelope?.code) {
+      return String(envelope.code)
+    }
+    const status = error.response?.status
+    if (status === 404) {return 'HTTP404'}
+    if (status === 403) {return 'PERMISSIONDENIED'}
+    if (status === 401) {return 'NOTAUTHENTICATED'}
+    if (status === 500) {return 'INTERNAL_SERVER_ERROR'}
+  }
+  return undefined
+}
+
+/** `error.details` do envelope (mapa de validação por campo, quando houver). */
+export function getErrorDetails(error: unknown): Record<string, unknown> | null {
+  if (error instanceof AxiosError) {
+    const data = error.response?.data as Record<string, unknown> | undefined
+    const envelope = data?.error as Record<string, unknown> | undefined
+    if (envelope?.details && typeof envelope.details === 'object') {
+      return envelope.details as Record<string, unknown>
+    }
+  }
+  return null
+}
+
 /**
  * Extrai mensagem de erro de uma exception do Axios
  */
