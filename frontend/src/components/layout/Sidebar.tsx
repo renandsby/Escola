@@ -1,199 +1,73 @@
-import { Link } from 'react-router-dom'
-import {
-  LayoutDashboard,
-  Users,
-  BookOpen,
-  GraduationCap,
-  BarChart3,
-  MessageSquare,
-  FileText,
-  ChevronLeft,
-  Building2,
-  Network,
-  ArrowLeftRight,
-  UserCog,
-  ClipboardList,
-  FileSignature,
-  Presentation,
-} from 'lucide-react'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
-import type { UserRole } from '@/types/api'
-import { USER_ROLE_LABELS } from '@/types/api'
+import { USER_ROLE } from '@/components/ui/statusMaps'
+import { navForRole } from './navigation'
+import { cn } from '@/utils/cn'
 
-interface SidebarProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-}
+/** contadores de pendência para os badges do menu (badgeKey → número) */
+export type NavBadges = Partial<Record<'pendingTransfers' | 'gradeDeadlines', number>>
 
-const SME_ROLES: UserRole[] = ['sme_admin', 'sme_supervisor']
-const SCHOOL_MGMT: UserRole[] = ['school_director', 'school_secretary']
-const ALL_ROLES: UserRole[] = [
-  'sme_admin',
-  'sme_supervisor',
-  'school_director',
-  'school_secretary',
-  'teacher',
-  'student_guardian',
-]
+export function Sidebar({ badges, onNavigate }: { badges?: NavBadges; onNavigate?: () => void }) {
+  const user = useAuthStore((s) => s.user)
+  const logout = useAuthStore((s) => s.logout)
+  const { pathname } = useLocation()
+  const groups = navForRole(user?.role)
 
-export default function Sidebar({ open, onOpenChange }: SidebarProps) {
-  const user = useAuthStore((state) => state.user)
-
-  const menuItems: {
-    title: string
-    icon: typeof LayoutDashboard
-    href: string
-    roles: UserRole[]
-  }[] = [
-    {
-      title: 'Dashboard',
-      icon: LayoutDashboard,
-      href: '/dashboard',
-      roles: ALL_ROLES,
-    },
-    {
-      title: 'Secretaria',
-      icon: Building2,
-      href: '/sme',
-      roles: SME_ROLES,
-    },
-    {
-      title: 'Matrizes',
-      icon: Network,
-      href: '/sme/matrices',
-      roles: SME_ROLES,
-    },
-    {
-      title: 'Transferências',
-      icon: ArrowLeftRight,
-      href: '/sme/transfers',
-      roles: SME_ROLES,
-    },
-    {
-      title: 'Professores',
-      icon: Presentation,
-      href: '/teachers',
-      roles: ['sme_admin'],
-    },
-    {
-      title: 'Alocações',
-      icon: UserCog,
-      href: '/teachers/allocations',
-      roles: ['sme_admin', 'sme_supervisor'],
-    },
-    {
-      title: 'Escolas',
-      icon: FileText,
-      href: '/schools',
-      roles: [...SME_ROLES, 'school_director'],
-    },
-    {
-      title: 'Alunos',
-      icon: GraduationCap,
-      href: '/students',
-      roles: [...SME_ROLES, ...SCHOOL_MGMT],
-    },
-    {
-      title: 'Matrículas',
-      icon: FileSignature,
-      href: '/enrollments',
-      roles: [...SME_ROLES, ...SCHOOL_MGMT],
-    },
-    {
-      title: 'Turmas',
-      icon: Users,
-      href: '/classes',
-      roles: [...SME_ROLES, ...SCHOOL_MGMT, 'teacher'],
-    },
-    {
-      title: 'Disciplinas',
-      icon: BookOpen,
-      href: '/subjects',
-      roles: [...SME_ROLES, 'school_director'],
-    },
-    {
-      title: 'Notas',
-      icon: BarChart3,
-      href: '/grades',
-      roles: [...SME_ROLES, 'school_director', 'teacher', 'student_guardian'],
-    },
-    {
-      title: 'Pareceres',
-      icon: ClipboardList,
-      href: '/evaluations',
-      roles: [...SME_ROLES, 'school_director', 'teacher'],
-    },
-    {
-      title: 'Frequência',
-      icon: BarChart3,
-      href: '/attendance',
-      roles: [...SME_ROLES, 'school_director', 'teacher'],
-    },
-    {
-      title: 'Boletins Consolidados',
-      icon: FileText,
-      href: '/boletins',
-      roles: [...SME_ROLES, 'school_director', 'teacher'],
-    },
-    {
-      title: 'Mensagens',
-      icon: MessageSquare,
-      href: '/messages',
-      roles: ALL_ROLES,
-    },
-    {
-      title: 'Documentos',
-      icon: FileText,
-      href: '/documents',
-      roles: ALL_ROLES,
-    },
-  ]
-
-  const availableItems = menuItems.filter(
-    (item) => user && item.roles.includes(user.role)
-  )
+  const isActive = (to: string, matchPrefix?: string) =>
+    pathname === to || (matchPrefix ? pathname.startsWith(matchPrefix) : false)
 
   return (
-    <aside
-      className={`${
-        open ? 'w-64' : 'w-20'
-      } bg-gray-900 text-white transition-all duration-300 flex flex-col`}
-    >
-      <div className="p-4 flex items-center justify-between">
-        <div className={`font-bold text-lg ${!open && 'hidden'}`}>Escola SME</div>
-        <button
-          onClick={() => onOpenChange(!open)}
-          className="p-1 hover:bg-gray-800 rounded-md"
-        >
-          <ChevronLeft className={`w-5 h-5 transition-transform ${!open && 'rotate-180'}`} />
-        </button>
-      </div>
+    <aside className="flex h-full flex-col overflow-y-auto bg-ink-900 text-white">
+      <div className="px-4 py-4 text-lg font-semibold">Escola SME</div>
 
-      <nav className="flex-1 space-y-1 px-2 py-4 overflow-y-auto">
-        {availableItems.map((item) => {
-          const Icon = item.icon
-          return (
-            <Link
-              key={item.href}
-              to={item.href}
-              className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-800 transition-colors"
-              title={!open ? item.title : ''}
-            >
-              <Icon className="w-5 h-5 flex-shrink-0" />
-              {open && <span className="text-sm">{item.title}</span>}
-            </Link>
-          )
-        })}
+      <nav className="flex-1 px-2 pb-4">
+        {groups.map((group, gi) => (
+          <div key={group.label ?? `g-${gi}`}>
+            {group.label && (
+              <p className="px-3 pb-1.5 pt-4 font-mono text-micro text-white/60">{group.label}</p>
+            )}
+            {group.items.map((item) => {
+              const active = isActive(item.to, item.matchPrefix)
+              const count = item.badgeKey ? badges?.[item.badgeKey] : undefined
+              return (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  onClick={onNavigate}
+                  className={cn(
+                    'flex items-center justify-between rounded px-3 py-2.5 text-sm hover:no-underline',
+                    active ? 'bg-brand-600 font-semibold text-white' : 'text-white/90 hover:bg-white/10'
+                  )}
+                >
+                  <span>{item.label}</span>
+                  {count ? (
+                    <span className="rounded-pill bg-warn-base px-1.5 text-[11px] font-bold text-ink-900">
+                      {count}
+                    </span>
+                  ) : null}
+                </NavLink>
+              )
+            })}
+          </div>
+        ))}
       </nav>
 
-      <div className={`p-4 border-t border-gray-800 ${!open && 'text-center'}`}>
-        <p className={`text-xs text-gray-400 ${!open && 'hidden'}`}>
-          {user?.first_name} {user?.last_name}
+      <div className="border-t border-ink-800 px-3 py-3">
+        <p className="truncate text-sm font-medium text-white">
+          {user?.first_name || user?.username}
         </p>
-        <p className={`text-xs text-gray-500 ${!open && 'hidden'}`}>
-          {user?.role ? USER_ROLE_LABELS[user.role] : ''}
+        <p className="truncate text-help text-white/60">
+          {user ? USER_ROLE[user.role] : ''}
         </p>
+        <button
+          onClick={logout}
+          className="mt-2 rounded px-2 py-1 text-help text-white/70 hover:bg-white/10"
+        >
+          Sair da conta
+        </button>
       </div>
     </aside>
   )
 }
+
+export default Sidebar

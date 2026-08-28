@@ -19,7 +19,7 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({
   allowedRoles,
   children,
-  fallbackPath = '/dashboard',
+  fallbackPath = '/',
 }: ProtectedRouteProps) {
   const { isAuthenticated, user, isHydrated } = useAuthStore()
 
