@@ -93,6 +93,17 @@ export const SCHOOL_HISTORY_STATUS: Record<string, StatusDef> = {
   pending: { label: 'Em andamento', tone: 'neutral' },
 }
 
+/* -------- Completude do diário (dashboard gerencial) -------- */
+export const DIARY_COMPLETENESS_STATUS: Record<string, StatusDef> = {
+  CRITICAL: { label: 'Crítico', tone: 'danger', shape: 'square' },
+  LATE: { label: 'Em atraso', tone: 'warn' },
+  IN_PROGRESS: { label: 'Em andamento', tone: 'brand' },
+  CLOSED: { label: 'Fechado', tone: 'ok' },
+  QUALITATIVE: { label: 'Pareceres', tone: 'qual' },
+  NO_TEACHER: { label: 'Sem regente', tone: 'danger', shape: 'diamond' },
+  NO_DATA: { label: 'Sem lançamento', tone: 'neutral' },
+}
+
 /* -------- Vínculo aluno–responsável (students.KinshipType) -------- */
 export const KINSHIP_TYPE: Record<string, string> = {
   MOTHER: 'Mãe',

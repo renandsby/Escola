@@ -26,7 +26,7 @@ const SCHOOL: Role[] = ['school_director', 'school_secretary']
 export const NAV: NavGroup[] = [
   {
     label: null,
-    items: [{ label: 'Painel do dia', to: ROUTES.home, roles: [...ALL_STAFF, 'student_guardian'] }],
+    items: [{ label: 'Dashboard gerencial', to: ROUTES.home, roles: [...SME, ...SCHOOL] }],
   },
   {
     label: 'REDE',

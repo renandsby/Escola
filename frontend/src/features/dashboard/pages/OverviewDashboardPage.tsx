@@ -1,0 +1,194 @@
+import { useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { ScopeBar } from '@/components/ui/ScopeBar'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { Button } from '@/components/ui/Button'
+import { TableSkeleton } from '@/components/ui/TableSkeleton'
+import { cn } from '@/utils/cn'
+import { useDashboardOverview } from '../hooks/useDashboardOverview'
+import type { OverviewParams } from '../types'
+import { KpiStrip } from '../components/KpiStrip'
+import { DashboardFilters } from '../components/DashboardFilters'
+import { AttendanceTrendChart } from '../components/AttendanceTrendChart'
+import { PerformanceByStage } from '../components/PerformanceByStage'
+import { EnrollmentByStage } from '../components/EnrollmentByStage'
+import { MovementPanel } from '../components/MovementPanel'
+import { DiaryCompletenessTable } from '../components/DiaryCompletenessTable'
+import { NeedsYouPanel } from '../components/NeedsYouPanel'
+import { ReportCatalog } from '../components/ReportCatalog'
+
+export default function OverviewDashboardPage() {
+  const [sp, setSp] = useSearchParams()
+
+  const params: OverviewParams = useMemo(
+    () => ({
+      scope: (sp.get('scope') as OverviewParams['scope']) ?? undefined,
+      school_id: sp.get('school_id') ?? undefined,
+      stage: sp.get('stage') ?? undefined,
+      shift: sp.get('shift') ?? undefined,
+    }),
+    [sp]
+  )
+
+  const { data, isLoading, isError, refetch } = useDashboardOverview(params)
+
+  const patch = (next: Record<string, string | undefined>) => {
+    setSp((prev) => {
+      const p = new URLSearchParams(prev)
+      Object.entries(next).forEach(([k, v]) => {
+        if (v) {p.set(k, v)}
+        else {p.delete(k)}
+      })
+      return p
+    })
+  }
+
+  const title = 'Dashboard gerencial'
+  const breadcrumb = [{ label: 'Painéis' }, { label: title }]
+
+  if (isLoading) {
+    return (
+      <>
+        <PageHeader breadcrumb={breadcrumb} title={title} />
+        <TableSkeleton rows={10} cols={4} />
+      </>
+    )
+  }
+
+  if (isError || !data) {
+    return (
+      <>
+        <PageHeader breadcrumb={breadcrumb} title={title} />
+        <EmptyState
+          title="Não foi possível carregar o painel"
+          description="Verifique sua conexão e tente novamente."
+          actions={
+            <Button variant="primary" onClick={() => refetch()}>
+              Tentar novamente
+            </Button>
+          }
+        />
+      </>
+    )
+  }
+
+  const { scope, period, kpis } = data
+  const isNetwork = scope.level === 'network'
+  const currentSchool = isNetwork ? '' : sp.get('school_id') ?? ''
+
+  const deadlineHint =
+    period.days_to_deadline !== null && period.grade_deadline
+      ? period.days_to_deadline >= 0
+        ? `prazo em ${period.days_to_deadline} dias · ${new Date(period.grade_deadline).toLocaleDateString('pt-BR')}`
+        : `prazo encerrado em ${new Date(period.grade_deadline).toLocaleDateString('pt-BR')}`
+      : undefined
+
+  return (
+    <>
+      <PageHeader
+        breadcrumb={breadcrumb}
+        title={title}
+        meta={
+          <span>
+            {period.academic_year
+              ? `Ano letivo ${period.academic_year}${period.term_label ? ` · ${period.term_label}` : ''}`
+              : 'Sem ano letivo ativo'}
+          </span>
+        }
+        actions={
+          <>
+            <Button variant="secondary" disabled title="Disponível na próxima versão">
+              Exportar painel (PDF)
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() =>
+                document.getElementById('relatorios')?.scrollIntoView({ behavior: 'smooth' })
+              }
+            >
+              Gerar relatório
+            </Button>
+          </>
+        }
+      />
+
+      <ScopeBar
+        level={isNetwork ? 'network' : 'school'}
+        title={scope.title}
+        detail={scope.detail}
+      />
+
+      {scope.can_switch_to_school && (
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="inline-flex overflow-hidden rounded border border-line-strong bg-white">
+            <button
+              type="button"
+              onClick={() => patch({ scope: undefined, school_id: undefined })}
+              className={cn(
+                'h-control-sm px-3.5 text-sm font-semibold',
+                isNetwork ? 'bg-brand-600 text-white' : 'text-ink-500 hover:bg-surface-subtle'
+              )}
+            >
+              Rede municipal
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                patch({
+                  scope: 'school',
+                  school_id: currentSchool || scope.schools[0]?.id,
+                })
+              }
+              className={cn(
+                'h-control-sm border-l border-line px-3.5 text-sm font-semibold',
+                !isNetwork ? 'bg-brand-600 text-white' : 'text-ink-500 hover:bg-surface-subtle'
+              )}
+            >
+              Escola
+            </button>
+          </div>
+          {!isNetwork && (
+            <select
+              value={currentSchool}
+              onChange={(e) => patch({ scope: 'school', school_id: e.target.value })}
+              className="h-control-sm rounded border border-line-strong bg-white px-2 text-sm"
+            >
+              {scope.schools.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
+
+      <DashboardFilters
+        stage={params.stage ?? ''}
+        shift={params.shift ?? ''}
+        termLabel={period.term_label}
+        onChange={patch}
+        onClear={() => patch({ stage: undefined, shift: undefined })}
+      />
+
+      <KpiStrip kpis={kpis} deadlineHint={deadlineHint} />
+
+      <div className="grid gap-5 lg:grid-cols-[1.45fr_1fr]">
+        <AttendanceTrendChart data={data.attendance_trend} />
+        <PerformanceByStage data={data.performance} />
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <EnrollmentByStage data={data.enrollment_by_stage} />
+        <MovementPanel data={data.movement} year={period.academic_year} />
+      </div>
+
+      <DiaryCompletenessTable data={data.diary_completeness} />
+
+      <NeedsYouPanel items={data.needs_you} />
+
+      <ReportCatalog level={isNetwork ? 'network' : 'school'} schoolId={currentSchool || null} />
+    </>
+  )
+}

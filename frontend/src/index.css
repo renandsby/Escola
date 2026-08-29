@@ -9,6 +9,7 @@
     --chart-brand: oklch(0.45 0.12 252);
     --chart-grid: oklch(0.9 0.008 255);
     --chart-axis: oklch(0.55 0.02 255);
+    --chart-danger: oklch(0.52 0.16 27);
   }
   html {
     -webkit-font-smoothing: antialiased;
