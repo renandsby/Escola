@@ -1,4 +1,4 @@
-import { createContext, useContext } from 'react'
+import { createContext, forwardRef, useContext } from 'react'
 import { useFormContext } from 'react-hook-form'
 import { AlertCircle } from 'lucide-react'
 import { cn } from '@/utils/cn'
@@ -96,52 +96,50 @@ function useControlProps(explicitName?: string) {
   }
 }
 
-export function Input({
-  className,
-  name,
-  ...props
-}: React.InputHTMLAttributes<HTMLInputElement> & { name?: string }) {
+// `forwardRef` é obrigatório: o React Hook Form registra o controle via `ref`.
+export const Input = forwardRef<
+  HTMLInputElement,
+  React.InputHTMLAttributes<HTMLInputElement> & { name?: string }
+>(function Input({ className, name, ...props }, ref) {
   const base = useControlProps(name)
-  return <input {...base} {...props} className={cn(base.className, className)} />
-}
+  return <input ref={ref} {...base} {...props} className={cn(base.className, className)} />
+})
 
-export function Select({
-  className,
-  name,
-  children,
-  ...props
-}: React.SelectHTMLAttributes<HTMLSelectElement> & { name?: string }) {
+export const Select = forwardRef<
+  HTMLSelectElement,
+  React.SelectHTMLAttributes<HTMLSelectElement> & { name?: string }
+>(function Select({ className, name, children, ...props }, ref) {
   const base = useControlProps(name)
   return (
-    <select {...base} {...props} className={cn(base.className, className)}>
+    <select ref={ref} {...base} {...props} className={cn(base.className, className)}>
       {children}
     </select>
   )
-}
+})
 
-export function Textarea({
-  className,
-  name,
-  ...props
-}: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { name?: string }) {
+export const Textarea = forwardRef<
+  HTMLTextAreaElement,
+  React.TextareaHTMLAttributes<HTMLTextAreaElement> & { name?: string }
+>(function Textarea({ className, name, ...props }, ref) {
   const base = useControlProps(name)
   return (
     <textarea
+      ref={ref}
       {...base}
       {...props}
       className={cn(base.className, 'h-auto min-h-[88px] py-2', className)}
     />
   )
-}
+})
 
-export function Checkbox({
-  label,
-  className,
-  ...props
-}: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+export const Checkbox = forwardRef<
+  HTMLInputElement,
+  { label: string } & React.InputHTMLAttributes<HTMLInputElement>
+>(function Checkbox({ label, className, ...props }, ref) {
   return (
     <label className={cn('flex min-h-control items-center gap-2 text-base text-ink-700', className)}>
       <input
+        ref={ref}
         type="checkbox"
         className="h-4 w-4 rounded border-line-strong text-brand-600 focus:ring-[3px] focus:ring-brand-400/35"
         {...props}
@@ -149,7 +147,7 @@ export function Checkbox({
       {label}
     </label>
   )
-}
+})
 
 /* SegmentedControl — substitui <select> quando há 2–4 opções curtas */
 export function SegmentedControl<T extends string>({
