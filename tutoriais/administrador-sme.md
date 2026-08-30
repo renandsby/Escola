@@ -14,7 +14,7 @@ pedagógico de todas as unidades — além de operações de rede como o
 1. [Primeiro acesso](#1-primeiro-acesso)
 2. [Cabeçalho, notificações e menu](#2-cabeçalho-notificações-e-menu)
 3. [Dashboard gerencial](#3-dashboard-gerencial)
-4. [Dados da Secretaria e fechamento de ano letivo](#4-dados-da-secretaria-e-fechamento-de-ano-letivo)
+4. [Ano letivo, bimestres e fechamento](#4-ano-letivo-bimestres-e-fechamento)
 5. [Escolas e salas de aula](#5-escolas-e-salas-de-aula)
 6. [Currículo e matrizes](#6-currículo-e-matrizes)
 7. [Professores e alocações](#7-professores-e-alocações)
@@ -75,18 +75,36 @@ Menu **Dashboard gerencial** (`/`).
 
 ---
 
-## 4. Dados da Secretaria e fechamento de ano letivo
+## 4. Ano letivo, bimestres e fechamento
 
-Menu **Escolas e salas → Secretaria**, ou a rota `/sme`.
+Menu **Ano letivo e bimestres** (`/ano-letivo`).
 
 - Mostra município, código IBGE, secretário(a) e os **parâmetros da rede**
   (nota mínima para aprovação, frequência mínima).
-- Card **Anos letivos** — lista os anos com seu status (Ativo / Planejado /
-  Encerrado).
+- Tabela **Anos letivos e bimestres** — cada ano com status (Ativo / Planejado /
+  Encerrado), vigência e nº de bimestres.
+
+### Criar e editar anos letivos e bimestres
+
+Somente `sme_admin`.
+
+1. **Novo ano letivo** → informe o **ano**, o **status** (comece em *Planejado*)
+   e a **vigência** (início e término). O início precisa cair no ano informado e
+   o término ser posterior ao início.
+2. Na linha do ano, o ícone de **calendário** abre os **bimestres**; o **lápis**
+   edita o ano.
+3. Em **Bimestres**, use **Novo bimestre** → **nome** ("1º Bimestre"), **número**
+   (1 a 12), **datas** (dentro da vigência do ano) e o **prazo de lançamento de
+   notas** (igual ou posterior ao término do bimestre). O número não se repete
+   no mesmo ano.
+4. **Excluir** um bimestre pede confirmação. Não é possível excluir um bimestre
+   com notas/pareceres lançados, nem um ano com turmas/matrículas vinculadas.
+5. Quando o ano está **Encerrado**, os campos ficam bloqueados — não há mais
+   edição de datas nem de bimestres.
 
 ### Encerrar o ano letivo
 
-No card **Anos letivos**, no ano **Ativo**, clique em **Encerrar ano letivo**
+Na tabela **Anos letivos e bimestres**, no ano **Ativo**, clique em **Encerrar**
 (somente `sme_admin`). O sistema pede confirmação em **duas etapas** (aviso do
 que acontece + digitar o ano). Ao confirmar, para **cada matrícula ativa**:
 

@@ -271,6 +271,14 @@ CREATE TABLE academic_periods (
 );
 ```
 
+O CRUD é feito pela SME em **Rede → Ano letivo e bimestres** (`AcademicYearViewSet`
+/ `AcademicPeriodViewSet` sob `/api/v1/sme/`): leitura para papéis `sme_*`, escrita
+apenas `sme_admin`. Os serializers validam datas coerentes (`start < end`),
+`start_date` no mesmo ano de `year`, período contido na vigência do ano,
+`grade_deadline ≥ end_date` e `period_number` único por ano. Ano `CLOSED` recusa
+edição/exclusão; a exclusão de ano/período em uso retorna `YEAR_IN_USE` /
+`PERIOD_IN_USE` (a FK `ON DELETE RESTRICT`/`PROTECT` é traduzida para o envelope).
+
 ### 5.3. Estrutura Curricular da Rede (Alinhamento BNCC)
 
 ```sql
@@ -736,7 +744,7 @@ POST   /api/v1/accounts/totp/verify/              # AllowAny — { challenge_tok
 
 # Governança & Escolas  (também sob /api/v1/sme/* — gateway do painel da SME)
 GET    /api/v1/sme/departments/  ·  GET /api/v1/sme/departments/{id}/indicators/
-GET    /api/v1/sme/academic-years/   ·  GET /api/v1/sme/academic-periods/
+GET…DELETE /api/v1/sme/academic-years/   ·  /api/v1/sme/academic-periods/   # leitura sme_*, escrita sme_admin
 POST   /api/v1/sme/academic-years/{id}/close/      # sme_admin: fecha o ano + consolida histórico
 GET    /api/v1/schools/          POST /api/v1/schools/          # DELETE = soft-delete
 GET    /api/v1/classrooms/       POST /api/v1/classrooms/       # escopo por escola; write IsSMEStaff|IsSchoolStaff

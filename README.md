@@ -45,6 +45,7 @@ O backend segue o padrão **Services & Selectors** (regras de negócio isoladas 
 - [x] **Transferências** entre escolas: solicitação + autorização (SME) → aceite/recusa (escola de destino), com **efeito real na matrícula** (encerra origem, cria destino, atômico)
 - [x] **Alocação docente** com prevenção de **conflito de turno** no mesmo ano letivo
 - [x] **CRUD de turmas e salas** na interface, com escopo por escola
+- [x] **CRUD de anos letivos e bimestres** na interface (SME): vigência, status, períodos avaliativos com prazo de notas e validação de datas dentro do ano
 - [x] **Diário de classe**: lançamento **em lote** de notas e frequência (`bulk_create` / `bulk_update`), pareceres descritivos para a Educação Infantil
 - [x] **Fechamento de ano letivo**: consolidação de `SchoolHistory` (aprovado / reprovado por nota / por frequência) e trava do diário
 - [x] **Matriz curricular** por etapa de ensino (BNCC) e catálogo de disciplinas da rede
@@ -323,6 +324,7 @@ Toda a API vive sob o prefixo `/api/v1/`. O schema OpenAPI é gerado por `drf-sp
 | `POST`       | `/api/v1/grades/batch-upsert/`       | Lançamento de notas em lote                  | Bearer                |
 | `POST`       | `/api/v1/attendance/batch-upsert/`   | Lançamento de frequência em lote             | Bearer                |
 | `PATCH`      | `/api/v1/sme/transfers/{id}/accept/` | Aceite da transferência (efeito na matrícula)| Bearer                |
+| `GET`…`DELETE` | `/api/v1/sme/academic-years/` · `/academic-periods/` | CRUD de anos letivos e bimestres | Bearer (leitura `sme_*`, escrita `sme_admin`) |
 | `POST`       | `/api/v1/sme/academic-years/{id}/close/` | Fecha o ano + consolida histórico       | Bearer (`sme_admin`)  |
 | `GET`        | `/api/v1/guardians/my-dependents/`   | Portal da família — resumo por filho         | Bearer                |
 | `GET` `POST` | `/api/v1/privacy/consents/` · `my-data/` | Consentimento / portabilidade LGPD      | Bearer                |
