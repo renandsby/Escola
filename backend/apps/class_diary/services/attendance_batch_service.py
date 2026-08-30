@@ -1,7 +1,19 @@
 from django.db import transaction
 from django.db.models import Q
 
+from core.exceptions import BusinessLogicError
 from apps.class_diary.models import Attendance
+from apps.students.models import Enrollment
+
+
+def _assert_years_open(enrollment_ids) -> None:
+    if Enrollment.objects.filter(
+        id__in=enrollment_ids, school_class__academic_year__status='CLOSED'
+    ).exists():
+        raise BusinessLogicError(
+            code='YEAR_ALREADY_CLOSED',
+            message='O ano letivo desta turma está encerrado — não há lançamentos.',
+        )
 
 
 @transaction.atomic
@@ -18,6 +30,7 @@ def batch_upsert_attendance(*, items: list[dict]) -> list[dict]:
         return []
 
     enrollment_ids = {i['enrollment'] for i in items}
+    _assert_years_open(enrollment_ids)
 
     non_null_subject_ids = {i.get('subject') for i in items if i.get('subject')}
     has_null_subject = any(i.get('subject') is None for i in items)

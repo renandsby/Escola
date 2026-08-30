@@ -95,6 +95,13 @@ class AcademicYearViewSet(viewsets.ModelViewSet):
             return AcademicYearListSerializer
         return AcademicYearSerializer
 
+    @action(detail=True, methods=['post'], permission_classes=[IsSMEAdmin])
+    def close(self, request, pk=None):
+        from apps.governance.services.year_closing_service import close_academic_year
+
+        summary = close_academic_year(academic_year_id=pk, actor_user=request.user)
+        return Response(summary)
+
 
 class AcademicPeriodViewSet(viewsets.ModelViewSet):
     queryset = AcademicPeriod.objects.filter(is_active=True).select_related('academic_year')

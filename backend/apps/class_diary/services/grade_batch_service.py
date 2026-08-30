@@ -1,6 +1,23 @@
 from django.db import transaction
 
+from core.exceptions import BusinessLogicError
 from apps.class_diary.models import Grade
+from apps.students.models import Enrollment
+
+
+def _assert_years_open(enrollment_ids) -> None:
+    """Bloqueia lançamentos retroativos em ano letivo já encerrado."""
+    closed = (
+        Enrollment.objects.filter(
+            id__in=enrollment_ids,
+            school_class__academic_year__status='CLOSED',
+        ).exists()
+    )
+    if closed:
+        raise BusinessLogicError(
+            code='YEAR_ALREADY_CLOSED',
+            message='O ano letivo desta turma está encerrado — não há lançamentos.',
+        )
 
 
 @transaction.atomic
@@ -16,6 +33,7 @@ def batch_upsert_grades(*, items: list[dict], actor_user) -> list[dict]:
 
     keys = {(i['enrollment'], i['subject'], i['academic_period']) for i in items}
     enrollment_ids = {i['enrollment'] for i in items}
+    _assert_years_open(enrollment_ids)
     subject_ids = {i['subject'] for i in items}
     period_ids = {i['academic_period'] for i in items}
 

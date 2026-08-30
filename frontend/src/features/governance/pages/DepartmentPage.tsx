@@ -1,22 +1,40 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/authStore'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { ScopeBar, useScope } from '@/components/ui/ScopeBar'
 import { DataTable, type Column } from '@/components/ui/DataTable'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { TableSkeleton } from '@/components/ui/TableSkeleton'
+import { Badge } from '@/components/ui/Badge'
+import { Button } from '@/components/ui/Button'
 import { labelOf, SCHOOL_TYPE } from '@/components/ui/statusMaps'
+import { apiGet } from '@/utils/api-helpers'
 import { ROUTES } from '@/app/routes/paths'
-import type { School } from '@/types/api'
+import type { AcademicYear, PaginatedResponse, School } from '@/types/api'
 import { useMyDepartmentQuery } from '../hooks/useDepartmentQuery'
 import { useDepartmentSchoolsQuery } from '../hooks/useDepartmentSchoolsQuery'
+import { AcademicYearClosingModal } from './AcademicYearClosingModal'
+
+const YEAR_STATUS: Record<string, { label: string; tone: 'ok' | 'warn' | 'neutral' }> = {
+  ACTIVE: { label: 'Ativo', tone: 'ok' },
+  PLANNED: { label: 'Planejado', tone: 'warn' },
+  CLOSED: { label: 'Encerrado', tone: 'neutral' },
+}
 
 export default function DepartmentPage() {
   const navigate = useNavigate()
   const scope = useScope()
   const user = useAuthStore((state) => state.user)
+  const isAdmin = user?.role === 'sme_admin'
+  const [closing, setClosing] = useState<AcademicYear | null>(null)
   const department = useMyDepartmentQuery(user?.education_department)
   const schools = useDepartmentSchoolsQuery(department.data?.id)
+  const years = useQuery({
+    queryKey: ['academic-years', 'department'],
+    queryFn: () => apiGet<PaginatedResponse<AcademicYear>>('sme/academic-years/'),
+  })
 
   if (department.isLoading) {
     return (
@@ -83,6 +101,34 @@ export default function DepartmentPage() {
         </dl>
       </div>
 
+      <section className="grid gap-3 rounded-lg border border-line bg-white p-6">
+        <h2 className="text-section text-ink-900">Anos letivos</h2>
+        <ul className="grid gap-2">
+          {(years.data?.results ?? []).map((y) => {
+            const st = YEAR_STATUS[y.status] ?? { label: y.status, tone: 'neutral' as const }
+            return (
+              <li
+                key={y.id}
+                className="flex flex-wrap items-center justify-between gap-3 border-b border-line-soft pb-2 last:border-0 last:pb-0"
+              >
+                <span className="flex items-center gap-2 text-base text-ink-800">
+                  <span className="font-mono tabular-nums">{y.year}</span>
+                  <Badge tone={st.tone}>{st.label}</Badge>
+                </span>
+                {isAdmin && y.status === 'ACTIVE' && (
+                  <Button size="sm" variant="secondary" onClick={() => setClosing(y)}>
+                    Encerrar ano letivo
+                  </Button>
+                )}
+              </li>
+            )
+          })}
+          {years.data && years.data.results.length === 0 && (
+            <li className="text-help text-ink-400">Nenhum ano letivo cadastrado.</li>
+          )}
+        </ul>
+      </section>
+
       <DataTable
         columns={columns}
         rows={schoolList}
@@ -91,6 +137,14 @@ export default function DepartmentPage() {
         onRowClick={(s) => navigate(ROUTES.schoolEdit(s.id))}
         empty={<EmptyState title="Nenhuma escola" description="A rede ainda não tem escolas cadastradas." />}
       />
+
+      {closing && (
+        <AcademicYearClosingModal
+          academicYearId={closing.id}
+          year={closing.year}
+          onClose={() => setClosing(null)}
+        />
+      )}
     </>
   )
 }

@@ -137,6 +137,17 @@ export const ERROR_MESSAGES: Record<string, ErrorDef> = {
     message: () => 'A nova senha deve ter ao menos 8 caracteres.',
   },
 
+  // --- Fechamento de ano letivo ---
+  YEAR_ALREADY_CLOSED: {
+    title: 'Ano letivo encerrado',
+    message: () => 'Este ano letivo já foi encerrado — não há mais lançamentos.',
+  },
+  YEAR_HAS_OPEN_PERIODS: {
+    title: 'Bimestres em aberto',
+    message: (d) =>
+      `Encerre todos os bimestres antes de fechar o ano${d?.periods ? `: ${d.periods}` : '.'}`,
+  },
+
   // --- Genéricos do envelope ---
   VALIDATION_ERROR: {
     title: 'Dados inválidos',
