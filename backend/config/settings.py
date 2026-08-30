@@ -3,6 +3,7 @@ from pathlib import Path
 from datetime import timedelta
 
 import environ
+from celery.schedules import crontab
 from decouple import config as decouple_config
 from django.core.exceptions import ImproperlyConfigured
 
@@ -261,6 +262,14 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+
+# Agendamentos fixos (celery-beat). P1-BACKUP: backup do banco toda noite.
+CELERY_BEAT_SCHEDULE = {
+    'nightly-database-backup': {
+        'task': 'backups.run_nightly_backup',
+        'schedule': crontab(hour=2, minute=0),  # 02:00 (fuso da app)
+    },
+}
 
 if DEBUG:
     CACHES = {
