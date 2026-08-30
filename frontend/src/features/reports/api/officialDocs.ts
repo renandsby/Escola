@@ -33,3 +33,11 @@ export function downloadRelatorioCsv(schoolId?: string) {
 export function downloadEducacensoExport(departmentId?: string) {
   return downloadFile('/reports/educacenso-export/', { department: departmentId }, 'educacenso.csv')
 }
+
+export function downloadEducacensoArchive(academicYearId?: string) {
+  return downloadFile(
+    '/reports/educacenso/export/',
+    { academic_year_id: academicYearId },
+    'educacenso.zip'
+  )
+}

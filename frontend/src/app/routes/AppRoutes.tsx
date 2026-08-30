@@ -31,6 +31,7 @@ import GradesPage from '@/features/class-diary/pages/GradesPage'
 import AttendancePage from '@/features/class-diary/pages/AttendancePage'
 import BoletimPage from '@/features/reports/pages/BoletimPage'
 import ExportsPage from '@/features/reports/pages/ExportsPage'
+import EducacensoPage from '@/features/reports/pages/EducacensoPage'
 import DocumentsPage from '@/pages/documents/DocumentsPage'
 import DocumentFormPage from '@/pages/documents/DocumentFormPage'
 import SettingsPage from '@/pages/settings/SettingsPage'
@@ -150,6 +151,7 @@ export function AppRoutes() {
             path={ROUTES.exports}
             element={guard([...SME, ...SCHOOL_MGMT], <ExportsPage />)}
           />
+          <Route path={ROUTES.educacenso} element={guard(SME, <EducacensoPage />)} />
           <Route path={ROUTES.documents} element={<DocumentsPage />} />
           <Route path="/documentos/arquivos/:id" element={<DocumentFormPage />} />
 

@@ -53,6 +53,7 @@ export const ROUTES = {
   // DOCUMENTOS
   boletins: '/documentos/boletins',
   exports: '/documentos/exportacoes',
+  educacenso: '/documentos/educacenso',
   documents: '/documentos/arquivos',
   documentDetail: (id: string) => `/documentos/arquivos/${id}`,
 

@@ -32,6 +32,11 @@ from apps.reports.services.pdf_generator import (
     generate_student_report_pdf,
 )
 from core.exceptions import BusinessLogicError
+from core.permissions import IsSMEStaff
+from apps.reports.services.educacenso_exporter import (
+    generate_educacenso_archive,
+    validate_network_for_educacenso,
+)
 
 from .serializers import (
     CreateExecutionSerializer,
@@ -235,4 +240,33 @@ class ReportViewSet(viewsets.ModelViewSet):
             ContentFile(buffer.getvalue().encode('utf-8-sig')),
             as_attachment=True, filename='educacenso_export.csv',
             content_type='text/csv; charset=utf-8',
+        )
+
+    @action(
+        detail=False, methods=['get'], url_path='educacenso/validate',
+        permission_classes=[permissions.IsAuthenticated, IsSMEStaff],
+    )
+    def educacenso_validate(self, request):
+        dept_id = (
+            request.query_params.get('department') or request.user.education_department_id
+        )
+        return Response(validate_network_for_educacenso(department_id=dept_id))
+
+    @action(
+        detail=False, methods=['get'], url_path='educacenso/export',
+        permission_classes=[permissions.IsAuthenticated, IsSMEStaff],
+    )
+    def educacenso_archive(self, request):
+        dept_id = (
+            request.query_params.get('department') or request.user.education_department_id
+        )
+        year_id = request.query_params.get('academic_year_id')
+        content = generate_educacenso_archive(
+            department_id=dept_id, academic_year_id=year_id
+        )
+        return FileResponse(
+            ContentFile(content),
+            as_attachment=True,
+            filename='educacenso.zip',
+            content_type='application/zip',
         )
