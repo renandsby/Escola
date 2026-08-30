@@ -233,7 +233,8 @@ def _diary_completeness_pct(enrollments, period):
     return round(launched / expected * 100, 1)
 
 
-def _attendance_trend(enrollments, year):
+def _trend_points(enrollments, year):
+    """Um ponto de frequência por bimestre do ``year``. None se não houver base."""
     if year is None or not enrollments.exists():
         return None
     att = Attendance.objects.filter(enrollment__in=enrollments)
@@ -248,7 +249,9 @@ def _attendance_trend(enrollments, year):
         window = att.filter(date__gte=p.start_date, date__lte=p.end_date)
         total = window.count()
         if not total:
-            points.append({'term': p.period_number, 'label': p.name, 'value': None, 'partial': p.end_date >= today})
+            points.append(
+                {'term': p.period_number, 'label': p.name, 'value': None, 'partial': p.end_date >= today}
+            )
             continue
         present = window.filter(status='PRESENT').count()
         points.append(
@@ -259,9 +262,52 @@ def _attendance_trend(enrollments, year):
                 'partial': p.end_date >= today,
             }
         )
-    if not any(pt['value'] is not None for pt in points):
+    return points if any(pt['value'] is not None for pt in points) else None
+
+
+def _attendance_trend(enrollments, year, *, prev_enrollments=None, prev_year=None, schools=None):
+    points = _trend_points(enrollments, year)
+    if points is None:
         return None
-    return {'minimum_legal': 75, 'series': [{'label': str(year.year), 'tone': 'brand', 'points': points}]}
+    series = [{'label': str(year.year), 'tone': 'brand', 'points': points}]
+
+    prev = _trend_points(prev_enrollments, prev_year) if prev_year is not None else None
+    if prev is not None:
+        series.append({'label': str(prev_year.year), 'tone': 'neutral', 'points': prev})
+
+    data = {'minimum_legal': 75, 'series': series}
+
+    # alerta: escolas abaixo de 85% no bimestre corrente (rede)
+    current = next((p for p in reversed(points) if p['value'] is not None), None)
+    if current and schools is not None:
+        period = AcademicPeriod.objects.filter(
+            academic_year=year, period_number=current['term']
+        ).first()
+        if period:
+            att = (
+                Attendance.objects.filter(
+                    enrollment__in=enrollments,
+                    date__gte=period.start_date,
+                    date__lte=period.end_date,
+                )
+                .values('enrollment__school_class__school_id')
+                .annotate(total=Count('id'), present=Count('id', filter=Q(status='PRESENT')))
+                .order_by()
+            )
+            low = [
+                r for r in att
+                if r['total'] and (r['present'] / r['total']) < 0.85
+            ]
+            if low:
+                data['alert'] = {
+                    'tone': 'warn',
+                    'message': (
+                        f"{len(low)} escola{'s' if len(low) != 1 else ''} "
+                        f"abaixo de 85% de frequência no {current['label'].lower()}."
+                    ),
+                    'link': '/escolas',
+                }
+    return data
 
 
 def _performance(enrollments, year):
@@ -668,6 +714,20 @@ def get_dashboard_overview(*, user, scope=None, school_id=None, stage=None, shif
         user, classes, enrollments, level=level, school=school, year=year, period=period
     )
 
+    prev_year = (
+        AcademicYear.objects.filter(
+            education_department_id=dept_id, year=year.year - 1
+        ).first()
+        if year
+        else None
+    )
+    prev_enrollments = None
+    if prev_year is not None:
+        _, prev_enrollments = _scoped_querysets(
+            user, level=level, school=school, year=prev_year, stage=stage, shift=shift
+        )
+    trend_schools = schools_qs if level == 'network' else None
+
     return {
         'scope': {
             'level': level,
@@ -687,7 +747,10 @@ def get_dashboard_overview(*, user, scope=None, school_id=None, stage=None, shif
         },
         'filters': {'stage': stage, 'shift': shift},
         'kpis': kpis,
-        'attendance_trend': _attendance_trend(enrollments, year),
+        'attendance_trend': _attendance_trend(
+            enrollments, year,
+            prev_enrollments=prev_enrollments, prev_year=prev_year, schools=trend_schools,
+        ),
         'performance': _performance(enrollments, year),
         'enrollment_by_stage': _enrollment_by_stage(classes, enrollments),
         'movement': _movement(user, year, level, school),

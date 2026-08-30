@@ -1,87 +1,110 @@
 import { useNavigate } from 'react-router-dom'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { Badge } from '@/components/ui/Badge'
 import { labelOf, TRANSFER_STATUS } from '@/components/ui/statusMaps'
-import type { BadgeProps } from '@/components/ui/Badge'
 import { Panel, FooterLink } from './Panel'
 import type { Movement } from '../types'
 
-const BAR_FILL: Record<string, string> = {
-  PENDING_SME: 'bg-warn-base',
-  APPROVED_BY_SME: 'bg-brand-600',
-  ACCEPTED_BY_DESTINATION: 'bg-ok-base',
-  REJECTED: 'bg-danger-base',
-  CANCELLED: 'bg-ink-400',
+const FILL: Record<string, string> = {
+  PENDING_SME: 'fill-warn-base',
+  APPROVED_BY_SME: 'fill-brand-600',
+  ACCEPTED_BY_DESTINATION: 'fill-ok-base',
+  REJECTED: 'fill-danger-base',
+  CANCELLED: 'fill-ink-400',
+  DROPOUT: 'fill-danger-base',
 }
 
+const W = 640
+const ROW_H = 34
+const LABEL_W = 210
+const BAR_X = LABEL_W
+const NUM_W = 40
+
+/**
+ * Barras horizontais — transferências por status + evasão (§4.5 do plano).
+ * SVG próprio; o valor absoluto é impresso à direita de cada barra.
+ */
 export function MovementPanel({ data, year }: { data: Movement | null; year: number | null }) {
   const navigate = useNavigate()
-  const rows = data
-    ? [...data.by_status, { status: 'DROPOUT', count: data.dropout }]
-    : []
-  const max = Math.max(1, ...rows.map((r) => r.count))
 
-  return (
-    <Panel
-      title="Movimentação de matrículas"
-      description={`Transferências e saídas${year ? ` no ano letivo de ${year}` : ''}.`}
-      footer={
-        data && (
-          <>
-            <span>
-              Tempo médio de análise da SME:{' '}
-              <strong className="font-mono tabular-nums">
-                {data.sme_analysis_avg_days === null ? '—' : `${data.sme_analysis_avg_days} dias`}
-              </strong>
-            </span>
-            <FooterLink to="/transferencias?status=PENDING_SME">Analisar pendentes</FooterLink>
-          </>
-        )
-      }
-    >
-      {!data ? (
+  if (!data) {
+    return (
+      <Panel
+        title="Movimentação de matrículas"
+        description={`Transferências e saídas${year ? ` no ano letivo de ${year}` : ''}.`}
+      >
         <div className="p-[18px]">
           <EmptyState
             title="Sem movimentação"
             description="Nenhuma transferência ou saída registrada no ano letivo."
           />
         </div>
-      ) : (
-        <div className="grid gap-3.5 p-[18px]">
-          {rows.map((r) => {
-            const isDropout = r.status === 'DROPOUT'
+      </Panel>
+    )
+  }
+
+  const rows = [
+    ...data.by_status.map((s) => ({
+      key: s.status,
+      label: labelOf(TRANSFER_STATUS, s.status),
+      count: s.count,
+      to: '/transferencias',
+    })),
+    { key: 'DROPOUT', label: 'Evasão registrada', count: data.dropout, to: '/matriculas' },
+  ]
+  const max = Math.max(1, ...rows.map((r) => r.count))
+  const barW = W - LABEL_W - NUM_W - 12
+  const height = rows.length * ROW_H + 10
+
+  return (
+    <Panel
+      title="Movimentação de matrículas"
+      description={`Transferências e saídas${year ? ` no ano letivo de ${year}` : ''}.`}
+      footer={
+        <>
+          <span>
+            Tempo médio de análise da SME:{' '}
+            <strong className="font-mono tabular-nums">
+              {data.sme_analysis_avg_days === null ? '—' : `${data.sme_analysis_avg_days} dias`}
+            </strong>
+          </span>
+          <FooterLink to="/transferencias?status=PENDING_SME">Analisar pendentes</FooterLink>
+        </>
+      }
+    >
+      <div className="p-[18px]">
+        <svg
+          viewBox={`0 0 ${W} ${height}`}
+          className="block h-auto w-full"
+          role="img"
+          aria-label={rows.map((r) => `${r.label}: ${r.count}`).join('; ')}
+        >
+          {rows.map((r, i) => {
+            const y = i * ROW_H + 5
+            const w = (r.count / max) * barW
             return (
-              <button
-                key={r.status}
-                type="button"
-                onClick={() => navigate(isDropout ? '/matriculas' : '/transferencias')}
-                className="grid grid-cols-[180px_1fr_44px] items-center gap-3 rounded p-1 text-left hover:bg-surface-hover sm:grid-cols-[210px_1fr_56px]"
+              <g
+                key={r.key}
+                className="cursor-pointer"
+                onClick={() => navigate(r.to)}
               >
-                {isDropout ? (
-                  <Badge tone="neutral" shape="diamond">
-                    Evasão registrada
-                  </Badge>
-                ) : (
-                  <Badge tone={(TRANSFER_STATUS[r.status]?.tone ?? 'neutral') as BadgeProps['tone']}>
-                    {labelOf(TRANSFER_STATUS, r.status)}
-                  </Badge>
-                )}
-                <span className="h-3 rounded-[3px] bg-line-soft">
-                  <span
-                    className={`block h-3 rounded-[3px] ${isDropout ? 'bg-ink-400' : BAR_FILL[r.status]}`}
-                    style={{ width: `${(r.count / max) * 100}%` }}
-                  />
-                </span>
-                <span
-                  className={`text-right font-mono text-sm font-semibold tabular-nums ${isDropout ? 'text-danger-fg' : 'text-ink-700'}`}
+                <text x={0} y={y + 15} className="fill-ink-700 text-[12.5px]">
+                  {r.label}
+                </text>
+                <rect x={BAR_X} y={y + 3} width={barW} height={14} className="fill-line-soft" rx={2} />
+                <rect x={BAR_X} y={y + 3} width={Math.max(2, w)} height={14} className={FILL[r.key] ?? 'fill-ink-400'} rx={2} />
+                <text
+                  x={W - 8}
+                  y={y + 15}
+                  className={`font-mono text-[12.5px] font-semibold ${r.key === 'DROPOUT' && r.count > 0 ? 'fill-danger-fg' : 'fill-ink-700'}`}
+                  textAnchor="end"
                 >
                   {r.count}
-                </span>
-              </button>
+                </text>
+              </g>
             )
           })}
-        </div>
-      )}
+        </svg>
+      </div>
     </Panel>
   )
 }

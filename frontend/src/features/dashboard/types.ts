@@ -43,6 +43,7 @@ export interface TrendPoint {
 export interface AttendanceTrend {
   minimum_legal: number
   series: { label: string; tone: Tone; points: TrendPoint[] }[]
+  alert?: { tone: Tone; message: string; link: string } | null
 }
 
 export interface NumericStage {
