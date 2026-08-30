@@ -167,10 +167,32 @@ export const ERROR_MESSAGES: Record<string, ErrorDef> = {
       `Encerre todos os bimestres antes de fechar o ano${d?.periods ? `: ${d.periods}` : '.'}`,
   },
 
+  // --- Anos letivos e bimestres (CRUD) ---
+  YEAR_IN_USE: {
+    title: 'Ano letivo em uso',
+    message: () =>
+      'Este ano letivo tem turmas ou matrículas vinculadas e não pode ser excluído.',
+  },
+  PERIOD_IN_USE: {
+    title: 'Bimestre em uso',
+    message: () =>
+      'Este período já tem notas ou pareceres lançados e não pode ser excluído.',
+  },
+
   // --- Genéricos do envelope ---
   VALIDATION_ERROR: {
     title: 'Dados inválidos',
-    message: () => 'Revise os campos destacados e tente novamente.',
+    message: (d) => {
+      const msgs =
+        d && typeof d === 'object'
+          ? Object.values(d)
+              .flat()
+              .filter((m): m is string => typeof m === 'string')
+          : []
+      return msgs.length
+        ? msgs.join(' ')
+        : 'Revise os campos destacados e tente novamente.'
+    },
   },
   HTTP404: {
     title: 'Recurso não encontrado',

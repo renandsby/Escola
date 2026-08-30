@@ -1,10 +1,18 @@
 from django.db.models import Count
+from django.db.models.deletion import ProtectedError
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from apps.governance.models import AcademicPeriod, AcademicYear, EducationDepartment, EducationStage
+from apps.governance.models import (
+    AcademicPeriod,
+    AcademicYear,
+    AcademicYearStatus,
+    EducationDepartment,
+    EducationStage,
+)
+from core.exceptions import BusinessLogicError
 from apps.governance.selectors.reference_data import (
     get_academic_periods_for_user,
     get_academic_years_for_user,
@@ -90,10 +98,33 @@ class AcademicYearViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return get_academic_years_for_user(user=self.request.user)
 
+    def get_permissions(self):
+        if self.action in ('create', 'update', 'partial_update', 'destroy'):
+            return [IsSMEAdmin()]
+        return [IsSMEStaff()]
+
     def get_serializer_class(self):
         if self.action == 'list':
             return AcademicYearListSerializer
         return AcademicYearSerializer
+
+    def perform_destroy(self, instance):
+        if instance.status == AcademicYearStatus.CLOSED:
+            raise BusinessLogicError(
+                code='YEAR_ALREADY_CLOSED',
+                message='Ano letivo encerrado não pode ser excluído.',
+            )
+        try:
+            instance.delete()
+        except ProtectedError as exc:
+            raise BusinessLogicError(
+                code='YEAR_IN_USE',
+                message=(
+                    'Este ano letivo tem turmas ou matrículas vinculadas e '
+                    'não pode ser excluído.'
+                ),
+                status_code=409,
+            ) from exc
 
     @action(detail=True, methods=['post'], permission_classes=[IsSMEAdmin])
     def close(self, request, pk=None):
@@ -116,10 +147,33 @@ class AcademicPeriodViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return get_academic_periods_for_user(user=self.request.user)
 
+    def get_permissions(self):
+        if self.action in ('create', 'update', 'partial_update', 'destroy'):
+            return [IsSMEAdmin()]
+        return [IsSMEStaff()]
+
     def get_serializer_class(self):
         if self.action == 'list':
             return AcademicPeriodListSerializer
         return AcademicPeriodSerializer
+
+    def perform_destroy(self, instance):
+        if instance.academic_year.status == AcademicYearStatus.CLOSED:
+            raise BusinessLogicError(
+                code='YEAR_ALREADY_CLOSED',
+                message='Período de ano letivo encerrado não pode ser excluído.',
+            )
+        try:
+            instance.delete()
+        except ProtectedError as exc:
+            raise BusinessLogicError(
+                code='PERIOD_IN_USE',
+                message=(
+                    'Este período já tem notas ou pareceres lançados e não '
+                    'pode ser excluído.'
+                ),
+                status_code=409,
+            ) from exc
 
 
 class EducationStageViewSet(viewsets.ModelViewSet):
