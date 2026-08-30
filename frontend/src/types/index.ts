@@ -24,7 +24,7 @@ export interface FormInputProps {
   error?: string
   required?: boolean
   disabled?: boolean
-  register?: any
+  register?: unknown
   value?: string | number
   onChange?: (value: string) => void
 }
@@ -37,7 +37,7 @@ export interface SelectProps {
   error?: string
   required?: boolean
   disabled?: boolean
-  register?: any
+  register?: unknown
   value?: string
   onChange?: (value: string) => void
 }
@@ -88,7 +88,7 @@ export interface TableColumn<T> {
   key: keyof T
   header: string
   sortable?: boolean
-  render?: (value: any, row: T) => React.ReactNode
+  render?: (value: unknown, row: T) => React.ReactNode
   width?: string
 }
 
@@ -142,7 +142,7 @@ export interface RequestParams {
   page_size?: number
   search?: string
   ordering?: string
-  [key: string]: any
+  [key: string]: unknown
 }
 
 export interface Route {

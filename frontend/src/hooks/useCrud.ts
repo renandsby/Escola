@@ -1,13 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiGet, apiPost, apiPut, apiDelete } from '@/utils/api-helpers'
+import type { PaginatedResponse } from '@/types'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function useCrud<T>(endpoint: string, queryKey: string) {
   const queryClient = useQueryClient()
 
-  const list = useQuery<any>({
+  const list = useQuery<PaginatedResponse<T> | null>({
     queryKey: [queryKey, 'list'],
-    queryFn: () => apiGet(endpoint),
+    queryFn: () => apiGet<PaginatedResponse<T>>(endpoint),
   })
 
   const create = useMutation({
