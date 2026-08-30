@@ -45,7 +45,7 @@ frontend/src/
 │   └── layout/                   # Header, Sidebar, MunicipalBrand, UserMenu
 │
 ├── features/                     # MÓDULOS DE NEGÓCIO (Bounded Contexts)
-│   ├── authentication/           # Login, "esqueci minha senha", perfil, Usuários da Rede
+│   ├── authentication/           # Login (com desafio 2FA), 2FA/TOTP (setup + status), "esqueci minha senha", perfil, Usuários da Rede
 │   ├── governance/               # Secretaria, matrizes, fechamento de ano letivo
 │   ├── schools/                  # Gestão de Escolas
 │   ├── classes/                  # CRUD de Turmas e Salas, Alocação de Professores

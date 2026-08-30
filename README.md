@@ -57,10 +57,11 @@ O backend segue o padrão **Services & Selectors** (regras de negócio isoladas 
 - [x] **Backup** automatizado do banco (task Celery noturna + retenção de 30 dias)
 - [x] **Hardening de produção**: `docker-compose.prod.yml`, nginx/TLS, settings que recusam boot inseguro em `ENVIRONMENT=production`
 - [x] **Recuperação de senha** por e-mail (token de 2 h, uso único)
+- [x] **Autenticação em dois fatores (2FA)** — TOTP (RFC 6238) local, compatível com Google Authenticator/Authy; segredo cifrado com Fernet + 8 códigos de backup de uso único
 - [x] **Painel gerencial** com KPIs, gráficos e completude do diário, filtrados pelo papel
 - [x] **Carga inicial** do Censo Escolar 2025 do INEP + carga fictícia completa (`seed_dashboard_demo`)
 - [x] **Documentação OpenAPI** gerada automaticamente (Swagger / ReDoc)
-- [ ] Notificações por e-mail/WhatsApp · autenticação em dois fatores (2FA) · homologação do selo INEP/MEC
+- [ ] Notificações por e-mail/WhatsApp · homologação do selo INEP/MEC
 
 
 
@@ -307,7 +308,9 @@ Toda a API vive sob o prefixo `/api/v1/`. O schema OpenAPI é gerado por `drf-sp
 
 | Método       | Rota                                 | Descrição                                    | Autenticação          |
 | ------------ | ------------------------------------ | -------------------------------------------- | --------------------- |
-| `POST`       | `/api/v1/accounts/login/`            | Autentica e retorna `access` + `refresh`     | Não                   |
+| `POST`       | `/api/v1/accounts/login/`            | Autentica; retorna `access`+`refresh` ou, com 2FA ativo, `requires_2fa`+`challenge_token` | Não |
+| `POST`       | `/api/v1/accounts/totp/verify/`      | 2ª etapa do login: `challenge_token` + código TOTP/backup → `access`+`refresh` | Não (challenge token) |
+| `GET` `POST` | `/api/v1/accounts/totp/status/` · `enable/` · `confirm/` · `disable/` | Gestão do 2FA do próprio usuário | Bearer |
 | `POST`       | `/api/v1/accounts/token/refresh/`    | Renova o *access token*                      | Não (envia `refresh`) |
 | `POST`       | `/api/v1/accounts/password-reset/request/` | Recuperação de senha (sucesso genérico) | Não                   |
 | `GET`        | `/api/v1/accounts/users/me/`         | Perfil do usuário autenticado                | Bearer                |

@@ -161,7 +161,14 @@ Secretaria; o destinatário recebe uma notificação.
 ## 12. Configurações
 
 Menu **Configurações** (`/configuracoes`) — **Editar perfil**, **Alterar
-senha** e **Sair da conta**.
+senha**, **Autenticação em dois fatores (2FA)** e **Sair da conta**.
+
+Em **Segurança → Autenticação em dois fatores**, ative o TOTP com um app
+autenticador (Google Authenticator, Authy, Microsoft Authenticator). Guarde os
+**8 códigos de backup** exibidos na ativação — cada um serve uma única vez caso
+você perca o acesso ao app. Com o 2FA ativo, o login passa a pedir o código de
+6 dígitos após usuário/senha. Sem o app e sem códigos de backup, só a SME
+consegue desativar o 2FA da conta.
 
 ---
 
@@ -172,4 +179,3 @@ senha** e **Sair da conta**.
 | **Cadastro de professores e disciplinas** | Exclusivo da SME. O diretor consulta o resultado (turmas, alocações, notas). |
 | **Solicitação/autorização de transferência** | A solicitação e a 1ª autorização são da SME. O diretor da escola de destino só faz o **aceite** (ou recusa). |
 | **Fechamento de ano letivo** | Operação da SME. |
-| **Autenticação em dois fatores (2FA)** | Fora de escopo desta fase. |

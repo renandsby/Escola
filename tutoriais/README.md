@@ -22,6 +22,10 @@ limitações conhecidas** ainda existem.
   (ou, para alunos/responsáveis, pela escola). Cada pessoa recebe um
   **usuário e senha** — e pode trocar a senha pela tela de **Configurações**
   ou pelo link **"Esqueci minha senha"** na tela de login.
+- Qualquer usuário pode ativar a **autenticação em dois fatores (2FA)** em
+  **Configurações → Segurança** — TOTP com Google Authenticator, Authy ou
+  similar, mais 8 códigos de backup de uso único. Com o 2FA ativo, o login
+  pede um código de 6 dígitos após usuário/senha.
 - O sistema aplica **controle de acesso hierárquico**: o administrador enxerga
   toda a rede municipal; o diretor, apenas a própria escola; o professor,
   apenas as turmas em que está alocado; o responsável, apenas o(s) aluno(s)

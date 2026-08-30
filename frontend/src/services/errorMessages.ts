@@ -123,6 +123,25 @@ export const ERROR_MESSAGES: Record<string, ErrorDef> = {
     message: () => 'Só é possível anonimizar um aluno sem matrícula ativa na rede.',
   },
 
+  // --- 2FA / TOTP ---
+  INVALID_TOTP_CODE: {
+    title: 'Código inválido',
+    message: () =>
+      'Código incorreto. Confirme que o relógio do celular está no horário automático e tente de novo.',
+  },
+  INVALID_2FA_CODE: {
+    title: 'Código inválido ou expirado',
+    message: () => 'Verifique o código no aplicativo autenticador — ele muda a cada 30 segundos.',
+  },
+  INVALID_CHALLENGE_TOKEN: {
+    title: 'Sessão de verificação expirada',
+    message: () => 'A verificação em duas etapas leva até 5 minutos. Faça login novamente.',
+  },
+  TOTP_ALREADY_ENABLED: {
+    title: '2FA já ativo',
+    message: () => 'A autenticação em dois fatores já está ativada nesta conta.',
+  },
+
   // --- Recuperação de senha ---
   INVALID_RESET_TOKEN: {
     title: 'Link inválido',

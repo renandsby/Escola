@@ -359,6 +359,13 @@ FRONTEND_BASE_URL = decouple_config(
     'FRONTEND_BASE_URL', default='http://localhost:3000'
 ).rstrip('/')
 
+# Autenticação em dois fatores (TOTP / RFC 6238)
+# Chave de criptografia dos segredos TOTP no banco (Fernet). Deriva da
+# SECRET_KEY por padrão; defina TOTP_ENCRYPTION_KEY para rotacionar sem
+# invalidar sessões JWT.
+TOTP_ENCRYPTION_KEY = decouple_config('TOTP_ENCRYPTION_KEY', default='') or SECRET_KEY
+TOTP_ISSUER_NAME = decouple_config('TOTP_ISSUER_NAME', default='Rede Municipal de Educação')
+
 DEFAULT_FROM_EMAIL = decouple_config('EMAIL_HOST_USER', default='noreply@escola.com')
 
 _EMAIL_BACKEND = decouple_config(

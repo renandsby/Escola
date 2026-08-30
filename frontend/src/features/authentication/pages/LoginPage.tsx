@@ -10,6 +10,10 @@ import { Field, Input } from '@/components/ui/Field'
 import { Button } from '@/components/ui/Button'
 import { InlineError } from '@/components/ui/InlineError'
 import { ROUTES } from '@/app/routes/paths'
+import { getErrorCode } from '@/utils/api-helpers'
+import { resolveError } from '@/services/errorMessages'
+import { TwoFactorChallengeDialog } from '../components/TwoFactorChallengeDialog'
+import type { LoginResponse } from '@/types/api'
 
 const loginSchema = z.object({
   username: z.string().min(1, 'Usuário é obrigatório'),
@@ -23,17 +27,26 @@ export default function LoginPage() {
   const login = useAuthStore((state) => state.login)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [challengeToken, setChallengeToken] = useState<string | null>(null)
 
   const methods = useForm<LoginFormData>({ resolver: zodResolver(loginSchema) })
   const { register, handleSubmit } = methods
+
+  const completeLogin = (data: LoginResponse) => {
+    login(data.access!, data.refresh!, data.user!)
+    navigate(ROUTES.home)
+  }
 
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true)
     setError(null)
     try {
-      const response = await authService.login(data.username, data.password)
-      login(response.data.access, response.data.refresh, response.data.user)
-      navigate(ROUTES.home)
+      const { data: res } = await authService.login(data.username, data.password)
+      if (res.requires_2fa) {
+        setChallengeToken(res.challenge_token!)
+      } else {
+        completeLogin(res)
+      }
     } catch (err: unknown) {
       const message = getErrorMessage(err)
       setError(
@@ -43,6 +56,18 @@ export default function LoginPage() {
       )
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const verifyTwoFactor = async (code: string) => {
+    try {
+      const { data } = await authService.verifyTOTP({
+        challenge_token: challengeToken!,
+        code,
+      })
+      completeLogin(data)
+    } catch (err) {
+      throw new Error(resolveError(getErrorCode(err)).message())
     }
   }
 
@@ -80,6 +105,13 @@ export default function LoginPage() {
           </form>
         </FormProvider>
       </div>
+
+      {challengeToken && (
+        <TwoFactorChallengeDialog
+          onVerify={verifyTwoFactor}
+          onCancel={() => setChallengeToken(null)}
+        />
+      )}
     </div>
   )
 }

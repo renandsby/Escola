@@ -95,6 +95,10 @@ Menu **Configurações** (`/configuracoes`):
 
 - **Editar perfil** — telefone e e-mail.
 - **Alterar senha** — exige a senha atual.
+- **Autenticação em dois fatores (2FA)** — ative o TOTP com um app autenticador
+  (Google Authenticator, Authy) para exigir um código de 6 dígitos no login,
+  além da senha. Guarde os **8 códigos de backup** da ativação — cada um serve
+  uma vez, caso você fique sem o celular.
 - **Privacidade e dados (LGPD)** — para cada filho, o botão **Baixar dados
   cadastrais (LGPD)** gera um arquivo com o que a rede mantém sobre ele
   (cadastro, notas, frequência, documentos e consentimentos).

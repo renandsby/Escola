@@ -35,7 +35,7 @@ Cada funcionalidade do sistema é organizada em um Django App autocontido dentro
 ```text
 backend/
 ├── apps/
-│   ├── authentication/           # API de autenticação JWT, perfil, reset de senha
+│   ├── authentication/           # API de autenticação JWT, perfil, reset de senha, 2FA/TOTP (totp_service, challenge_token)
 │   ├── governance/               # SME, Anos Letivos, Matrizes, LGPD (privacy_service), fechamento de ano
 │   ├── schools/                  # Unidades Escolares, Infraestrutura física
 │   ├── curriculum/               # Componentes curriculares, Etapas BNCC

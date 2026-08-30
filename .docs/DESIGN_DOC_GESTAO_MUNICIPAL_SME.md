@@ -40,7 +40,11 @@ A arquitetura-alvo descrita neste documento foi **implementada**. Situação atu
 * **P1 — prontidão de produção:** hardening de configuração/deploy (settings guardados por `ENVIRONMENT=production`, `docker-compose.prod.yml`, nginx/TLS, job de CI `deploy-check`); backup automatizado do banco (task Celery noturna + retenção); trilha de auditoria persistida no middleware (escritas `/api/` + login/login falho); transferência com efeito real na matrícula (encerra origem, cria destino, atômico).
 * **P2 — operação completa:** módulo mínimo de LGPD (consentimento, portabilidade, anonimização); recuperação de senha e perfil real; upload seguro de documentos com isolamento RBAC; CRUD de turmas e salas na interface; gestão administrativa de usuários da rede; central de exportações e emissão de boletim/carteirinha; motor de validação e exportação do Educacenso; portal do responsável ("Meus Filhos"); notificações in-app com gatilhos de negócio; fechamento de ano letivo com consolidação de histórico e trava do diário.
 
-**Fora de escopo (non-goals do plano):** Merenda/PNAE, Transporte/Frotas, Financeiro/Folha, app mobile nativo, 2FA/MFA TOTP, homologação do selo INEP/MEC.
+**Fora de escopo (non-goals do plano):** Merenda/PNAE, Transporte/Frotas, Financeiro/Folha, app mobile nativo, homologação do selo INEP/MEC.
+
+> **2FA/MFA (TOTP)** — inicialmente um *non-goal* do plano de produção mínima,
+> foi implementado depois: login em dois passos com Google Authenticator,
+> *backup codes* e gestão pela tela de Configurações (§7.12).
 
 ---
 
@@ -66,7 +70,7 @@ A arquitetura-alvo descrita neste documento foi **implementada**. Situação atu
 
 | Camada | Tecnologias |
 | :--- | :--- |
-| **Backend** | Python ≥ 3.13 · Django 6.1 · Django REST Framework 3.18 · drf-spectacular (OpenAPI) · djangorestframework-simplejwt (JWT) · django-filter |
+| **Backend** | Python ≥ 3.13 · Django 6.1 · Django REST Framework 3.18 · drf-spectacular (OpenAPI) · djangorestframework-simplejwt (JWT) · django-filter · pyotp (2FA TOTP) · cryptography (Fernet) |
 | **Banco / Cache / Fila** | PostgreSQL 16 (`psycopg` 3) · Redis 8 · Celery 5.6 |
 | **Frontend** | React 18 + TypeScript 5 (strict) · Vite 5 · TanStack Query v5 (server state) · Zustand (client state) · React Hook Form + Zod · Tailwind CSS 3 · sonner |
 | **Infra** | Docker Compose (Nginx no frontend, Gunicorn + WhiteNoise no backend) · GitHub Actions |
@@ -598,6 +602,9 @@ O escopo é aplicado por `core/scopes.py::apply_scope()`, chamado pelos
 > (`IsSchoolStaff`) faz **aceite/recusa** — o `sme_admin` pode aceitar por
 > qualquer unidade. Escrita em turmas/salas usa o `SchoolScopedWriteMixin`
 > (direção não cria registro para outra escola).
+>
+> **2FA é transversal:** qualquer papel pode ativar a autenticação em dois
+> fatores em Configurações → Segurança (§7.12).
 
 ---
 
@@ -685,6 +692,25 @@ Token opaco de 2 h, uso único, `sha256` no banco. A solicitação responde
 **sempre** com sucesso genérico (não revela se o e-mail existe). Endpoints
 `POST /accounts/password-reset/{request,confirm}/` (`AllowAny`).
 
+### 7.12. Autenticação em dois fatores — TOTP (`authentication/services/totp_service.py` · `challenge_token.py`)
+2FA/MFA opcional por usuário, compatível com Google Authenticator (RFC 6238).
+Detalhes em [`../backend/apps/authentication/README_2FA.md`](../backend/apps/authentication/README_2FA.md).
+
+* **Ativação:** `enable/` gera o segredo (base32) — **criptografado com Fernet**
+  no banco — e o QR code; `confirm/` valida o 1º código, marca `confirmed=True`
+  e devolve **8 backup codes** (SHA-256, uso único, formato `1234-5678`).
+* **Login em dois passos:** `POST /accounts/login/` devolve
+  `{ requires_2fa: true, challenge_token }` (JWT de **5 min**) quando o 2FA está
+  ativo; `POST /accounts/totp/verify/` troca `challenge_token + code` pelo par
+  `access`/`refresh`. `code` aceita 6 dígitos do app **ou** um backup code.
+* **Verificação:** `valid_window=1` (tolera ±30 s de *clock skew*); backup code
+  consumido em `@transaction.atomic` com `select_for_update`.
+* **Auditoria:** o `AuditMiddleware` distingue `LOGIN_2FA_CHALLENGE` (só o
+  desafio) de `LOGIN` (sessão iniciada, no `/totp/verify/`); o `LoginLog` só é
+  gravado quando a sessão de fato começa.
+* **Operação:** `totp_service.disable_totp(user)` (shell ou Django Admin)
+  remove o 2FA de quem perdeu o dispositivo.
+
 ---
 
 ## 8. Endpoints REST (API v1)
@@ -693,7 +719,7 @@ Prefixo global `/api/v1/`. Documentação viva: `/api/docs/` (Swagger), `/api/re
 
 ```text
 # Autenticação
-POST   /api/v1/accounts/login/                     # -> { access, refresh }
+POST   /api/v1/accounts/login/                     # -> { requires_2fa, access?, refresh?, challenge_token? }
 POST   /api/v1/accounts/token/refresh/
 GET    /api/v1/accounts/users/me/
 PATCH  /api/v1/accounts/users/update_profile/      # e-mail, telefone
@@ -702,6 +728,11 @@ POST   /api/v1/accounts/users/create_user/         # sme_admin: cria usuário co
 PATCH  /api/v1/accounts/users/{id}/                # sme_admin: role/escola/is_active
 POST   /api/v1/accounts/password-reset/request/    # AllowAny — sucesso genérico
 POST   /api/v1/accounts/password-reset/confirm/    # AllowAny — { token, new_password }
+
+# 2FA / TOTP
+GET    /api/v1/accounts/totp/status/               # { enabled, confirmed_at, backup_codes_remaining }
+POST   /api/v1/accounts/totp/enable/  ·  /confirm/  ·  /disable/
+POST   /api/v1/accounts/totp/verify/              # AllowAny — { challenge_token, code } -> JWT
 
 # Governança & Escolas  (também sob /api/v1/sme/* — gateway do painel da SME)
 GET    /api/v1/sme/departments/  ·  GET /api/v1/sme/departments/{id}/indicators/

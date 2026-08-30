@@ -311,7 +311,12 @@ Menu **Configurações** (`/configuracoes`):
 - **Privacidade e dados (LGPD)** — baixar o pacote de dados de alunos no seu
   escopo.
 - **Segurança** — **Alterar senha** (exige a senha atual; após a troca é
-  preciso entrar de novo).
+  preciso entrar de novo) e **Autenticação em dois fatores (2FA)**: ative o
+  TOTP com Google Authenticator, Authy ou similar. Ao ativar, guarde os **8
+  códigos de backup** (uso único). Com o 2FA ativo, todo login passa a pedir
+  o código de 6 dígitos do app após usuário/senha. Perdeu o celular e os
+  códigos de backup? A SME desativa o 2FA da conta pelo Django Admin
+  (**Dispositivos 2FA (TOTP)**) ou pelo comando `totp_service.disable_totp`.
 - **Sair da conta**.
 
 ---
@@ -321,6 +326,5 @@ Menu **Configurações** (`/configuracoes`):
 | Área | Situação atual |
 | :--- | :--- |
 | **Matrizes curriculares** | Tela somente de leitura; criação/edição via carga inicial ou API. |
-| **Autenticação em dois fatores (2FA)** | Fora de escopo desta fase. |
 | **Notificações por e-mail / WhatsApp** | Apenas notificações **in-app** (sino). O e-mail é usado só na redefinição de senha. |
 | **Homologação do selo INEP/MEC** | A exportação do Educacenso é para conciliação/alimentação; a homologação oficial não faz parte deste escopo. |

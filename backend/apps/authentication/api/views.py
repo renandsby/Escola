@@ -8,10 +8,13 @@ from django_filters.rest_framework import DjangoFilterBackend
 from core.models import User, UserRole
 from core.permissions import IsAdmin
 
+from core.exceptions import BusinessLogicError
 from apps.authentication.services.password_reset_service import (
     confirm_password_reset,
     request_password_reset,
 )
+from apps.authentication.services import totp_service
+from apps.authentication.services.challenge_token import resolve_challenge_token
 
 from apps.authentication.selectors.users import get_users_for_user
 from apps.authentication.models import Permission, Profile, LoginLog
@@ -28,6 +31,12 @@ from .serializers import (
     UserProfileSerializer,
     PasswordResetRequestSerializer,
     PasswordResetConfirmSerializer,
+    build_jwt_payload,
+    TOTPConfirmSerializer,
+    TOTPConfirmResponseSerializer,
+    TOTPEnableResponseSerializer,
+    TOTPStatusSerializer,
+    TOTPVerifySerializer,
 )
 
 
@@ -218,3 +227,69 @@ class LoginLogViewSet(viewsets.ReadOnlyModelViewSet):
         if self.request.user.role == UserRole.SME_ADMIN:
             return LoginLog.objects.all()
         return LoginLog.objects.filter(user=self.request.user)
+
+
+class TOTPViewSet(viewsets.ViewSet):
+    """Autenticação em dois fatores (TOTP).
+
+    - ``GET  /accounts/totp/status/``  — situação do 2FA do usuário
+    - ``POST /accounts/totp/enable/``  — inicia a ativação (QR code + segredo)
+    - ``POST /accounts/totp/confirm/`` — confirma com o 1º código → backup codes
+    - ``POST /accounts/totp/disable/`` — desativa o 2FA
+    - ``POST /accounts/totp/verify/``  — 2ª etapa do login (público, challenge token)
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer(self, *args, **kwargs):  # pragma: no cover - drf-spectacular
+        return TOTPStatusSerializer(*args, **kwargs)
+
+    @action(detail=False, methods=['get'])
+    def status(self, request):
+        device = totp_service.get_confirmed_device(request.user)
+        data = {
+            'enabled': device is not None,
+            'confirmed_at': device.confirmed_at if device else None,
+            'backup_codes_remaining': (
+                totp_service.remaining_backup_codes(request.user) if device else 0
+            ),
+        }
+        return Response(TOTPStatusSerializer(data).data)
+
+    @action(detail=False, methods=['post'])
+    def enable(self, request):
+        result = totp_service.generate_totp_secret(request.user)
+        return Response(TOTPEnableResponseSerializer(result).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['post'])
+    def confirm(self, request):
+        serializer = TOTPConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = totp_service.confirm_totp(request.user, serializer.validated_data['code'])
+        return Response(TOTPConfirmResponseSerializer(result).data)
+
+    @action(detail=False, methods=['post'])
+    def disable(self, request):
+        totp_service.disable_totp(request.user)
+        return Response({'detail': '2FA desativado.'})
+
+    @action(
+        detail=False,
+        methods=['post'],
+        permission_classes=[permissions.AllowAny],
+        authentication_classes=[],
+    )
+    def verify(self, request):
+        serializer = TOTPVerifySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = resolve_challenge_token(serializer.validated_data['challenge_token'])
+
+        if not totp_service.verify_totp_code(user, serializer.validated_data['code']):
+            raise BusinessLogicError(
+                code='INVALID_2FA_CODE',
+                message='Código inválido ou expirado.',
+            )
+
+        refresh = CustomTokenObtainPairSerializer.get_token(user)
+        return Response({'requires_2fa': False, **build_jwt_payload(user, refresh)})

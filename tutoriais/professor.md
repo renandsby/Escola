@@ -130,7 +130,12 @@ Menu **Boletins e carteirinhas** (`/documentos/boletins`).
 ## 10. Configurações
 
 Menu **Configurações** (`/configuracoes`) — **Editar perfil**, **Alterar
-senha** e **Sair da conta**.
+senha**, **Autenticação em dois fatores (2FA)** e **Sair da conta**.
+
+Em **Segurança → Autenticação em dois fatores**, ative o TOTP com um app
+autenticador (Google Authenticator, Authy). Guarde os **8 códigos de backup**
+mostrados na ativação — cada um vale uma vez, para o caso de você ficar sem o
+app. Com o 2FA ativo, o login pede o código de 6 dígitos após usuário/senha.
 
 ---
 

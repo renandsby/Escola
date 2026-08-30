@@ -5,6 +5,26 @@ from core.models import User, UserRole
 from apps.authentication.models import Permission, Profile, LoginLog
 
 
+def build_jwt_payload(user, refresh) -> dict:
+    """Corpo padrão de resposta de login (``access`` + ``refresh`` + ``user``)."""
+    return {
+        'refresh': str(refresh),
+        'access': str(refresh.access_token),
+        'user': {
+            'id': str(user.id),
+            'username': user.username,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'role': user.role,
+            'school': str(user.school_id) if user.school_id else None,
+            'education_department': (
+                str(user.education_department_id) if user.education_department_id else None
+            ),
+        },
+    }
+
+
 class PermissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Permission
@@ -37,6 +57,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         fields = ['username', 'password']
 
     def validate(self, attrs):
+        from apps.authentication.services.challenge_token import generate_challenge_token
+        from apps.authentication.services.totp_service import is_totp_enabled
+
         username = attrs.get('username')
         password = attrs.get('password')
 
@@ -48,26 +71,14 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         if not user.is_active:
             raise serializers.ValidationError('Usuário inativo.')
 
-        refresh = self.get_token(user)
+        if is_totp_enabled(user):
+            # Login em dois passos: devolve só o desafio (5 min).
+            return {
+                'requires_2fa': True,
+                'challenge_token': generate_challenge_token(user),
+            }
 
-        data = {
-            'refresh': str(refresh),
-            'access': str(refresh.access_token),
-            'user': {
-                'id': str(user.id),
-                'username': user.username,
-                'email': user.email,
-                'first_name': user.first_name,
-                'last_name': user.last_name,
-                'role': user.role,
-                'school': str(user.school_id) if user.school_id else None,
-                'education_department': (
-                    str(user.education_department_id) if user.education_department_id else None
-                ),
-            },
-        }
-
-        return data
+        return {'requires_2fa': False, **build_jwt_payload(user, self.get_token(user))}
 
     @classmethod
     def get_token(cls, user):
@@ -261,3 +272,38 @@ class UserProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'username', 'created_at', 'updated_at', 'role']
 
     school_name = serializers.CharField(source='school.name', read_only=True, allow_null=True)
+
+
+# ============================================================================
+#  2FA / TOTP
+# ============================================================================
+
+class TOTPEnableResponseSerializer(serializers.Serializer):
+    """Resposta da ativação: QR code + segredo para entrada manual."""
+
+    secret = serializers.CharField(read_only=True)
+    qr_code = serializers.CharField(read_only=True)
+    device_id = serializers.UUIDField(read_only=True)
+
+
+class TOTPConfirmSerializer(serializers.Serializer):
+    """Confirmação da ativação — código de 6 dígitos do app."""
+
+    code = serializers.RegexField(r'^\d{6}$', required=True)
+
+
+class TOTPConfirmResponseSerializer(serializers.Serializer):
+    backup_codes = serializers.ListField(child=serializers.CharField(), read_only=True)
+
+
+class TOTPVerifySerializer(serializers.Serializer):
+    """Verificação no login — código TOTP (6 dígitos) ou backup (``XXXX-XXXX``)."""
+
+    challenge_token = serializers.CharField(required=True)
+    code = serializers.CharField(required=True, min_length=6, max_length=9)
+
+
+class TOTPStatusSerializer(serializers.Serializer):
+    enabled = serializers.BooleanField()
+    confirmed_at = serializers.DateTimeField(allow_null=True)
+    backup_codes_remaining = serializers.IntegerField()

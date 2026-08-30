@@ -18,7 +18,10 @@ _IGNORED_PREFIXES = (
     '/api/v1/accounts/token/refresh',
     '/api/v1/accounts/logout',
 )
-_LOGIN_PATHS = ('/api/v1/accounts/login/', '/api/v1/accounts/login')
+_LOGIN_PATHS = (
+    '/api/v1/accounts/login/', '/api/v1/accounts/login',
+    '/api/v1/accounts/totp/verify/', '/api/v1/accounts/totp/verify',
+)
 
 
 class AuditMiddleware(MiddlewareMixin):
@@ -55,31 +58,51 @@ class AuditMiddleware(MiddlewareMixin):
         from apps.audit.services.audit_service import log_action
 
         ok = response.status_code < 400
-        username = ''
-        if isinstance(request._audit_body, dict):
-            username = str(request._audit_body.get('username', ''))[:150]
+        body = request._audit_body if isinstance(request._audit_body, dict) else {}
+        username = str(body.get('username', ''))[:150]
+
+        # dados do corpo da resposta (para a etapa 2FA e o /totp/verify/)
+        requires_2fa = False
+        resp = self._response_json(response)
+        if isinstance(resp, dict):
+            requires_2fa = bool(resp.get('requires_2fa'))
+            if not username:
+                username = str((resp.get('user') or {}).get('username', ''))[:150]
+
+        # Login válido de usuário/senha que ainda exige o 2º fator → só o desafio,
+        # não é uma sessão iniciada.
+        if ok and requires_2fa:
+            action = 'LOGIN_2FA_CHALLENGE'
+            completed = False
+        elif ok:
+            action = 'LOGIN'
+            completed = True
+        else:
+            action = 'LOGIN_FAILED'
+            completed = False
 
         user = None
-        if ok and username:
+        if username:
             from core.models import User
 
             user = User.objects.filter(username=username).first()
-            if user is not None:
-                try:
-                    from apps.authentication.models import LoginLog
 
-                    LoginLog.objects.create(
-                        user=user,
-                        ip_address=self.get_client_ip(request) or '0.0.0.0',
-                        user_agent=request.META.get('HTTP_USER_AGENT', ''),
-                        success=True,
-                    )
-                except Exception:  # noqa: BLE001
-                    logger.exception('Falha ao gravar LoginLog')
+        if completed and user is not None:
+            try:
+                from apps.authentication.models import LoginLog
+
+                LoginLog.objects.create(
+                    user=user,
+                    ip_address=self.get_client_ip(request) or '0.0.0.0',
+                    user_agent=request.META.get('HTTP_USER_AGENT', ''),
+                    success=True,
+                )
+            except Exception:  # noqa: BLE001
+                logger.exception('Falha ao gravar LoginLog')
 
         log_action(
-            user=user,
-            action='LOGIN' if ok else 'LOGIN_FAILED',
+            user=user if completed or action == 'LOGIN_2FA_CHALLENGE' else None,
+            action=action,
             resource='auth',
             resource_id=username,
             details={'success': ok, 'status_code': response.status_code},
@@ -89,6 +112,16 @@ class AuditMiddleware(MiddlewareMixin):
             request_path=request.path,
             status_code=response.status_code,
         )
+
+    @staticmethod
+    def _response_json(response):
+        try:
+            content = getattr(response, 'content', b'')
+            if not content:
+                return None
+            return json.loads(content)
+        except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
+            return None
 
     def _persist(self, request, response):
         from apps.audit.services.audit_service import log_action

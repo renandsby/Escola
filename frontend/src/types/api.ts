@@ -36,9 +36,31 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
-  access: string
-  refresh: string
-  user: User
+  requires_2fa: boolean
+  /** presente quando requires_2fa = true */
+  challenge_token?: string
+  /** presentes quando requires_2fa = false */
+  access?: string
+  refresh?: string
+  user?: User
+}
+
+// ============ 2FA / TOTP ============
+
+export interface TOTPStatus {
+  enabled: boolean
+  confirmed_at: string | null
+  backup_codes_remaining: number
+}
+
+export interface TOTPEnableResponse {
+  secret: string
+  qr_code: string
+  device_id: string
+}
+
+export interface TOTPConfirmResponse {
+  backup_codes: string[]
 }
 
 export interface RegisterRequest {

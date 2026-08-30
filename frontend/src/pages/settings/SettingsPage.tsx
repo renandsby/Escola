@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button'
 import { Field, Input, Select } from '@/components/ui/Field'
 import { InlineError } from '@/components/ui/InlineError'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
+import { TwoFactorSection } from '@/features/authentication/components/TwoFactorSection'
 import { USER_ROLE } from '@/components/ui/statusMaps'
 import { cn } from '@/utils/cn'
 import type { PaginatedResponse, Student } from '@/types/api'
@@ -358,6 +359,8 @@ export default function SettingsPage() {
           </Button>
         </div>
       </Card>
+
+      <TwoFactorSection />
 
       <section className="grid gap-4 rounded-lg border border-danger-border bg-danger-bg p-6">
         <div>

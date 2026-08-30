@@ -1,5 +1,11 @@
 import axios, { AxiosInstance, AxiosError } from 'axios'
 import { useAuthStore } from '@/stores/authStore'
+import type {
+  LoginResponse,
+  TOTPConfirmResponse,
+  TOTPEnableResponse,
+  TOTPStatus,
+} from '@/types/api'
 
 // Use relative URL so Nginx proxy at /api/ works
 const API_URL = '/api/v1'
@@ -159,6 +165,19 @@ export const authService = {
     new_password: string
     new_password_confirm: string
   }) => apiClient.post('/accounts/password-reset/confirm/', data),
+
+  // --- 2FA / TOTP ---
+  getTOTPStatus: () => apiClient.get<TOTPStatus>('/accounts/totp/status/'),
+
+  enableTOTP: () => apiClient.post<TOTPEnableResponse>('/accounts/totp/enable/'),
+
+  confirmTOTP: (code: string) =>
+    apiClient.post<TOTPConfirmResponse>('/accounts/totp/confirm/', { code }),
+
+  disableTOTP: () => apiClient.post('/accounts/totp/disable/'),
+
+  verifyTOTP: (data: { challenge_token: string; code: string }) =>
+    apiClient.post<LoginResponse>('/accounts/totp/verify/', data),
 }
 
 /** Endpoints da Secretaria Municipal de Educação */
