@@ -195,6 +195,18 @@ export const NAV: NavGroup[] = [
       },
     ],
   },
+  {
+    label: 'ADMINISTRAÇÃO',
+    items: [
+      {
+        label: 'Usuários da Rede',
+        to: ROUTES.users,
+        matchPrefix: '/usuarios',
+        roles: ['sme_admin'],
+        icon: <UsersRound className={ICON} />,
+      },
+    ],
+  },
 ]
 
 /** Grupos com pelo menos um item visível para o papel — nunca mostra item que daria 403. */

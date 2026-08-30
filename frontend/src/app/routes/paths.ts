@@ -35,6 +35,11 @@ export const ROUTES = {
   classNew: '/turmas/nova',
   classEdit: (id: string) => `/turmas/${id}/editar`,
   classrooms: '/salas',
+
+  // ADMINISTRAÇÃO
+  users: '/usuarios',
+  userNew: '/usuarios/novo',
+  userEdit: (id: string) => `/usuarios/${id}/editar`,
   enrollments: '/matriculas',
   enrollmentNew: '/matriculas/nova',
   transfers: '/transferencias',

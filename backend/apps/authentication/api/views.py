@@ -94,6 +94,12 @@ class UserViewSet(viewsets.ModelViewSet):
         return super().get_permissions()
 
     def get_queryset(self):
+        user = self.request.user
+        # sme_admin gerencia usuários da rede, inclusive os desativados
+        if getattr(user, 'role', None) == UserRole.SME_ADMIN and user.education_department_id:
+            return User.objects.filter(
+                education_department_id=user.education_department_id
+            ).select_related('school')
         return get_users_for_user(user=self.request.user)
 
     def get_serializer_class(self):

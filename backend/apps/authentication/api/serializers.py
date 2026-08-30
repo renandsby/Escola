@@ -133,7 +133,22 @@ class AdminUserCreationSerializer(UserRegistrationSerializer):
     """
 
     class Meta(UserRegistrationSerializer.Meta):
-        fields = UserRegistrationSerializer.Meta.fields + ['role']
+        fields = UserRegistrationSerializer.Meta.fields + ['role', 'phone', 'document']
+
+    def validate_document(self, value):
+        if value and User.objects.filter(document=value).exists():
+            raise serializers.ValidationError('CPF/CNPJ já cadastrado para outro usuário.')
+        return value
+
+    def validate(self, data):
+        data = super().validate(data)
+        role = data.get('role')
+        school_roles = {UserRole.SCHOOL_DIRECTOR, UserRole.SCHOOL_SECRETARY}
+        if role in school_roles and not data.get('school'):
+            raise serializers.ValidationError(
+                {'school': 'Diretor e secretário precisam estar vinculados a uma escola.'}
+            )
+        return data
 
     def create(self, validated_data):
         user = User.objects.create_user(**validated_data)
@@ -141,7 +156,11 @@ class AdminUserCreationSerializer(UserRegistrationSerializer):
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
-    """Serializer para atualizar dados do usuário."""
+    """Serializer para atualizar dados do usuário.
+
+    Campos administrativos (papel, escola, ativo) só são aceitos de um
+    ``sme_admin``; para os demais, uma tentativa de alterá-los é ignorada.
+    """
 
     class Meta:
         model = User
@@ -151,9 +170,25 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             'first_name',
             'last_name',
             'phone',
+            'document',
             'avatar',
             'bio',
+            'role',
+            'school',
+            'education_department',
+            'is_active',
         ]
+
+    _ADMIN_ONLY = {'role', 'school', 'education_department', 'is_active'}
+
+    def validate(self, data):
+        request = self.context.get('request')
+        actor = getattr(request, 'user', None)
+        is_admin = getattr(actor, 'role', None) == UserRole.SME_ADMIN
+        if not is_admin:
+            for field in self._ADMIN_ONLY:
+                data.pop(field, None)
+        return data
 
 
 class ChangePasswordSerializer(serializers.Serializer):
@@ -217,8 +252,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'bio',
             'role',
             'school',
+            'school_name',
             'education_department',
+            'is_active',
             'created_at',
             'updated_at',
         ]
         read_only_fields = ['id', 'username', 'created_at', 'updated_at', 'role']
+
+    school_name = serializers.CharField(source='school.name', read_only=True, allow_null=True)

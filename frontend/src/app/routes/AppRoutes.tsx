@@ -10,6 +10,8 @@ import { PlaceholderPage } from '@/components/feedback/PlaceholderPage'
 import LoginPage from '@/features/authentication/pages/LoginPage'
 import ForgotPasswordPage from '@/features/authentication/pages/ForgotPasswordPage'
 import ResetPasswordPage from '@/features/authentication/pages/ResetPasswordPage'
+import UsersListPage from '@/features/authentication/pages/UsersListPage'
+import UserFormPage from '@/features/authentication/pages/UserFormPage'
 import DashboardPage from '@/pages/dashboard/DashboardPage'
 import SchoolsListPage from '@/features/schools/pages/SchoolsListPage'
 import SchoolFormPage from '@/features/schools/pages/SchoolFormPage'
@@ -158,6 +160,11 @@ export function AppRoutes() {
           <Route path={ROUTES.messageNew} element={<MessageFormPage />} />
           <Route path="/mensagens/:id" element={<MessageFormPage />} />
           <Route path={ROUTES.settings} element={guard(ALL_ROLES, <SettingsPage />)} />
+
+          {/* ADMINISTRAÇÃO */}
+          <Route path={ROUTES.users} element={guard(['sme_admin'], <UsersListPage />)} />
+          <Route path={ROUTES.userNew} element={guard(['sme_admin'], <UserFormPage />)} />
+          <Route path="/usuarios/:id/editar" element={guard(['sme_admin'], <UserFormPage />)} />
         </Route>
       </Route>
 
