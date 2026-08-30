@@ -2,300 +2,325 @@
 
 **Perfil:** `sme_admin` · **Visão:** toda a rede municipal.
 
-O administrador é quem **estrutura a rede** no sistema: escolas, quadro docente,
-disciplinas, alunos, matrículas e o acompanhamento pedagógico de todas as
-unidades.
+O administrador é quem **estrutura a rede** no sistema: escolas, salas, quadro
+docente, disciplinas, alunos, matrículas, **usuários** e o acompanhamento
+pedagógico de todas as unidades — além de operações de rede como o
+**fechamento do ano letivo** e a **exportação do Educacenso**.
 
 ---
 
 ## Índice
 
 1. [Primeiro acesso](#1-primeiro-acesso)
-2. [Painel inicial](#2-painel-inicial)
-3. [Dados da Secretaria](#3-dados-da-secretaria)
-4. [Escolas](#4-escolas)
-5. [Disciplinas e matrizes curriculares](#5-disciplinas-e-matrizes-curriculares)
-6. [Cadastro de professores](#6-cadastro-de-professores)
-7. [Alocação de professores em turmas](#7-alocação-de-professores-em-turmas)
-8. [Cadastro de alunos](#8-cadastro-de-alunos)
+2. [Cabeçalho, notificações e menu](#2-cabeçalho-notificações-e-menu)
+3. [Dashboard gerencial](#3-dashboard-gerencial)
+4. [Dados da Secretaria e fechamento de ano letivo](#4-dados-da-secretaria-e-fechamento-de-ano-letivo)
+5. [Escolas e salas de aula](#5-escolas-e-salas-de-aula)
+6. [Currículo e matrizes](#6-currículo-e-matrizes)
+7. [Professores e alocações](#7-professores-e-alocações)
+8. [Alunos, documentos e privacidade (LGPD)](#8-alunos-documentos-e-privacidade-lgpd)
 9. [Matrículas](#9-matrículas)
 10. [Transferências entre escolas](#10-transferências-entre-escolas)
-11. [Acompanhamento pedagógico](#11-acompanhamento-pedagógico)
-12. [Comunicação e documentos](#12-comunicação-e-documentos)
-13. [Configurações](#13-configurações)
-14. [Limitações conhecidas](#14-limitações-conhecidas)
+11. [Turmas](#11-turmas)
+12. [Acompanhamento pedagógico](#12-acompanhamento-pedagógico)
+13. [Documentos, boletins e exportações](#13-documentos-boletins-e-exportações)
+14. [Educacenso](#14-educacenso)
+15. [Usuários da Rede](#15-usuários-da-rede)
+16. [Comunicação](#16-comunicação)
+17. [Configurações](#17-configurações)
+18. [Limitações conhecidas](#18-limitações-conhecidas)
 
 ---
 
 ## 1. Primeiro acesso
 
 1. Abra `http://localhost:3000`.
-2. Informe **usuário** e **senha** (na base de exemplo: `admin` / `admin123`).
-3. Clique em **Entrar**. Você cai no **Dashboard**.
-4. O menu lateral escuro (à esquerda) lista todas as áreas disponíveis. O botão
-   `‹` no topo recolhe/expande o menu.
-
-> **Dica de segurança:** troque a senha padrão. Hoje a troca de senha pela tela
-> de Configurações ainda não está ativa — use a área administrativa
-> (`/admin/` → *Users*) ou o endpoint `POST /api/v1/accounts/users/change_password/`.
+2. Informe **usuário** e **senha** (na carga de demonstração: `admin` / `admin123`).
+3. Clique em **Entrar**. Você cai no **Dashboard gerencial**.
+4. **Troque a senha padrão:** menu **Configurações → Segurança → Alterar senha**.
+   Se esquecer a senha, use **"Esqueci minha senha"** na tela de login — o
+   sistema envia um link de redefinição (válido por 2 h) para o e-mail cadastrado.
 
 ---
 
-## 2. Painel inicial
+## 2. Cabeçalho, notificações e menu
 
-Menu **Dashboard**.
-
-- Quatro cartões com os totais **da rede**: **Alunos**, **Turmas**,
-  **Disciplinas** e **Escolas**. Cada cartão é um atalho para a listagem
-  correspondente.
-- **Atividade Recente** — lista de ações registradas (ver limitações).
-- **Menu Rápido** — atalhos para Secretaria, Matrizes, Transferências e Alunos.
+- O **cabeçalho institucional** (barra escura no topo) mostra a identidade da
+  rede, o **ano letivo / bimestre corrente**, o **sino de notificações** e o
+  **menu do usuário** (canto direito).
+- **Sino** → abre a central de notificações: badge com o número de não lidas,
+  botão **"Marcar todas como lidas"** e clique numa notificação leva à tela do
+  evento (ex.: transferência, mensagem).
+- O **menu lateral** escuro (à esquerda) lista as áreas disponíveis, agrupadas
+  em: `REDE`, `PESSOAS`, `VIDA ESCOLAR`, `DIÁRIO DE CLASSE`, `DOCUMENTOS`,
+  `COMUNICAÇÃO` e `ADMINISTRAÇÃO`. O botão de menu no topo recolhe/expande a
+  barra (tecla `[`).
 
 ---
 
-## 3. Dados da Secretaria
+## 3. Dashboard gerencial
 
-Menu **Secretaria** (`/sme`).
+Menu **Dashboard gerencial** (`/`).
 
-- Exibe o município, código IBGE, secretário(a) e os parâmetros da rede
+- **KPIs da rede** — matrículas ativas, completude do diário, frequência,
+  alunos abaixo do mínimo. Cada KPI é um atalho para a listagem filtrada.
+- **Gráficos** — tendência de frequência (ano corrente × ano anterior),
+  rendimento por etapa, matrículas por etapa/turno e movimentação
+  (transferências, evasão).
+- **Completude do diário** — tabela por escola (ou por turma, no escopo de uma
+  escola) com % de notas lançadas e frequência média, sinalizando turmas
+  críticas.
+- **Precisa de você** e **Atividade recente na rede** — pendências e as últimas
+  ações registradas na **trilha de auditoria** (logins, cadastros, edições).
+
+---
+
+## 4. Dados da Secretaria e fechamento de ano letivo
+
+Menu **Escolas e salas → Secretaria**, ou a rota `/sme`.
+
+- Mostra município, código IBGE, secretário(a) e os **parâmetros da rede**
   (nota mínima para aprovação, frequência mínima).
-- Abaixo, a **lista de todas as escolas** da rede com nome, INEP, tipo e cidade.
+- Card **Anos letivos** — lista os anos com seu status (Ativo / Planejado /
+  Encerrado).
+
+### Encerrar o ano letivo
+
+No card **Anos letivos**, no ano **Ativo**, clique em **Encerrar ano letivo**
+(somente `sme_admin`). O sistema pede confirmação em **duas etapas** (aviso do
+que acontece + digitar o ano). Ao confirmar, para **cada matrícula ativa**:
+
+- calcula a **média final** por disciplina e a **frequência global**;
+- define o resultado como **Aprovado**, **Reprovado por nota** ou
+  **Reprovado por frequência**, conforme os parâmetros da rede;
+- **consolida o histórico escolar** do estudante;
+- **trava o diário** das turmas daquele ano — nenhum lançamento retroativo de
+  nota ou frequência é mais aceito.
+
+Um bimestre ainda em aberto (data de término no futuro) impede o fechamento.
 
 ---
 
-## 4. Escolas
+## 5. Escolas e salas de aula
 
-Menu **Escolas** (`/schools`).
+Menu **Escolas e salas** (`/escolas`).
 
-### Consultar
+### Escolas
 
-- A tabela lista as escolas com nome, INEP, tipo e cidade.
-- Use a **busca** (por nome ou código INEP).
+- A tabela lista as escolas (nome, INEP, tipo, cidade); use a **busca**.
+- **Nova escola** → nome, Secretaria, tipo (Creche, Pré-escola, Fundamental I,
+  Fundamental II, EJA ou Mista), diretor(a), código INEP, CNPJ, contato e
+  endereço completo. **Criar**.
+- ✏️ edita; 🗑️ **desativa** (exclusão lógica).
 
-### Cadastrar uma escola
+### Salas de aula
 
-1. Clique em **Nova Escola**.
-2. Preencha:
-   - **Nome** (obrigatório)
-   - **Secretaria Municipal** (obrigatório — selecione a SME)
-   - **Tipo** — Creche, Pré-escola, Fundamental I, Fundamental II, EJA ou Mista
-   - **Diretor(a)** — selecione entre os usuários com papel de diretor (opcional)
-   - **Código INEP**, **CNPJ**, **e-mail**, **telefone**
-   - Endereço: logradouro, número, bairro, cidade, UF, CEP
-3. Clique em **Criar**. Uma notificação confirma o cadastro.
+Botão **Salas de aula** na tela de Turmas, ou rota `/salas`.
 
-### Editar / remover
-
-- Botão ✏️ na linha abre o formulário de edição.
-- Botão 🗑️ remove a escola (exclusão lógica — o registro é desativado, não apagado).
+- Tabela com sala, escola, capacidade, andar e bloco.
+- **Nova sala** → escola, número/identificação, capacidade (**> 0**), andar e
+  bloco. A capacidade zero ou negativa é recusada.
 
 ---
 
-## 5. Disciplinas e matrizes curriculares
+## 6. Currículo e matrizes
 
-### Disciplinas — menu **Disciplinas** (`/subjects`)
+Menu **Currículo e matrizes**.
 
-1. **Nova Disciplina**.
-2. Preencha **Nome**, **Área do conhecimento** (Linguagens, Matemática,
-   Ciências da Natureza, Ciências Humanas, Ensino Religioso), **Código BNCC**
-   (opcional), **Secretaria** e **nota mínima**.
-3. **Salvar**.
-
-As disciplinas são da **rede** (não de uma escola específica) e alimentam as
-matrizes curriculares e a alocação de professores.
-
-### Matrizes curriculares — menu **Matrizes** (`/sme/matrices`)
-
-- Tela de **consulta** das matrizes por etapa de ensino (uma matriz por etapa:
-  Educação Infantil, Fundamental Anos Iniciais, Fundamental Anos Finais, EJA),
-  com a etapa e o status.
-- A criação/edição de matriz e a definição da carga horária por disciplina são
-  feitas na carga inicial (`seed_censo_igarassu`) ou via API/área administrativa.
+- **Disciplinas** — **Nova Disciplina**: nome, área do conhecimento, código
+  BNCC (opcional), Secretaria e nota mínima. As disciplinas são **da rede**.
+- **Matrizes** — consulta das matrizes por etapa de ensino. Criação/edição e
+  carga horária por disciplina são feitas na carga inicial ou via API.
 
 ---
 
-## 6. Cadastro de professores
+## 7. Professores e alocações
 
-Menu **Professores** (`/teachers`).
-
-### Consultar
-
-- Tabela com matrícula funcional, nome, área de formação e status.
-- **Busca** por nome, matrícula, CPF ou área de formação.
+Menu **Professores e alocações** (`/professores`).
 
 ### Cadastrar um professor
 
-1. Clique em **Novo Professor**.
-2. Preencha em uma única tela:
-   - **Dados de acesso:** nome, sobrenome, e-mail, **usuário de acesso**,
-     **senha** e **confirmação de senha**
-   - **Secretaria Municipal**
-   - **Dados funcionais:** matrícula funcional, **CPF** (11 dígitos),
-     área de formação, data de nascimento, data de contratação
-3. Clique em **Salvar**. O sistema cria **o usuário** (papel professor) **e o
-   perfil docente** em sequência.
+**Novo Professor** → em uma tela: dados de acesso (nome, e-mail, usuário,
+senha), Secretaria e dados funcionais (matrícula, CPF de 11 dígitos, formação,
+data de nascimento, data de contratação). O sistema cria **o usuário** (papel
+professor) **e o perfil docente**.
 
-> O professor já pode entrar no sistema com o usuário/senha informados.
+### Alocar em turmas
 
-### Editar / remover
+Botão **Alocações** (ou `/professores/alocacoes`) → **Nova Alocação**:
+professor, turma, disciplina (deixe em branco para **regente / unidocente**) e
+a marcação de **regente da turma**.
 
-- ✏️ edita **apenas os dados funcionais** (matrícula, CPF, formação, datas). Para
-  alterar nome/e-mail, use a área administrativa.
-- 🗑️ remove o professor do quadro (exclusão lógica). As alocações associadas
-  também deixam de valer.
+O sistema **recusa** a alocação quando há:
+
+- **Conflito de turno** — o professor já rege outra turma cujo turno se
+  sobrepõe no mesmo ano letivo (`Integral` conflita com manhã e tarde);
+- **Alocação duplicada** — mesmo vínculo *professor + turma + disciplina*.
 
 ---
 
-## 7. Alocação de professores em turmas
+## 8. Alunos, documentos e privacidade (LGPD)
 
-Menu **Alocações** (`/teachers/allocations`) — ou o botão **Alocações** na tela
-de Professores.
+Menu **Alunos** (`/alunos`).
 
-### Consultar
+### Cadastro único
 
-- Tabela: professor, turma, disciplina e se é regente.
-- **Busca** por professor, turma ou disciplina.
+**Novo Aluno** → nome completo, ID municipal, nome da mãe e data de nascimento
+(obrigatórios); Secretaria; opcionais: nome social, CPF, gênero, nome do pai,
+INEP, NIS, certidão, raça/cor, necessidades especiais (AEE).
 
-### Criar uma alocação
+> Para o **Educacenso** validar sem pendências, preencha CPF **ou** certidão,
+> raça/cor, sexo e filiação de cada aluno.
 
-1. Clique em **Nova Alocação**.
-2. Selecione:
-   - **Professor**
-   - **Turma**
-   - **Disciplina** — opcional; deixe em branco para uma alocação de
-     **regente / unidocente** (comum nos Anos Iniciais)
-   - Marque **Professor regente da turma** se aplicável
-3. Clique em **Alocar**.
+### Ficha do aluno
 
-### Regras automáticas
+Clique no aluno (ícone 👁️) para abrir a **ficha**: ficha cadastral, notas por
+disciplina, resumo de frequência e:
 
-O sistema **recusa** a alocação e mostra um aviso quando:
+- **Documentos** — botão **Enviar documento** (modal com arrastar-e-soltar):
+  tipo, arquivo (**PDF, PNG, JPG, JPEG ou DOCX**, até 15 MB). Executáveis e
+  arquivos com conteúdo divergente da extensão são rejeitados.
+- **Privacidade e dados (LGPD)** — três chaves de consentimento (uso de dados,
+  uso de imagem, comunicações); botão **Baixar dados cadastrais (LGPD)** (JSON
+  com cadastro, notas, frequência, documentos e consentimentos); e, para o
+  `sme_admin`, **Anonimizar aluno** — substitui nome/CPF/filiação por
+  marcadores anônimos, **de forma irreversível**, preservando o histórico
+  acadêmico. Só permitido para aluno **sem matrícula ativa**.
+- Botões **Emitir Boletim** e **Emitir Carteirinha** (PDF oficial, com QR Code
+  na carteirinha).
 
-- **Conflito de turno:** o professor já está alocado em outra turma cujo turno
-  se sobrepõe no mesmo ano letivo (não é possível reger duas salas ao mesmo
-  tempo). `Integral` conflita com manhã e com tarde.
-- **Alocação duplicada:** já existe o vínculo *professor + turma + disciplina*.
-
-Um mesmo professor **pode** lecionar disciplinas diferentes na mesma turma, e
-turmas em turnos diferentes.
-
-### Remover
-
-- Botão 🗑️ na linha da alocação.
-
----
-
-## 8. Cadastro de alunos
-
-Menu **Alunos** (`/students`).
-
-### Consultar
-
-- Tabela com ID municipal, nome, nome da mãe e status.
-- **Busca** por nome, ID municipal ou nome da mãe.
-
-### Cadastrar um aluno (cadastro único)
-
-1. Clique em **Novo Aluno**.
-2. Preencha:
-   - **Nome completo**, **ID municipal**, **nome da mãe**,
-     **data de nascimento** (obrigatórios)
-   - **Secretaria Municipal**
-   - Opcionais: nome social, CPF, gênero, nome do pai, código INEP, NIS,
-     raça/cor, necessidades especiais (marque a opção e descreva)
-3. **Salvar**.
-
-O aluno fica no **cadastro único da rede** — a partir daí ele é matriculado em
-uma turma (passo seguinte).
-
-### Boletim individual
-
-- Clique no aluno (ícone 👁️) para abrir **Boletim — Nome do Aluno**: notas por
-  disciplina, resumo de frequência e botão **Imprimir**.
+Toda exportação/consulta de dados pessoais gera registro na trilha de auditoria.
 
 ---
 
 ## 9. Matrículas
 
-Menu **Matrículas** (`/enrollments`).
+Menu **Matrículas** (`/matriculas`).
 
-### Consultar
-
-- Tabela com número da matrícula, aluno, turma e status. É possível **alterar o
-  status** de uma matrícula pela própria listagem.
-
-### Matricular um aluno
-
-1. Clique em **Nova Matrícula**.
-2. Selecione o **Aluno**, a **Turma** e informe o **número da matrícula**
-   (ex.: `MAT2026000123`).
-3. **Salvar**.
-
-### Regras automáticas
-
-- **Matrícula ativa duplicada:** o sistema recusa uma segunda matrícula ativa
-  para o mesmo aluno **no mesmo ano letivo**.
-- **Capacidade da turma:** a matrícula é recusada se a turma já atingiu a
-  capacidade máxima.
+- **Nova Matrícula** → aluno, turma e número da matrícula.
+- **Matrícula ativa duplicada** no mesmo ano letivo é recusada
+  (`DUPLICATE_ENROLLMENT`).
+- **Capacidade da turma** excedida é recusada (`CLASS_CAPACITY_EXCEEDED`).
 
 ---
 
 ## 10. Transferências entre escolas
 
-Menu **Transferências** (`/sme/transfers`).
+Menu **Transferências** (`/transferencias`).
 
 ### Fluxo
 
-1. **Solicitação** — clique em **Nova Transferência**, informe aluno, escola de
-   origem, escola de destino, ano letivo e motivo, e clique em
-   **Criar Solicitação**. A solicitação nasce *pendente na SME*.
-2. **Autorização (SME)** — na listagem, use a ação **Autorizar** na solicitação
-   pendente. Confirme no diálogo.
-3. **Aceite (escola de destino)** — a escola de destino aceita a transferência
-   (ação **Aceitar**). Só a unidade de destino pode aceitar.
+1. **Solicitação** — **Nova Transferência**: aluno, escola de origem, escola de
+   destino, ano letivo e motivo. Nasce *pendente na SME*.
+2. **Autorização (SME)** — botão **Autorizar** na solicitação pendente (ou
+   **Recusar**).
+3. **Efetivação (escola de destino)** — botão **Efetivar matrícula e aceitar**:
+   abre um modal para escolher a **turma de destino**. Ao confirmar, o sistema
+   **encerra a matrícula de origem** (`TRANSFERRED_INTERNAL` / `EXTERNAL`) e
+   **cria a nova matrícula** na turma escolhida — tudo atômico (turma sem vaga
+   → nada é alterado). Também é possível **Recusar** nesta etapa.
 
-O administrador pode acompanhar todas as etapas nesta tela.
+O `sme_admin` pode efetuar o aceite por qualquer escola. Cada etapa gera
+notificação para a direção da origem, do destino e para a SME.
 
 ---
 
-## 11. Acompanhamento pedagógico
+## 11. Turmas
 
-O administrador tem visão **de toda a rede** nas telas do diário de classe:
+Menu **Turmas** (`/turmas`).
+
+- Lista turma, turno, escola, nº de alunos e status; **busca**.
+- **Nova turma** → nome, escola, ano letivo, matriz curricular, turno,
+  **capacidade máxima (> 0)** e sala de aula (opcional). ✏️ edita a turma.
+- **Salas de aula** → ver [seção 5](#5-escolas-e-salas-de-aula).
+
+---
+
+## 12. Acompanhamento pedagógico
+
+Visão **de toda a rede** no diário de classe:
 
 | Menu | O que mostra |
 | :--- | :--- |
-| **Notas** (`/grades`) | Todas as notas lançadas; filtro/busca por aluno, disciplina, período |
-| **Frequência** (`/attendance`) | Registros de frequência de toda a rede |
-| **Pareceres** (`/evaluations`) | Pareceres descritivos (Educação Infantil) |
-| **Boletins Consolidados** (`/boletins`) | Consolidação por turma: média geral e status de cada aluno; botão **Imprimir** |
+| **Notas e frequência** (`/diario/lancamentos`) | Notas e frequência lançadas; abas no topo alternam entre notas, frequência e histórico |
+| **Pareceres descritivos** (`/diario/pareceres`) | Pareceres da Educação Infantil |
+| **Conteúdo ministrado** (`/diario/conteudo`) | Registros de aula dos professores |
 
-O lançamento de notas/frequência/pareceres é feito pelo **professor** (ver
-[tutorial do professor](professor.md)); o administrador acompanha o resultado.
+O lançamento é feito pelo **professor** (ver [tutorial do professor](professor.md)).
 
 ---
 
-## 12. Comunicação e documentos
+## 13. Documentos, boletins e exportações
 
-- **Mensagens** (`/messages`) — **Nova Mensagem**: escolha o destinatário,
-  assunto e corpo; clique em **Enviar**. Clique numa mensagem da lista para lê-la.
-- **Documentos** (`/documents`) — consulta e download de documentos; abrir um
-  item mostra os detalhes e o botão para abrir o arquivo.
+Grupo **DOCUMENTOS** do menu:
 
----
-
-## 13. Configurações
-
-Menu **Configurações** (`/settings`) — perfil, preferências de notificação,
-aparência e segurança. Botão **Sair da Conta** encerra a sessão.
+- **Arquivos dos alunos** (`/documentos/arquivos`) — todos os documentos da
+  rede; botão **Enviar documento** (com seleção do aluno).
+- **Boletins e carteirinhas** (`/documentos/boletins`) — consolidação por
+  turma; **botão de download do boletim oficial (PDF)** por aluno.
+- **Exportações** (`/documentos/exportacoes`) — cards de exportação rápida:
+  relatório de rendimento da rede em **Excel/CSV** e a pré-exportação do
+  Educacenso.
 
 ---
 
-## 14. Limitações conhecidas
+## 14. Educacenso
+
+Menu **Educacenso** (`/documentos/educacenso`) — exclusivo SME.
+
+1. A tela roda o **diagnóstico de consistência** da rede: verifica código INEP
+   e endereço das escolas, CPF/data de nascimento dos docentes alocados e os
+   dados obrigatórios dos alunos matriculados.
+2. As pendências aparecem listadas por entidade (escola, turma, docente, aluno)
+   com o que está faltando. Corrija nas telas correspondentes e clique em
+   **Revalidar**.
+3. Quando a rede está consistente, o botão **Baixar arquivo (ZIP)** habilita —
+   o pacote traz `escolas.csv`, `turmas.csv`, `docentes.csv` e `matriculas.csv`
+   (UTF-8, separador `;`).
+
+---
+
+## 15. Usuários da Rede
+
+Menu **Usuários da Rede** (`/usuarios`) — exclusivo `sme_admin`.
+
+- Tabela com nome, e-mail, papel, escola e situação; **busca** por nome/e-mail/
+  CPF e filtro por papel.
+- **Novo usuário** → nome, e-mail institucional, CPF, **papel** (admin,
+  supervisor, diretor, secretário, professor), **escola** (obrigatória para
+  diretor/secretário) e **senha provisória** (gerada automaticamente e exibida
+  no aviso, se deixada em branco). E-mail ou CPF duplicado retorna mensagem
+  amigável.
+- Ação **ativar/desativar** — a desativação **corta o acesso imediatamente**
+  (as sessões abertas do usuário param de funcionar na requisição seguinte).
+
+---
+
+## 16. Comunicação
+
+**Mensagens e avisos** (`/mensagens`) — **Nova Mensagem**: destinatário,
+assunto e corpo. O destinatário recebe uma **notificação** no sino.
+
+---
+
+## 17. Configurações
+
+Menu **Configurações** (`/configuracoes`):
+
+- **Perfil** — **Editar perfil** (e-mail, telefone).
+- **Privacidade e dados (LGPD)** — baixar o pacote de dados de alunos no seu
+  escopo.
+- **Segurança** — **Alterar senha** (exige a senha atual; após a troca é
+  preciso entrar de novo).
+- **Sair da conta**.
+
+---
+
+## 18. Limitações conhecidas
 
 | Área | Situação atual |
 | :--- | :--- |
-| **Turmas** | Não há tela para *criar* turma. As turmas vêm da carga do Censo (`seed_censo_igarassu`); novas turmas são criadas via API (`POST /api/v1/classes/`) ou pela área administrativa (`/admin/`). |
-| **Boletim/carteirinha em PDF** | Gerados apenas pelos endpoints da API (`/api/v1/reports/boletim_pdf/`, `/carteirinha_pdf/`, `/relatorio_excel/`, `/educacenso-export/`) — ainda sem botão na interface. Na tela, use **Imprimir** (boletim consolidado e boletim individual). |
-| **Trocar senha / editar perfil / 2FA** | Botões presentes em Configurações, mas ainda sem ação. Use a área administrativa. |
 | **Matrizes curriculares** | Tela somente de leitura; criação/edição via carga inicial ou API. |
-| **Trilha de auditoria** | O bloco "Atividade Recente" do Dashboard depende de registros de auditoria que ainda não são gravados automaticamente. |
+| **Autenticação em dois fatores (2FA)** | Fora de escopo desta fase. |
+| **Notificações por e-mail / WhatsApp** | Apenas notificações **in-app** (sino). O e-mail é usado só na redefinição de senha. |
+| **Homologação do selo INEP/MEC** | A exportação do Educacenso é para conciliação/alimentação; a homologação oficial não faz parte deste escopo. |

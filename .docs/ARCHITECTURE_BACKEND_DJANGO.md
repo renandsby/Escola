@@ -3,7 +3,7 @@
 | Metadado | Detalhe |
 | :--- | :--- |
 | **Documento** | Diretrizes de Arquitetura, Clean Code e Padrões de Engenharia Backend |
-| **Stack** | Python 3.12+, Django 5+, Django REST Framework, PostgreSQL, Redis, Celery |
+| **Stack** | Python ≥ 3.13, Django 6.1, Django REST Framework 3.18, PostgreSQL 16, Redis 8, Celery 5.6 |
 | **Público-Alvo** | Agentes de IA, Tech Leads, Engenheiros de Software |
 | **Status** | Padrão Oficial & Obrigatório do Projeto |
 
@@ -35,24 +35,36 @@ Cada funcionalidade do sistema é organizada em um Django App autocontido dentro
 ```text
 backend/
 ├── apps/
-│   ├── authentication/           # Usuários, Autenticação JWT, Perfis
-│   ├── governance/               # SME, Departamentos, Anos Letivos, Matrizes
+│   ├── authentication/           # API de autenticação JWT, perfil, reset de senha
+│   ├── governance/               # SME, Anos Letivos, Matrizes, LGPD (privacy_service), fechamento de ano
 │   ├── schools/                  # Unidades Escolares, Infraestrutura física
 │   ├── curriculum/               # Componentes curriculares, Etapas BNCC
-│   ├── classes/                  # Turmas, Alocações Docentes
-│   ├── students/                 # Alunos, Responsáveis, Matrículas, Vagas
-│   ├── class_diary/              # Notas, Frequência, Pareceres Descritivos
-│   └── reports/                  # Exportações PDF, CSV, Excel, Educacenso
+│   ├── classes/                  # Turmas, Salas, Alocações Docentes
+│   ├── students/                 # Alunos, Responsáveis, Matrículas, Transferências, Portal da família
+│   ├── class_diary/              # Notas, Frequência, Pareceres, Conteúdo, Consolidação de histórico
+│   ├── reports/                  # Boletim/carteirinha PDF, Excel/CSV, Educacenso, relatórios assíncronos
+│   ├── dashboard/                # Agregações da rede, contexto institucional do cabeçalho
+│   ├── documents/                # Upload validado de documentos (magic bytes, escopo RBAC)
+│   ├── notifications/            # Notificações in-app + notification_service (gatilhos de negócio)
+│   ├── communications/           # Mensagens entre usuários
+│   ├── audit/                    # AuditLog (gravado por core/middleware.py::AuditMiddleware)
+│   ├── backups/                  # pg_dump agendado (Celery beat) + retenção
+│   └── health/                   # /health/live/ e /health/ready/
 │
-├── core/                         # Utilitários compartilhados, Base Models, Exceptions
-│   ├── exceptions.py             # Handler global de exceções e classes base de erro
+├── core/                         # Utilitários compartilhados
+│   ├── models.py                 # BaseModel (UUID, timestamps) · SoftDeleteModel · User · UserRole
+│   ├── scopes.py                 # apply_scope() — isolamento RBAC por papel (usado pelos selectors)
+│   ├── exceptions.py             # BusinessLogicError + custom_exception_handler (envelope de erro)
+│   ├── middleware.py             # AuditMiddleware
 │   ├── pagination.py             # Paginação padrão da API
-│   ├── permissions.py            # RBAC Base classes
-│   ├── models.py                 # TimeStampedModel, UUIDModel base
-│   └── renderers.py              # Resposta padrão JSON padronizada
+│   └── permissions.py            # RBAC (IsSMEAdmin, IsSMEStaff, IsSchoolStaff, …)
 │
-└── config/                       # Settings, WSGI, ASGI, URLs raiz
+└── config/                       # Settings, WSGI, ASGI, URLs raiz, celery.py
 ```
+
+> O modelo de usuário (`core.User`, `AUTH_USER_MODEL`) e o `apply_scope()`
+> ficam em **`core/`**; o app `authentication` é só a camada de API em torno
+> deles.
 
 ### 2.1. Estrutura Interna de cada Django App:
 ```text
@@ -123,7 +135,17 @@ def get_school_by_id(*, school_id: UUID, user: User) -> Optional[School]:
 ### 3.2. Camada de Escrita: `services/`
 * **Regra:** Todas as alterações de estado, validações de regra de negócio complexas e orquestração de efeitos colaterais residem aqui.
 * **Regra de Transação:** Modificações que afetam mais de uma tabela **devem** ser decoradas com `@transaction.atomic`.
-* **Regra de Exceção:** Lançar exceções de domínio (`DomainValidationError`, `ResourceNotFoundError`, `BusinessLogicError`) que serão interceptadas pelo handler global.
+* **Regra de Exceção:** Lançar exceções de domínio (`BusinessLogicError`) que serão interceptadas pelo handler global.
+* **`ATOMIC_REQUESTS = True`:** cada request já roda dentro de uma transação, e
+  respostas **4xx/5xx fazem *rollback*** — inclusive de gravações feitas por
+  serializers/serviços chamados no caminho. Efeitos que **precisam sobreviver a
+  um 4xx** (ex.: registrar um *login falho* na auditoria) devem ser feitos **no
+  `process_response` de um middleware**, fora do bloco atômico da view.
+* **`select_for_update(of=('self',))`** quando a *query* de trava tem
+  `select_related` numa FK anulável (evita `FOR UPDATE cannot be applied to the
+  nullable side of an outer join`).
+* **Notificações/efeitos colaterais** passam por `notify_user()` / `notify_role()`
+  (`notifications/services/`) e nunca criam `Notification` direto.
 
 ```python
 # apps/students/services/enrollment_service.py

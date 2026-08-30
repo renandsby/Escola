@@ -2,7 +2,7 @@
 
 Guias passo a passo da jornada de cada papel dentro do sistema. Cada tutorial
 descreve **o que o usuário enxerga**, **como fazer cada tarefa** e **quais
-limitações conhecidas** existem na versão atual.
+limitações conhecidas** ainda existem.
 
 | Papel | Perfil no sistema | Tutorial |
 | :--- | :--- | :--- |
@@ -20,13 +20,14 @@ limitações conhecidas** existem na versão atual.
 
 - **Não há autocadastro.** As contas são criadas pelo administrador da SME
   (ou, para alunos/responsáveis, pela escola). Cada pessoa recebe um
-  **usuário e senha**.
+  **usuário e senha** — e pode trocar a senha pela tela de **Configurações**
+  ou pelo link **"Esqueci minha senha"** na tela de login.
 - O sistema aplica **controle de acesso hierárquico**: o administrador enxerga
   toda a rede municipal; o diretor, apenas a própria escola; o professor,
   apenas as turmas em que está alocado; o responsável, apenas o(s) aluno(s)
   vinculado(s) a ele.
 - O **menu lateral** mostra somente os itens permitidos ao papel de quem
-  está logado.
+  está logado. O **sino** no cabeçalho abre a central de notificações.
 
 ## Endereços
 
@@ -36,14 +37,30 @@ limitações conhecidas** existem na versão atual.
 | Documentação da API | `http://localhost:8000/api/docs/` |
 | Área administrativa técnica (Django Admin) | `http://localhost:8000/admin/` |
 
-## Carga inicial da rede
+## Carga de dados para demonstração
 
-A base de Igarassu/PE é montada a partir do Censo Escolar 2025 do INEP:
+**Base estrutural de Igarassu/PE** (Censo Escolar 2025 do INEP) — Secretaria,
+ano letivo, etapas, disciplinas, matrizes, **49 escolas**, salas e **~535
+turmas**, mais os usuários `admin` / `admin123` e `supervisor` / `supervisor123`:
 
 ```bash
 docker compose exec backend python manage.py seed_censo_igarassu
 ```
 
-Isso cria a Secretaria, o ano letivo, as etapas de ensino, as disciplinas, as
-matrizes curriculares, **49 escolas**, as **salas de aula** e **~535 turmas**,
-além dos usuários `admin` / `admin123` e `supervisor` / `supervisor123`.
+**Carga fictícia completa** (alunos, matrículas, notas, frequência, pareceres,
+responsáveis e vínculos, consentimentos LGPD, documentos, notificações,
+transferências e o ano letivo anterior já encerrado com histórico consolidado):
+
+```bash
+docker compose exec backend python manage.py seed_dashboard_demo --fresh
+```
+
+Logins de demonstração criados por essa carga:
+
+| Usuário | Senha | Papel |
+| :--- | :--- | :--- |
+| `admin` | `admin123` | Administrador da SME |
+| `responsavel` | `resp123` | Responsável com **2 filhos** (portal da família) |
+
+Alternativa menor e autocontida (rede de exemplo "São Paulo", usuários com
+sufixo `.sp`): `python manage.py seed_municipal`.

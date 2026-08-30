@@ -3,7 +3,7 @@
 | Metadado | Detalhe |
 | :--- | :--- |
 | **Documento** | Diretrizes de Arquitetura, Clean Code e Padrões de Engenharia Frontend |
-| **Stack** | React 18+, TypeScript 5+ (Strict Mode), Vite, TanStack Query v5, Zustand, Tailwind CSS, Shadcn UI / Radix |
+| **Stack** | React 18, TypeScript 5 (Strict Mode), Vite 5, TanStack Query v5, Zustand, React Hook Form + Zod, Tailwind CSS 3, sonner (toasts). Design System próprio ("Rede") em `src/components/ui/` — ver [`DESIGN_SYSTEM_REDE.md`](DESIGN_SYSTEM_REDE.md) |
 | **Público-Alvo** | Agentes de IA, Tech Leads, Engenheiros de Software |
 | **Status** | Padrão Oficial & Obrigatório do Projeto |
 
@@ -45,12 +45,16 @@ frontend/src/
 │   └── layout/                   # Header, Sidebar, MunicipalBrand, UserMenu
 │
 ├── features/                     # MÓDULOS DE NEGÓCIO (Bounded Contexts)
-│   ├── authentication/           # Login, Recuperação de Senha, Perfil
-│   ├── schools/                  # Gestão de Escolas, Unidades e Vagas
-│   ├── classes/                  # Gestão de Turmas e Alocação de Professores
-│   ├── students/                 # Cadastro Único de Alunos, Matrículas, Vagas
-│   ├── class-diary/              # Lançamento de Notas, Frequência e Pareceres
-│   └── reports/                  # Boletins PDF, Relatórios e Educacenso
+│   ├── authentication/           # Login, "esqueci minha senha", perfil, Usuários da Rede
+│   ├── governance/               # Secretaria, matrizes, fechamento de ano letivo
+│   ├── schools/                  # Gestão de Escolas
+│   ├── classes/                  # CRUD de Turmas e Salas, Alocação de Professores
+│   ├── students/                 # Cadastro único, Matrículas, Transferências, LGPD na ficha
+│   ├── guardians/                # Portal "Meus filhos" (student_guardian)
+│   ├── class-diary/              # Lançamento em lote de Notas, Frequência e Pareceres
+│   ├── reports/                  # Boletim/carteirinha PDF, Exportações, Educacenso
+│   ├── dashboard/                # Painel gerencial (KPIs, gráficos, completude, auditoria)
+│   └── notifications/            # NotificationPopover (sino do cabeçalho)
 │
 ├── hooks/                        # Custom Hooks Genéricos (useDebounce, useMediaQuery)
 ├── services/                     # Configuração de Clientes HTTP e Interceptors
@@ -273,8 +277,13 @@ import React from "react";
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
 
+type UserRole =
+  | "sme_admin" | "sme_supervisor"
+  | "school_director" | "school_secretary"
+  | "teacher" | "student_guardian";
+
 interface ProtectedRouteProps {
-  allowedRoles?: Array<"sme_admin" | "sme_supervisor" | "school_director" | "teacher" | "student">;
+  allowedRoles?: UserRole[];
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {

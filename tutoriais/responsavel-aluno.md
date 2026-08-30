@@ -2,20 +2,21 @@
 
 **Perfil:** `student_guardian` · **Visão:** apenas o(s) aluno(s) vinculado(s) a você.
 
-O responsável (ou o próprio aluno) usa o sistema para **acompanhar a vida
-escolar**: notas, boletim, frequência, comunicados da escola e documentos.
+O responsável (ou o próprio aluno) acompanha a **vida escolar**: notas, boletim,
+frequência, comunicados da escola e documentos — tudo em um layout pensado
+para celular.
 
 ---
 
 ## Índice
 
 1. [Primeiro acesso](#1-primeiro-acesso)
-2. [Painel inicial](#2-painel-inicial)
-3. [Acompanhar notas](#3-acompanhar-notas)
-4. [Boletim do aluno](#4-boletim-do-aluno)
+2. [Meus filhos (painel da família)](#2-meus-filhos-painel-da-família)
+3. [Boletim do aluno](#3-boletim-do-aluno)
+4. [Documentos](#4-documentos)
 5. [Mensagens da escola](#5-mensagens-da-escola)
-6. [Documentos](#6-documentos)
-7. [Configurações](#7-configurações)
+6. [Notificações](#6-notificações)
+7. [Configurações e privacidade](#7-configurações-e-privacidade)
 8. [Limitações conhecidas](#8-limitações-conhecidas)
 
 ---
@@ -25,69 +26,79 @@ escolar**: notas, boletim, frequência, comunicados da escola e documentos.
 1. A conta é criada pela **escola** ou pela **Secretaria** e já vem **vinculada
    ao(s) aluno(s)** correspondente(s). Você recebe **usuário e senha**.
 2. Abra `http://localhost:3000`, informe usuário e senha e clique em **Entrar**.
-3. Você cai no **Dashboard**. O menu lateral mostra apenas: **Dashboard**,
-   **Notas**, **Mensagens** e **Documentos**.
+3. Você cai em **Meus filhos**. O menu lateral mostra: **Meus filhos**,
+   **Boletins e carteirinhas**, **Arquivos dos alunos** e **Mensagens e avisos**.
+
+> Esqueceu a senha? Use **"Esqueci minha senha"** na tela de login — chega um
+> link de redefinição no e-mail cadastrado (válido por 2 horas).
 
 ---
 
-## 2. Painel inicial
+## 2. Meus filhos (painel da família)
 
-Menu **Dashboard** — mensagem de boas-vindas e atalhos. Os cartões de totais
-refletem o que você tem acesso.
+Menu **Meus filhos** (`/`).
 
----
+Um **cartão por estudante** vinculado a você, com:
 
-## 3. Acompanhar notas
+- **turma, turno e escola**;
+- **média geral** e **frequência** — destacadas em vermelho quando abaixo do
+  mínimo da rede;
+- botão **Baixar boletim** (PDF oficial);
+- botão **Falar com a coordenação** (abre uma nova mensagem).
 
-Menu **Notas** (`/grades`).
-
-- A tabela mostra **apenas as notas do(s) aluno(s) vinculado(s) a você**, com
-  disciplina, período e a nota efetiva.
-- Use a **busca** por disciplina ou período para filtrar.
-
-Aqui o acesso é **somente de leitura** — o lançamento é feito pelo professor.
+Se você tem mais de um filho, todos aparecem lado a lado (ou empilhados no
+celular). Cada um só mostra os **seus próprios** dados.
 
 ---
 
-## 4. Boletim do aluno
+## 3. Boletim do aluno
 
-O boletim individual fica em `http://localhost:3000/students/<ID-do-aluno>` —
-a escola pode te enviar esse link direto.
+Além do botão **Baixar boletim** no cartão, a ficha completa fica em
+**Boletins e carteirinhas** (`/documentos/boletins`) ou no link direto
+`/alunos/<ID-do-aluno>` que a escola pode te enviar.
 
-A tela **Boletim — Nome do Aluno** traz:
+A ficha traz **notas por disciplina**, **resumo de frequência** e o botão de
+**download do boletim em PDF**.
 
-- **Notas por disciplina** (com médias)
-- **Resumo de frequência**
-- Botão **Imprimir** para gerar uma via em papel/PDF pelo navegador
+---
+
+## 4. Documentos
+
+Menu **Arquivos dos alunos** (`/documentos/arquivos`).
+
+Lista os documentos do(s) seu(s) filho(s) (declarações, comprovantes,
+histórico etc.). Clique num item para **abrir/baixar o arquivo**. Você **não**
+vê documentos de alunos de outras famílias.
 
 ---
 
 ## 5. Mensagens da escola
 
-Menu **Mensagens** (`/messages`).
+Menu **Mensagens e avisos** (`/mensagens`).
 
-- A lista mostra as mensagens recebidas. Clique numa mensagem para ler o
-  conteúdo completo (remetente, data, assunto e texto).
-- Para enviar uma mensagem à escola, clique em **Nova Mensagem**, escolha o
-  destinatário, escreva assunto e texto e clique em **Enviar**.
-
----
-
-## 6. Documentos
-
-Menu **Documentos** (`/documents`).
-
-- Lista os documentos compartilhados com você (declarações, comunicados,
-  histórico etc.).
-- Clique num documento para ver os detalhes e **abrir/baixar o arquivo**.
+- A lista mostra as mensagens recebidas — clique para ler o conteúdo completo.
+- Para escrever à escola, **Nova Mensagem**: escolha o destinatário, o assunto e
+  o texto e clique em **Enviar**.
 
 ---
 
-## 7. Configurações
+## 6. Notificações
 
-Menu **Configurações** (`/settings`) — dados de perfil e preferências.
-Use **Sair da Conta** para encerrar a sessão com segurança, principalmente em
-computadores compartilhados.
+O **sino** no cabeçalho mostra avisos do sistema (nova mensagem, por exemplo),
+com contador de não lidas e a opção **"Marcar todas como lidas"**.
+
+---
+
+## 7. Configurações e privacidade
+
+Menu **Configurações** (`/configuracoes`):
+
+- **Editar perfil** — telefone e e-mail.
+- **Alterar senha** — exige a senha atual.
+- **Privacidade e dados (LGPD)** — para cada filho, o botão **Baixar dados
+  cadastrais (LGPD)** gera um arquivo com o que a rede mantém sobre ele
+  (cadastro, notas, frequência, documentos e consentimentos).
+- **Sair da conta** — importante em computadores compartilhados.
 
 ---
 
@@ -95,7 +106,6 @@ computadores compartilhados.
 
 | Área | Situação atual |
 | :--- | :--- |
-| **"Meus alunos"** | Não há uma lista de alunos vinculados no menu; o boletim é acessado pelo **link direto** que a escola fornece (`/students/<id>`). |
-| **Frequência e pareceres** | Não aparecem no menu do responsável — o resumo de frequência está dentro do **Boletim** do aluno. |
-| **Boletim em PDF oficial** | Na tela use **Imprimir**; a via oficial em PDF é emitida pela escola/Secretaria. |
-| **Trocar senha pela interface** | Ainda inativo — solicite à escola. |
+| **Lançamento de notas/frequência** | Somente leitura para o responsável — o lançamento é do professor. |
+| **Registro de consentimentos** | Hoje é feito pela escola/Secretaria na ficha do aluno; pelo portal, o responsável consegue **baixar** os dados, mas não editar os consentimentos. |
+| **Notificações por e-mail/WhatsApp** | Apenas avisos in-app (sino). O e-mail é usado só na redefinição de senha. |

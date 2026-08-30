@@ -4,7 +4,7 @@
 | :--- | :--- |
 | **Status** | **Implementado** — em uso pela rede municipal de Igarassu/PE |
 | **Autor** | Equipe de Arquitetura & Engenharia de Software |
-| **Versão** | 3.0.0 |
+| **Versão** | 3.1.0 — inclui o plano de produção mínima (LGPD, backup, auditoria, portal da família, Educacenso, fechamento de ano) |
 | **Data** | Agosto de 2026 |
 | **Domínio** | Gestão Pública Municipal / Educação Básica |
 | **Documentos correlatos** | [`ARCHITECTURE_BACKEND_DJANGO.md`](ARCHITECTURE_BACKEND_DJANGO.md) · [`ARCHITECTURE_FRONTEND_REACT.md`](ARCHITECTURE_FRONTEND_REACT.md) · [`../README.md`](../README.md) · [`../tutoriais/`](../tutoriais/) |
@@ -35,7 +35,7 @@ A arquitetura-alvo descrita neste documento foi **implementada**. Situação atu
 * **Contrato de URL congelado:** a consolidação de apps não alterou os prefixos da API.
 * Cobertura de testes de backend: ~290 casos (pytest).
 
-**Produção mínima (plano `PLANO_EXECUCAO_PRODUCAO_MINIMA`) — concluída.** As ondas P1 e P2 foram implementadas:
+**Plano de produção mínima — concluído.** As ondas P1 e P2 foram implementadas:
 
 * **P1 — prontidão de produção:** hardening de configuração/deploy (settings guardados por `ENVIRONMENT=production`, `docker-compose.prod.yml`, nginx/TLS, job de CI `deploy-check`); backup automatizado do banco (task Celery noturna + retenção); trilha de auditoria persistida no middleware (escritas `/api/` + login/login falho); transferência com efeito real na matrícula (encerra origem, cria destino, atômico).
 * **P2 — operação completa:** módulo mínimo de LGPD (consentimento, portabilidade, anonimização); recuperação de senha e perfil real; upload seguro de documentos com isolamento RBAC; CRUD de turmas e salas na interface; gestão administrativa de usuários da rede; central de exportações e emissão de boletim/carteirinha; motor de validação e exportação do Educacenso; portal do responsável ("Meus Filhos"); notificações in-app com gatilhos de negócio; fechamento de ano letivo com consolidação de histórico e trava do diário.
@@ -138,10 +138,18 @@ frontend/src/
 │                Contexto do Diário de Classe (class_diary)               │
 │ - Grade (Notas Quantitativas)  ·  DescriptiveEvaluation (Pareceres)     │
 │ - Attendance (Frequência)  ·  DiaryEntry (Conteúdo Ministrado)          │
-│ - SchoolHistory (Consolidação de Desempenho)                            │
+│ - SchoolHistory (Consolidação de Desempenho no fechamento do ano)       │
 └────────────────────────────────────────────────────────────────────────┘
 
-Relatórios (reports): Boletim PDF · Carteirinha (QR Code) · Excel/CSV · Educacenso
+Contextos transversais:
+- Privacidade/LGPD (governance): ConsentRecord · export/anonimização de titular
+- Documentos (documents): Document (upload validado, escopo RBAC)
+- Notificações (notifications): Notification (in-app, com gatilhos de negócio)
+- Auditoria (audit): AuditLog (middleware — escritas /api/ + login)
+- Backup (backups): Backup (pg_dump agendado + retenção)
+- Painel (dashboard): agregações da rede · contexto institucional do cabeçalho
+- Relatórios (reports): Boletim PDF · Carteirinha (QR Code) · Excel/CSV ·
+  Educacenso (validação de consistência + arquivo ZIP por entidade)
 ```
 
 ---
@@ -173,10 +181,13 @@ CREATE TABLE users (
     education_department_id UUID REFERENCES education_departments(id) ON DELETE RESTRICT,
     school_id UUID REFERENCES schools(id) ON DELETE RESTRICT,
     is_staff BOOLEAN DEFAULT FALSE, is_superuser BOOLEAN DEFAULT FALSE,
-    last_login_ip INET, last_login_agent TEXT,
+    is_active BOOLEAN DEFAULT TRUE,          -- desativar corta o acesso na próxima requisição
     created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now()
 );
 ```
+
+> O histórico de acesso (IP, *user-agent*, login falho) fica em `audit_logs`
+> (§5.7), gravado pelo `AuditMiddleware`, não em colunas de `users`.
 
 ### 5.2. Núcleo Institucional & Estrutura da Rede
 
@@ -421,6 +432,7 @@ CREATE TABLE transfer_requests (
     origin_school_id UUID NOT NULL REFERENCES schools(id) ON DELETE RESTRICT,
     destination_school_id UUID REFERENCES schools(id) ON DELETE RESTRICT,  -- NULL = externa ao município
     academic_year_id UUID NOT NULL REFERENCES academic_years(id) ON DELETE RESTRICT,
+    target_enrollment_id UUID REFERENCES enrollments(id) ON DELETE SET NULL, -- matrícula criada no aceite
     reason TEXT NOT NULL,
     status VARCHAR(30) NOT NULL DEFAULT 'PENDING_SME',
     -- 'PENDING_SME','APPROVED_BY_SME','ACCEPTED_BY_DESTINATION','REJECTED','CANCELLED'
@@ -428,6 +440,29 @@ CREATE TABLE transfer_requests (
     deleted_at TIMESTAMPTZ
 );
 ```
+
+#### 5.5.5. `ConsentRecord` (Consentimento LGPD)
+
+Registro imutável de consentimento por aluno e tipo (`governance`).
+
+```sql
+CREATE TABLE consent_records (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,   -- quem registrou
+    consent_type VARCHAR(32) NOT NULL,
+    -- 'MATRICULA_USO_DADOS','USO_IMAGEM','COMUNICACAO'
+    granted BOOLEAN DEFAULT TRUE,
+    term_version VARCHAR(20) DEFAULT '1.0',
+    granted_at TIMESTAMPTZ DEFAULT now(),
+    ip_address INET
+);
+CREATE INDEX idx_consent_student_type ON consent_records(student_id, consent_type);
+```
+
+> A situação corrente por tipo é o **último** registro. Exportação de titular
+> (`export_subject_data`) e anonimização (`anonymize_inactive_student`) são
+> *services* em `governance/services/privacy_service.py` (§7.6).
 
 ### 5.6. Diário de Classe: Notas, Frequência, Pareceres, Conteúdo
 
@@ -486,6 +521,60 @@ CREATE TABLE school_histories (
     overall_average FLOAT,
     final_status VARCHAR(20) DEFAULT 'pending'   -- 'approved','failed','pending'
 );
+-- preenchido pelo fechamento de ano letivo (§7.7).
+```
+
+### 5.7. Contextos transversais (documentos, notificações, auditoria, backup)
+
+```sql
+CREATE TABLE documents (                         -- app documents
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    document_type VARCHAR(50) NOT NULL,          -- 'rg','cpf','birth_certificate',...
+    file VARCHAR(255) NOT NULL,                  -- caminho no storage
+    file_name VARCHAR(255) NOT NULL,             -- nome higienizado
+    description TEXT,
+    expiration_date DATE,
+    uploaded_by_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+-- upload_document valida extensão, magic bytes, tamanho (15 MB) e higieniza o nome (§7.8).
+
+CREATE TABLE notifications (                     -- app notifications
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    notification_type VARCHAR(50) NOT NULL,      -- 'transfer','message','system',...
+    link VARCHAR(255),                           -- rota do evento no frontend
+    read BOOLEAN DEFAULT FALSE, read_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX idx_notifications_user_read ON notifications(user_id, read);
+
+CREATE TABLE audit_logs (                        -- app audit (gravado pelo middleware)
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,  -- NULL = anônimo (login falho)
+    action VARCHAR(64) NOT NULL,                 -- 'CREATE','UPDATE','DELETE','LOGIN','LOGIN_FAILED',...
+    model_name VARCHAR(120), object_id VARCHAR(64),
+    changes JSONB DEFAULT '{}',                  -- payload sanitizado (credenciais redigidas)
+    ip_address INET, user_agent TEXT,
+    request_method VARCHAR(10), request_path VARCHAR(255), status_code SMALLINT,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX idx_audit_user_time ON audit_logs(user_id, created_at);
+CREATE INDEX idx_audit_action_time ON audit_logs(action, created_at);
+
+CREATE TABLE backups (                           -- app backups
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    requested_by_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    backup_type VARCHAR(20) DEFAULT 'database',
+    triggered_by VARCHAR(20) DEFAULT 'AUTOMATED',-- 'AUTOMATED','MANUAL'
+    status VARCHAR(20) DEFAULT 'RUNNING',        -- 'RUNNING','COMPLETED','FAILED'
+    backup_file VARCHAR(255), checksum VARCHAR(64), size_mb FLOAT DEFAULT 0,
+    error_log TEXT, started_at TIMESTAMPTZ, finished_at TIMESTAMPTZ
+);
+-- task Celery 'backups.run_nightly_backup' (crontab 02:00) + prune_old_backups(30d) (§7.9).
 ```
 
 ---
@@ -497,16 +586,18 @@ O escopo é aplicado por `core/scopes.py::apply_scope()`, chamado pelos
 
 | Perfil / Papel | Escopo de Visibilidade | Ações Permitidas (implementadas) |
 | :--- | :--- | :--- |
-| **`sme_admin`** | Toda a rede municipal | CRUD de escolas, disciplinas, **professores** e **usuários** (`create_user`); criação de alocações; supervisão de matrículas, transferências e diário. |
-| **`sme_supervisor`** | Toda a rede municipal | Leitura de toda a rede; criação de alocações; **autorização** de transferências. Não cadastra escolas/professores/usuários. |
-| **`school_director`** | Apenas sua `School` | Edição dos dados da própria escola; CRUD de alunos e matrículas da unidade; leitura do diário e dos boletins consolidados da escola. |
-| **`school_secretary`** | Apenas sua `School` | Lançamento de matrículas e emissão de documentos da unidade (mesmo escopo do diretor para alunos/matrículas). |
-| **`teacher`** | Apenas turmas em `TeacherAllocation` | Lançamento **em lote** de notas e frequência, pareceres descritivos e diário das turmas alocadas (`CanEditGrades`). |
-| **`student_guardian`** | Apenas o(s) `Student` vinculado(s) | Visualização de boletim, notas, frequência (dentro do boletim) e avisos. |
+| **`sme_admin`** | Toda a rede municipal | CRUD de escolas, salas, disciplinas, turmas, **professores** e **usuários da rede** (`create_user`, ativar/desativar); criação de alocações; supervisão de matrículas, transferências e diário; **anonimização** de aluno (LGPD); **validação/exportação do Educacenso**; **fechamento do ano letivo**; disparo de **backup manual**; leitura da **trilha de auditoria**. |
+| **`sme_supervisor`** | Toda a rede municipal | Leitura de toda a rede; criação de alocações; **autorização** de transferências; **validação/exportação do Educacenso**. Não cadastra escolas/professores/usuários. |
+| **`school_director`** | Apenas sua `School` | Edição dos dados da própria escola; **CRUD de turmas e salas da unidade**; CRUD de alunos e matrículas; **upload de documentos**; **aceite/recusa** de transferência recebida (escola de destino); leitura do diário e dos boletins consolidados. |
+| **`school_secretary`** | Apenas sua `School` | Mesmo escopo do diretor para alunos, matrículas, turmas e documentos. |
+| **`teacher`** | Apenas turmas em `TeacherAllocation` | Lançamento **em lote** de notas e frequência, pareceres descritivos e diário das turmas alocadas (`CanEditGrades`) — **bloqueado se o ano letivo estiver `CLOSED`**. |
+| **`student_guardian`** | Apenas o(s) `Student` vinculado(s) | Portal **"Meus filhos"** (média, frequência, boletim de cada dependente); leitura de notas e avisos; **exportação dos próprios dados (LGPD)**. |
 
-> **Nota de implementação.** O aceite de transferência pela escola de destino é
-> `IsSchoolStaff` no backend, porém a tela de Transferências no frontend hoje
-> só é exposta a papéis SME.
+> **Nota de implementação.** A tela de Transferências passou a expor as ações
+> por papel: SME faz **solicitação + autorização**; a escola de **destino**
+> (`IsSchoolStaff`) faz **aceite/recusa** — o `sme_admin` pode aceitar por
+> qualquer unidade. Escrita em turmas/salas usa o `SchoolScopedWriteMixin`
+> (direção não cria registro para outra escola).
 
 ---
 
@@ -528,10 +619,71 @@ Toda falha de negócio retorna `{ "success": false, "error": { "code", "message"
 3. **Conflito de agenda** → `TEACHER_SCHEDULE_CONFLICT`: o professor já está alocado em **outra** turma cujo turno se sobrepõe no **mesmo ano letivo** (`FULL_TIME` conflita com `MORNING` e `AFTERNOON`).
 
 ### 7.4. Transferência (`students/services/transfer_service.py`)
-`authorize_transfer()` (SME: `PENDING_SME → APPROVED_BY_SME`) → `accept_transfer()` (escola de destino: `APPROVED_BY_SME → ACCEPTED_BY_DESTINATION`; apenas a unidade de destino pode aceitar).
+1. `authorize_transfer()` — SME: `PENDING_SME → APPROVED_BY_SME` (define a escola de destino).
+2. `accept_transfer(*, transfer_id, destination_class_id=None, actor_user)` —
+   `@transaction.atomic` com `select_for_update(of=('self',))`:
+   * RBAC: escola de destino (`school_id`) **ou** `sme_admin`;
+   * localiza a matrícula ativa do aluno no ano letivo (preferindo a origem
+     declarada; *fallback* para onde o aluno estiver) e a marca como
+     `TRANSFERRED_INTERNAL` (mesma secretaria) ou `TRANSFERRED_EXTERNAL`;
+   * se `destination_class_id` for informado, chama `enroll_student_in_class()`
+     — com a trava de capacidade; turma sem vaga → **rollback total**;
+   * `status = ACCEPTED_BY_DESTINATION`, `resolved_at = now()`,
+     `target_enrollment` = a nova matrícula.
+3. `reject_transfer()` — encerra a solicitação (`REJECTED`) com o motivo registrado.
+
+Cada transição dispara `notify_role()` para a direção da origem, do destino e a SME.
 
 ### 7.5. Lançamento em lote (`class_diary/services/*_batch_service.py`)
-`batch_upsert_grades()` / `batch_upsert_attendance()` particionam os itens (novos vs. existentes) numa consulta de *prefetch* e gravam com `bulk_create` / `bulk_update(batch_size=500)` — de ~80 consultas por turma para 1–2.
+`batch_upsert_grades()` / `batch_upsert_attendance()` particionam os itens (novos vs. existentes) numa consulta de *prefetch* e gravam com `bulk_create` / `bulk_update(batch_size=500)` — de ~80 consultas por turma para 1–2. **Rejeitam** qualquer mutação se o ano letivo da turma estiver `CLOSED` (`YEAR_ALREADY_CLOSED`).
+
+### 7.6. Privacidade / LGPD (`governance/services/privacy_service.py`)
+* `record_consent()` / `get_consent_status()` — situação corrente por tipo.
+* `export_subject_data(*, requesting_user, student_id)` — pacote de portabilidade
+  (cadastro, responsáveis, matrículas, notas, frequência, pareceres, documentos,
+  consentimentos) com RBAC estrito (`get_students_for_user`) e `AuditLog`.
+* `anonymize_inactive_student(*, student_id, actor_user)` — substitui
+  nome/CPF/filiação/contatos por marcadores anônimos e desvincula responsáveis,
+  **preservando** matrículas, notas e frequência. Bloqueada para aluno com
+  matrícula ativa (`STUDENT_HAS_ACTIVE_ENROLLMENT`).
+
+### 7.7. Fechamento de ano letivo (`governance/services/year_closing_service.py`)
+`close_academic_year(*, academic_year_id, actor_user)` — `@transaction.atomic`,
+`IsSMEAdmin`:
+1. valida que não há bimestre em aberto (`YEAR_HAS_OPEN_PERIODS`);
+2. para cada matrícula `ENROLLED` do ano: `compute_enrollment_result()` calcula
+   a média final por disciplina e a frequência global e define
+   `APPROVED` / `FAILED_ACADEMIC` / `FAILED_ATTENDANCE` conforme
+   `min_passing_grade` / `min_attendance_percentage` da secretaria;
+3. `consolidate_history()` grava/atualiza `SchoolHistory`;
+4. `AcademicYear.status = CLOSED` → o diário daquele ano fica travado (§7.5);
+5. `AuditLog` `ACADEMIC_YEAR_CLOSED` com o resumo.
+
+### 7.8. Upload de documentos (`documents/services/document_service.py`)
+`upload_document()` valida extensão (`pdf/png/jpg/jpeg/docx`), a **assinatura
+real** do arquivo (*magic bytes*, sem `libmagic`), o tamanho (15 MB) e higieniza
+o nome (*path traversal*, acentos, espaços). Leitura por
+`get_documents_for_user()` com `apply_scope` (direção → própria escola;
+professor → suas turmas; responsável → seus dependentes). `AuditLog`
+`DOCUMENT_UPLOADED`.
+
+### 7.9. Backup automatizado (`backups/services/backup_service.py`)
+`create_database_backup()` roda `pg_dump | gzip` para um arquivo `.sql.gz`,
+calcula `sha256` e grava o `Backup` (`RUNNING → COMPLETED`/`FAILED`, nunca
+levanta exceção). Task Celery `backups.run_nightly_backup` (`crontab 02:00`) +
+`prune_old_backups(retention_days=30)`. Backup manual (`IsSMEAdmin`) tem
+*rate-limit* de 10 min (`BACKUP_RATE_LIMITED`).
+
+### 7.10. Auditoria (`core/middleware.py::AuditMiddleware`)
+Persiste toda escrita `/api/` bem-sucedida e os eventos de **login / login
+falho**. O registro de login fica no `process_response` (fora do bloco
+`ATOMIC_REQUESTS`, que faz *rollback* em respostas 4xx). O payload é sanitizado
+(`password`, `token`, `secret`, … → `***`).
+
+### 7.11. Recuperação de senha (`authentication/services/password_reset_service.py`)
+Token opaco de 2 h, uso único, `sha256` no banco. A solicitação responde
+**sempre** com sucesso genérico (não revela se o e-mail existe). Endpoints
+`POST /accounts/password-reset/{request,confirm}/` (`AllowAny`).
 
 ---
 
@@ -544,13 +696,19 @@ Prefixo global `/api/v1/`. Documentação viva: `/api/docs/` (Swagger), `/api/re
 POST   /api/v1/accounts/login/                     # -> { access, refresh }
 POST   /api/v1/accounts/token/refresh/
 GET    /api/v1/accounts/users/me/
+PATCH  /api/v1/accounts/users/update_profile/      # e-mail, telefone
+POST   /api/v1/accounts/users/change_password/
 POST   /api/v1/accounts/users/create_user/         # sme_admin: cria usuário com papel
+PATCH  /api/v1/accounts/users/{id}/                # sme_admin: role/escola/is_active
+POST   /api/v1/accounts/password-reset/request/    # AllowAny — sucesso genérico
+POST   /api/v1/accounts/password-reset/confirm/    # AllowAny — { token, new_password }
 
 # Governança & Escolas  (também sob /api/v1/sme/* — gateway do painel da SME)
 GET    /api/v1/sme/departments/  ·  GET /api/v1/sme/departments/{id}/indicators/
 GET    /api/v1/sme/academic-years/   ·  GET /api/v1/sme/academic-periods/
+POST   /api/v1/sme/academic-years/{id}/close/      # sme_admin: fecha o ano + consolida histórico
 GET    /api/v1/schools/          POST /api/v1/schools/          # DELETE = soft-delete
-GET    /api/v1/classrooms/       POST /api/v1/classrooms/
+GET    /api/v1/classrooms/       POST /api/v1/classrooms/       # escopo por escola; write IsSMEStaff|IsSchoolStaff
 
 # Currículo (BNCC)
 GET    /api/v1/subjects/                 POST /api/v1/subjects/
@@ -569,7 +727,19 @@ GET    /api/v1/students/{id}/academic-history/
 GET    /api/v1/guardians/                POST /api/v1/guardians/
 GET    /api/v1/enrollments/              POST /api/v1/enrollments/      # -> enroll_student_in_class()
 GET    /api/v1/sme/transfers/            POST /api/v1/sme/transfers/
-PATCH  /api/v1/sme/transfers/{id}/authorize/   ·   /accept/
+PATCH  /api/v1/sme/transfers/{id}/authorize/   ·   /accept/   ·   /reject/
+GET    /api/v1/guardians/my-dependents/            # portal da família: resumo por filho
+
+# Privacidade / LGPD
+GET    /api/v1/privacy/my-data/?student_id=        # portabilidade do titular
+GET    /api/v1/privacy/consents/?student_id=       # situação de consentimento
+POST   /api/v1/privacy/consents/                   # { student_id, consent_type, granted }
+POST   /api/v1/privacy/anonymize/                  # { student_id } — IsSMEAdmin
+
+# Documentos e Notificações
+GET    /api/v1/documents/         POST /api/v1/documents/          # multipart; escopo RBAC
+GET    /api/v1/notifications/     GET  /api/v1/notifications/unread_count/
+POST   /api/v1/notifications/mark_all_read/   ·   /{id}/mark_read/
 
 # Diário de Classe
 GET    /api/v1/grades/         POST /api/v1/grades/batch-upsert/
@@ -578,10 +748,18 @@ GET    /api/v1/evaluations/    POST /api/v1/evaluations/          # alias: /desc
 GET    /api/v1/diary/          GET  /api/v1/history/
 
 # Painel e Relatórios
-GET    /api/v1/dashboard/summary/                  # contadores da rede, com escopo RBAC
-GET    /api/v1/reports/boletim_pdf/   ·   /carteirinha_pdf/
+GET    /api/v1/dashboard/summary/   ·   /overview/   ·   /context/
+GET    /api/v1/reports/boletim_pdf/?student_id=   ·   /carteirinha_pdf/?student_id=
 GET    /api/v1/reports/relatorio_excel/   ·   /relatorio_csv/
-GET    /api/v1/reports/educacenso-export/
+GET    /api/v1/reports/educacenso-export/          # CSV simples (legado)
+GET    /api/v1/reports/educacenso/validate/        # diagnóstico de consistência — IsSMEStaff
+GET    /api/v1/reports/educacenso/export/          # arquivo ZIP por entidade — IsSMEStaff
+GET    /api/v1/reports/catalog/   ·   /executions/ # relatórios assíncronos (Celery)
+
+# Infraestrutura
+GET    /api/v1/audit/             GET /api/v1/audit/recent_activities/   # IsSMEAdmin
+GET    /api/v1/backups/           POST /api/v1/backups/trigger/          # IsSMEAdmin
+GET    /health/live/   ·   /health/ready/
 ```
 
 ---
@@ -603,8 +781,19 @@ turma ou professor. O comando cria (idempotente):
 * **~322 salas de aula** (de `QT_SALAS_UTILIZADAS`)
 * **~535 turmas** — expandindo as contagens `QT_TUR_*` por série ("1º Ano A/B/…"), com turno distribuído conforme os pesos do Censo
 
-O comando `manage.py seed_municipal` mantém uma rede fictícia de exemplo
-(São Paulo), com alunos, matrículas, notas e frequência para testes ponta a ponta.
+### Carga fictícia da camada transacional
+
+`manage.py seed_dashboard_demo [--fresh] [--schools N] [--per-class N]` popula
+tudo o que o Censo não traz, cobrindo **todas** as funcionalidades: alunos com
+CPF/NIS/certidão, matrículas, frequência, notas, pareceres, alocação docente,
+**responsáveis com login e vínculos** (incluindo irmãos e o login fixo
+`responsavel` / `resp123`), **consentimentos LGPD**, **documentos**,
+**notificações**, transferências (as aceitas efetivam a matrícula de destino) e
+o **ano letivo anterior já encerrado** com `SchoolHistory` consolidado. Tudo com
+o prefixo `DEMO` — `--fresh` remove só a carga de demonstração.
+
+`manage.py seed_municipal` mantém uma rede fictícia menor e autocontida
+(São Paulo), com usuários de sufixo `.sp` para não colidir com Igarassu.
 
 ---
 

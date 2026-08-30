@@ -2,153 +2,174 @@
 
 **Perfil:** `school_director` · **Visão:** apenas a sua unidade escolar.
 
-O diretor acompanha e gerencia os dados **da própria escola**: alunos,
-matrículas, turmas e o desempenho pedagógico. O cadastro de escolas,
-professores e disciplinas é feito pela Secretaria (SME).
+O diretor gerencia os dados **da própria escola**: turmas, salas, alunos,
+matrículas, documentos, transferências recebidas e o desempenho pedagógico. O
+cadastro de escolas, professores e disciplinas é feito pela Secretaria (SME).
+
+> O papel **`school_secretary`** (secretário escolar) tem as mesmas telas
+> voltadas a alunos, matrículas e documentos.
 
 ---
 
 ## Índice
 
 1. [Primeiro acesso](#1-primeiro-acesso)
-2. [Painel inicial](#2-painel-inicial)
-3. [Dados da escola](#3-dados-da-escola)
-4. [Turmas](#4-turmas)
-5. [Alunos](#5-alunos)
-6. [Matrículas](#6-matrículas)
-7. [Acompanhamento pedagógico](#7-acompanhamento-pedagógico)
-8. [Comunicação e documentos](#8-comunicação-e-documentos)
-9. [Configurações](#9-configurações)
-10. [Limitações conhecidas](#10-limitações-conhecidas)
+2. [Cabeçalho e notificações](#2-cabeçalho-e-notificações)
+3. [Painel inicial](#3-painel-inicial)
+4. [Dados da escola](#4-dados-da-escola)
+5. [Turmas e salas](#5-turmas-e-salas)
+6. [Alunos, documentos e privacidade](#6-alunos-documentos-e-privacidade)
+7. [Matrículas](#7-matrículas)
+8. [Transferências recebidas](#8-transferências-recebidas)
+9. [Acompanhamento pedagógico](#9-acompanhamento-pedagógico)
+10. [Boletins e documentos](#10-boletins-e-documentos)
+11. [Comunicação](#11-comunicação)
+12. [Configurações](#12-configurações)
+13. [Limitações conhecidas](#13-limitações-conhecidas)
 
 ---
 
 ## 1. Primeiro acesso
 
-1. Abra `http://localhost:3000`.
-2. Informe o **usuário e senha** fornecidos pela Secretaria e clique em **Entrar**.
-3. Você cai no **Dashboard**, com os dados **da sua escola**.
-4. O menu lateral mostra apenas as áreas do seu papel: Dashboard, Escolas,
-   Alunos, Matrículas, Turmas, Notas, Pareceres, Frequência, Boletins
-   Consolidados, Mensagens, Documentos.
+1. Abra `http://localhost:3000`, informe o **usuário e senha** fornecidos pela
+   Secretaria e clique em **Entrar**. Você cai no **Dashboard**, com os dados
+   **da sua escola**.
+2. Troque a senha em **Configurações → Segurança → Alterar senha**. Esqueceu?
+   Use **"Esqueci minha senha"** na tela de login.
+3. O menu lateral mostra apenas as áreas do seu papel.
 
 ---
 
-## 2. Painel inicial
+## 2. Cabeçalho e notificações
 
-Menu **Dashboard**.
-
-- Cartões com os totais **da sua escola**: **Alunos**, **Turmas**,
-  **Disciplinas** e **Escolas** (a sua). Cada cartão leva à listagem.
-- **Menu Rápido:** Alunos, Turmas, Boletins, Frequência.
+O **sino** no cabeçalho abre a central de notificações — você é avisado, por
+exemplo, quando uma **transferência** para a sua escola precisa de aceite ou
+quando chega uma **mensagem**. Use **"Marcar todas como lidas"** e clique na
+notificação para ir direto à tela do evento.
 
 ---
 
-## 3. Dados da escola
+## 3. Painel inicial
 
-Menu **Escolas** (`/schools`).
+Menu **Dashboard gerencial** (`/`) — KPIs e gráficos **da sua escola**:
+matrículas ativas, completude do diário (por turma), frequência, rendimento por
+etapa e a lista **Precisa de você** com as pendências da unidade.
+
+---
+
+## 4. Dados da escola
+
+Menu **Escolas e salas** (`/escolas`).
 
 - A listagem mostra **somente a sua escola**.
-- Clique no ✏️ para **editar** os dados: contato (e-mail, telefone, site),
-  endereço completo e capacidade padrão de alunos por turma.
+- ✏️ **edita** contato (e-mail, telefone, site), endereço e capacidade padrão
+  de alunos por turma.
 - O **tipo da escola** e o vínculo com a Secretaria são definidos pela SME.
 
 ---
 
-## 4. Turmas
+## 5. Turmas e salas
 
-Menu **Turmas** (`/classes`).
+Menu **Turmas** (`/turmas`).
 
 - Lista as turmas da sua escola: nome, turno, escola, nº de alunos e status.
-- **Busca** por nome ou escola.
-- A criação de turmas é feita pela Secretaria/carga inicial (ver limitações).
-  O diretor **acompanha** as turmas e o número de alunos matriculados.
+- **Nova turma** → nome, ano letivo, matriz curricular, turno, **capacidade
+  máxima (> 0)** e sala. A **escola já vem travada na sua unidade** — você não
+  cria turma para outra escola. ✏️ edita a turma.
+- Botão **Salas de aula** (`/salas`) → **Nova sala**: número/identificação,
+  capacidade (**> 0**), andar e bloco.
 
 ---
 
-## 5. Alunos
+## 6. Alunos, documentos e privacidade
 
-Menu **Alunos** (`/students`).
+Menu **Alunos** (`/alunos`) — **restrito à sua escola**.
 
-### Consultar
-
-- Tabela com ID municipal, nome, nome da mãe e status — **restrita à sua escola**.
-- **Busca** por nome, ID municipal ou nome da mãe.
-- Ícone 👁️ abre o **Boletim** do aluno: notas por disciplina, resumo de
-  frequência e botão **Imprimir**.
-
-### Cadastrar / editar aluno
-
-1. **Novo Aluno**.
-2. Preencha nome completo, ID municipal, nome da mãe, data de nascimento
-   (obrigatórios) e a Secretaria; complete os campos opcionais (CPF, gênero,
-   raça/cor, necessidades especiais etc.).
-3. **Salvar**. Em seguida, matricule o aluno numa turma (próximo passo).
+- **Novo Aluno** → nome completo, ID municipal, nome da mãe, data de nascimento
+  (obrigatórios) e Secretaria; complete CPF, gênero, raça/cor, necessidades
+  especiais (AEE) etc.
+- Ícone 👁️ abre a **ficha do aluno**: cadastral, notas, frequência e:
+  - **Documentos** — **Enviar documento** (arrastar-e-soltar; PDF/PNG/JPG/JPEG/
+    DOCX até 15 MB);
+  - **Privacidade e dados (LGPD)** — registrar consentimentos e **baixar os
+    dados cadastrais** do aluno;
+  - **Emitir Boletim** e **Emitir Carteirinha** (PDF oficial).
 
 ---
 
-## 6. Matrículas
+## 7. Matrículas
 
-Menu **Matrículas** (`/enrollments`).
+Menu **Matrículas** (`/matriculas`).
 
-### Consultar
-
-- Tabela com número da matrícula, aluno, turma e status. É possível **alterar o
-  status** da matrícula pela listagem.
-- **Busca** por aluno ou número de matrícula.
-
-### Matricular um aluno
-
-1. **Nova Matrícula**.
-2. Selecione o **Aluno**, a **Turma** da sua escola e informe o
-   **número da matrícula**.
-3. **Salvar**.
-
-### Regras automáticas
-
-- **Não** é permitida uma segunda matrícula ativa para o mesmo aluno **no mesmo
-  ano letivo**.
-- A matrícula é recusada se a turma já atingiu a **capacidade máxima**.
+- **Nova Matrícula** → aluno, turma **da sua escola** e número da matrícula.
+- **Não** é permitida uma segunda matrícula ativa para o mesmo aluno no mesmo
+  ano letivo; a matrícula é recusada se a turma atingiu a **capacidade máxima**.
 
 ---
 
-## 7. Acompanhamento pedagógico
+## 8. Transferências recebidas
 
-O diretor visualiza o diário de classe **da sua escola**:
+Menu **Transferências** (`/transferencias`).
+
+Quando uma transferência é **autorizada pela SME** e a **sua escola é o
+destino**, a solicitação aparece com o botão **Efetivar matrícula e aceitar**:
+
+1. Clique no botão — abre um modal para escolher a **turma de destino** na sua
+   escola.
+2. Ao confirmar, o sistema **encerra a matrícula na escola de origem** e **cria
+   a nova matrícula** na turma escolhida (operação atômica: turma sem vaga →
+   nada muda).
+
+Você também pode **Recusar** a transferência nesta etapa. A solicitação e a
+autorização inicial continuam sendo feitas pela SME.
+
+---
+
+## 9. Acompanhamento pedagógico
+
+O diário de classe **da sua escola**:
 
 | Menu | O que mostra |
 | :--- | :--- |
-| **Notas** (`/grades`) | Notas lançadas pelos professores da escola |
-| **Frequência** (`/attendance`) | Registros de frequência da escola |
-| **Pareceres** (`/evaluations`) | Pareceres descritivos (Educação Infantil) |
-| **Boletins Consolidados** (`/boletins`) | Consolidação por turma — média geral e status (aprovado/reprovado) de cada aluno; botão **Imprimir** |
+| **Notas e frequência** (`/diario/lancamentos`) | Notas e frequência lançadas pelos professores; abas alternam entre notas, frequência e histórico |
+| **Pareceres descritivos** (`/diario/pareceres`) | Pareceres da Educação Infantil |
+| **Conteúdo ministrado** (`/diario/conteudo`) | Registros de aula |
 
-O **lançamento** é responsabilidade do professor; o diretor acompanha e imprime
-os consolidados.
+O **lançamento** é do professor; o diretor acompanha.
 
 ---
 
-## 8. Comunicação e documentos
+## 10. Boletins e documentos
 
-- **Mensagens** (`/messages`) — **Nova Mensagem** para falar com professores e a
-  Secretaria; clique numa mensagem para lê-la.
-- **Documentos** (`/documents`) — consulta e download de documentos da escola.
-
----
-
-## 9. Configurações
-
-Menu **Configurações** (`/settings`) — perfil, notificações, aparência e
-segurança. Use **Sair da Conta** para encerrar a sessão.
+- **Boletins e carteirinhas** (`/documentos/boletins`) — consolidação por
+  turma (média geral e status de cada aluno) e **download do boletim oficial
+  (PDF)** por aluno.
+- **Arquivos dos alunos** (`/documentos/arquivos`) — documentos dos alunos da
+  escola; botão **Enviar documento**.
+- **Exportações** (`/documentos/exportacoes`) — relatório de rendimento da
+  escola em Excel/CSV.
 
 ---
 
-## 10. Limitações conhecidas
+## 11. Comunicação
+
+**Mensagens e avisos** (`/mensagens`) — **Nova Mensagem** para professores e a
+Secretaria; o destinatário recebe uma notificação.
+
+---
+
+## 12. Configurações
+
+Menu **Configurações** (`/configuracoes`) — **Editar perfil**, **Alterar
+senha** e **Sair da conta**.
+
+---
+
+## 13. Limitações conhecidas
 
 | Área | Situação atual |
 | :--- | :--- |
-| **Transferências** | O aceite de uma transferência recebida é competência da escola de destino, mas **a tela de Transferências hoje só é acessível pela SME**. Peça à Secretaria para concluir o aceite, ou use o endpoint `PATCH /api/v1/sme/transfers/{id}/accept/`. |
-| **Criar turma** | Sem tela própria — as turmas vêm da carga inicial; novas turmas são criadas pela SME (API/área administrativa). |
-| **Cadastro de professores e disciplinas** | Exclusivo da SME. O diretor apenas consulta o resultado (turmas, notas). |
-| **Boletim/carteirinha em PDF** | Disponíveis apenas via API; na interface use **Imprimir**. |
-| **Trocar senha pela interface** | Ainda inativo — solicite à SME. |
+| **Cadastro de professores e disciplinas** | Exclusivo da SME. O diretor consulta o resultado (turmas, alocações, notas). |
+| **Solicitação/autorização de transferência** | A solicitação e a 1ª autorização são da SME. O diretor da escola de destino só faz o **aceite** (ou recusa). |
+| **Fechamento de ano letivo** | Operação da SME. |
+| **Autenticação em dois fatores (2FA)** | Fora de escopo desta fase. |

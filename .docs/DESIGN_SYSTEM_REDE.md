@@ -319,7 +319,7 @@ type SidebarProps = { collapsed: boolean; onToggle(): void };
   primeiras letras em `font-mono`.
 - Item ativo mantém `bg-brand-600` nos dois estados.
 
-### 4.2. `navigation.ts` — 6 grupos filtrados por papel
+### 4.2. `navigation.ts` — 7 grupos filtrados por papel
 
 ```ts
 type Role = 'sme_admin' | 'sme_supervisor' | 'school_director' | 'school_secretary' | 'teacher' | 'student_guardian';
@@ -329,10 +329,13 @@ type NavGroup = { label: string | null; items: NavItem[] };
 navForRole(role): NavGroup[]  // filtra por roles.includes(role) e descarta grupos vazios
 ```
 
-Grupos: `(sem rótulo) Painel do dia` · `REDE` (escolas, currículo, ano letivo) ·
-`PESSOAS` (alunos, responsáveis, professores) · `VIDA ESCOLAR` (turmas,
-matrículas, transferências) · `DIÁRIO DE CLASSE` (notas/frequência, pareceres,
-conteúdo) · `DOCUMENTOS` (boletins, exportações) · `COMUNICAÇÃO` (mensagens).
+Grupos: `(sem rótulo)` Dashboard gerencial / **Meus filhos** (`student_guardian`) ·
+`REDE` (escolas e salas, currículo, ano letivo) · `PESSOAS` (alunos,
+responsáveis, professores e alocações) · `VIDA ESCOLAR` (turmas, matrículas,
+transferências) · `DIÁRIO DE CLASSE` (notas e frequência, pareceres, conteúdo) ·
+`DOCUMENTOS` (arquivos dos alunos, boletins e carteirinhas, exportações,
+Educacenso) · `COMUNICAÇÃO` (mensagens) · `ADMINISTRAÇÃO` (Usuários da Rede —
+`sme_admin`).
 
 `icon` passa a ser **obrigatório** para todo item que aparece no estado recolhido
 (ou seja, todos) — sem ícone, o fallback é a abreviação de 3 letras em `font-mono`.
@@ -359,7 +362,7 @@ type StatusDef = { label: string; tone: BadgeProps['tone']; shape?: BadgeProps['
 Mapas existentes: `ENROLLMENT_STATUS`, `TRANSFER_STATUS`, `EVALUATION_TYPE`,
 `STAGE_TYPE`, `ACADEMIC_YEAR_STATUS`, `SHIFT`, `SCHOOL_TYPE`, `DOCUMENT_TYPE`,
 `ATTENDANCE_STATUS`, `SCHOOL_HISTORY_STATUS`, `KINSHIP_TYPE`, `GENDER`,
-`RACE_COLOR`, `USER_ROLE`.
+`RACE_COLOR`, `USER_ROLE`, `REPORT_STATUS`, `DIARY_COMPLETENESS_STATUS`.
 
 **Ao adicionar um enum no backend, adicione o mapa correspondente aqui na mesma PR.**
 
@@ -380,8 +383,12 @@ type ErrorDef = {
 Cobertos: `DUPLICATE_ENROLLMENT`, `CLASS_CAPACITY_EXCEEDED`,
 `TEACHER_SCHEDULE_CONFLICT`, `DUPLICATE_ALLOCATION`, `INVALID_STATUS_TRANSITION`,
 `DESTINATION_SCHOOL_REQUIRED`, `NOT_DESTINATION_SCHOOL`, `*_NOT_FOUND`
-(class/student/teacher/subject/transfer), `VALIDATION_ERROR`, HTTP 401/403/404/500
-+ fallback.
+(class/student/teacher/subject/transfer), `SCOPE_FORBIDDEN`, `ANALYTICS_FORBIDDEN`,
+`INVALID_FILTER`, `INVALID_REPORT_PARAMS`, `REPORT_RATE_LIMITED`, `REPORT_EXPIRED`,
+`EDUCACENSO_VALIDATION_FAILED`, `ACADEMIC_YEAR_NOT_FOUND`,
+`STUDENT_HAS_ACTIVE_ENROLLMENT`, `INVALID_RESET_TOKEN`, `EXPIRED_RESET_TOKEN`,
+`WEAK_PASSWORD`, `YEAR_ALREADY_CLOSED`, `YEAR_HAS_OPEN_PERIODS`,
+`VALIDATION_ERROR`, HTTP 401/403/404/500 + fallback.
 
 - Erro **com correção possível na tela** → `<InlineError>` **dentro do
   formulário** (via `components/feedback/FormError.tsx`), nunca só toast.
@@ -451,13 +458,24 @@ Rotas de criação de pessoa renderizam `<PersonLookupStep>` antes do formulári
    nome, identificadores mono e `Usar este cadastro`.
 3. Botão secundário `Nenhum é — cadastrar novo` libera o formulário.
 
-### 7.5. Transferência — `src/features/students/components/TransferTimeline.tsx`
+### 7.5. Transferência — `TransferTimeline.tsx` + `TransferActionDialog.tsx`
 
-Stepper de 4 passos: Solicitada → Aguardando SME → Aceite do destino → Nova
-matrícula. Passo concluído `bg-ok-base` ✓; passo atual `border-brand-600
-bg-brand-50`; `REJECTED`/`CANCELLED` → selo `danger`. As ações
-(`Autorizar` / `Aceitar`) aparecem **só no passo atual e só para o papel
-habilitado** (SME autoriza; escola de destino aceita).
+`TransferTimeline` é um stepper de 4 passos: Solicitada → Aguardando SME →
+Aceite do destino → Nova matrícula. Passo concluído `bg-ok-base` ✓; passo atual
+`border-brand-600 bg-brand-50`; `REJECTED`/`CANCELLED` → selo `danger`.
+
+As ações aparecem **só no passo atual e só para o papel habilitado**, via
+`TransferActionDialog` (`mode: 'authorize' | 'accept' | 'reject'`):
+SME faz `Autorizar` / `Recusar`; a escola de **destino** (ou `sme_admin`) faz
+`Efetivar matrícula e aceitar` — o modo `accept` carrega um `<Select>` com as
+turmas da escola de destino.
+
+### 7.5.1. Confirmação em duas etapas (ações irreversíveis)
+
+`AcademicYearClosingModal` (fechamento de ano) e `Anonimizar aluno` (LGPD) usam
+o padrão: **etapa 1** lista o que a ação faz (`<ul>` em `text-help`) + botão
+`danger` "Entendi, continuar"; **etapa 2** exige digitar um valor de
+confirmação (o ano, o nome) para habilitar o botão final.
 
 ### 7.6. Painel do dia
 
@@ -474,8 +492,7 @@ motivo e oferecendo a ação de importação/cadastro.
 
 ### 7.7. Painel analítico (dashboard gerencial)
 
-Padrão para telas de indicadores — detalhamento funcional em
-`docs/PLANO_DASHBOARD_GERENCIAL.md`.
+Padrão para telas de indicadores.
 
 - Ordem fixa: `PageHeader` → `ScopeBar` → barra de filtros → faixa de KPIs →
   gráficos → tabelas → ações → relatórios.
@@ -491,6 +508,36 @@ Padrão para telas de indicadores — detalhamento funcional em
   rótulo numérico visível (legível sem hover e no PDF) e linha de referência
   legal com rótulo textual na legenda.
 - Etapa qualitativa (Creche, Pré-escola, AEE) nunca entra em média de nota.
+
+### 7.8. Notificações — `NotificationPopover.tsx`
+
+Sino no `AppHeader` (pill branco, badge `bg-danger-base` quando há não lidas).
+Ao abrir: painel `absolute right-0 top-12` (`w-[min(92vw,360px)]`), cabeçalho
+com "Marcar todas como lidas", lista com `divide-y divide-line-soft`, item não
+lido em `bg-brand-50/60` com ponto `bg-brand-600`. Contagem via
+`useUnreadCount` (`refetchInterval: 60_000`); a lista carrega **sob demanda**
+(`enabled: open`). Clique navega para `notification.link`.
+
+### 7.9. Portal do responsável — `GuardianPortalPage.tsx`
+
+`student_guardian` cai em `/` → `GuardianPortalPage` (não redireciona). Um
+`StudentCardOverview` por dependente em `md:grid-cols-2` (1 coluna no mobile):
+turma/escola, **Média geral** e **Frequência** como `Stat` (`text-lg
+font-semibold tabular-nums`, `text-danger-fg` quando abaixo do mínimo), botões
+`Baixar boletim` e `Falar com a coordenação`.
+
+### 7.10. Diagnóstico Educacenso — `EducacensoValidationReport.tsx`
+
+Faixa de status (`ok`/`warn`) + lista de pendências por entidade (chip
+`bg-surface-subtle` com o tipo, rótulo, e `faltando: …` em `text-danger-fg`).
+O botão de download do ZIP só habilita quando `data.ready === true`.
+
+### 7.11. Painel de privacidade — `PrivacyConsentSection.tsx`
+
+Card na ficha do aluno: três `Switch` de consentimento (fetch/POST
+`/privacy/consents/`), botão `Baixar dados cadastrais (LGPD)` (gera um `Blob`
+JSON e um `<a download>` client-side) e, para `sme_admin`, `Anonimizar aluno`
+com o `ConfirmDialog` destrutivo (§7.5.1).
 
 ---
 
@@ -522,6 +569,11 @@ Padrão para telas de indicadores — detalhamento funcional em
 - [ ] Formulário com mais de 8 campos está seccionado e tem `StickyActions`.
 - [ ] Todo identificador oficial e toda nota em `font-mono tabular-nums`.
 - [ ] Criar aluno/professor/responsável começa por `PersonLookupStep`.
+- [ ] Ação irreversível (fechar ano, anonimizar, excluir em massa) usa a
+      confirmação em duas etapas (§7.5.1).
+- [ ] Novo `error.code` do backend tem entrada em `errorMessages.ts` (§6).
+- [ ] Download de arquivo gerado no cliente usa `Blob` + `<a download>` (nunca
+      um link `href` direto para endpoint autenticado).
 - [ ] Notas e frequência salvam em uma única chamada `batch-upsert`.
 - [ ] `error.code` com correção na tela → `InlineError` no formulário, não só toast.
 - [ ] Novo enum / novo `error.code` no backend → mapa atualizado na mesma PR.

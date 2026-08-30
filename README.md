@@ -42,24 +42,33 @@ O backend segue o padrão **Services & Selectors** (regras de negócio isoladas 
 - [x] **Autenticação JWT** com *refresh token* rotativo, mutex de renovação e logout em cascata
 - [x] **RBAC hierárquico por escopo** (SME → escola → professor → responsável), centralizado em `core/scopes.py`
 - [x] **Cadastro único de aluno** e gestão de **matrículas** com regras de negócio: bloqueio de matrícula ativa duplicada no ano letivo e verificação de **capacidade da turma** (`select_for_update` sob transação)
-- [x] **Transferências** entre escolas com fluxo de autorização SME → aceite da escola de destino
+- [x] **Transferências** entre escolas: solicitação + autorização (SME) → aceite/recusa (escola de destino), com **efeito real na matrícula** (encerra origem, cria destino, atômico)
 - [x] **Alocação docente** com prevenção de **conflito de turno** no mesmo ano letivo
+- [x] **CRUD de turmas e salas** na interface, com escopo por escola
 - [x] **Diário de classe**: lançamento **em lote** de notas e frequência (`bulk_create` / `bulk_update`), pareceres descritivos para a Educação Infantil
+- [x] **Fechamento de ano letivo**: consolidação de `SchoolHistory` (aprovado / reprovado por nota / por frequência) e trava do diário
 - [x] **Matriz curricular** por etapa de ensino (BNCC) e catálogo de disciplinas da rede
-- [x] **Relatórios**: boletim em PDF, carteirinha do aluno com **QR Code**, exportação Excel/CSV e **Educacenso**
-- [x] **Carga inicial a partir do Censo Escolar 2025 do INEP** (`manage.py seed_censo_igarassu`)
-- [x] **Painel** com indicadores da rede filtrados pelo papel do usuário
+- [x] **Relatórios**: boletim/carteirinha em PDF (QR Code), Excel/CSV, e **Educacenso** com validação de consistência + arquivo ZIP por entidade
+- [x] **Portal do responsável** ("Meus filhos") — média, frequência e boletim de cada dependente
+- [x] **LGPD**: registro de consentimento, portabilidade (exportação do titular) e anonimização
+- [x] **Documentos**: upload validado (extensão, *magic bytes*, 15 MB) com isolamento RBAC
+- [x] **Notificações in-app** com gatilhos de negócio (transferência, mensagem)
+- [x] **Trilha de auditoria** persistida pelo `AuditMiddleware` (escritas `/api/` + login/login falho)
+- [x] **Backup** automatizado do banco (task Celery noturna + retenção de 30 dias)
+- [x] **Hardening de produção**: `docker-compose.prod.yml`, nginx/TLS, settings que recusam boot inseguro em `ENVIRONMENT=production`
+- [x] **Recuperação de senha** por e-mail (token de 2 h, uso único)
+- [x] **Painel gerencial** com KPIs, gráficos e completude do diário, filtrados pelo papel
+- [x] **Carga inicial** do Censo Escolar 2025 do INEP + carga fictícia completa (`seed_dashboard_demo`)
 - [x] **Documentação OpenAPI** gerada automaticamente (Swagger / ReDoc)
-- [ ] Persistência de trilha de auditoria (`AuditLog`) — hoje registrada apenas em log
-- [ ] Notificações por e-mail/WhatsApp e assinatura digital de documentos
+- [ ] Notificações por e-mail/WhatsApp · autenticação em dois fatores (2FA) · homologação do selo INEP/MEC
 
 
 
-### 🧩 Domínios de negócio (8)
+### 🧩 Domínios de negócio
 
-`authentication` · `governance` (SME, ano letivo, etapas) · `schools` · `curriculum` (disciplinas, matrizes) · `classes` (turmas, salas, docência) · `students` (alunos, responsáveis, matrículas) · `class_diary` (notas, frequência, pareceres, histórico) · `reports`
+`authentication` (API sobre `core.User`) · `governance` (SME, ano letivo, etapas, **LGPD**, **fechamento de ano**) · `schools` · `curriculum` (disciplinas, matrizes) · `classes` (turmas, salas, docência) · `students` (alunos, responsáveis, matrículas, transferências, **portal da família**) · `class_diary` (notas, frequência, pareceres, **consolidação de histórico**) · `reports` (boletim/carteirinha, Excel/CSV, **Educacenso**) · `dashboard` (agregações da rede)
 
-Apps de infraestrutura (satélite): `health`, `audit`, `backups`, `integrations`, `notifications`, `communications`, `dashboard`, `documents`, `student_cards`.
+Apps de infraestrutura: `health`, `audit` (`AuditLog` via middleware), `backups` (pg_dump agendado), `notifications` (in-app + gatilhos), `communications`, `documents` (upload validado), `student_cards`, `integrations`.
 
 ---
 
@@ -90,7 +99,7 @@ Apps de infraestrutura (satélite): `health`, `audit`, `backups`, `integrations`
 
 - **Containerização:** Docker & Docker Compose (Nginx para o frontend)
 - **CI/CD:** GitHub Actions — `backend-ci.yml`, `frontend-ci.yml`, `main.yml`
-- **Backend:** pytest + pytest-django (186 testes), factory-boy, coverage · black · ruff · mypy (django-stubs / drf-stubs)
+- **Backend:** pytest + pytest-django (~290 testes), factory-boy, coverage · black · ruff · mypy (django-stubs / drf-stubs)
 - **Frontend:** Vitest + Testing Library · Playwright (e2e) · ESLint · Prettier
 
 ---
@@ -108,12 +117,13 @@ Escola/
 │   │   │   ├── selectors/         #   leitura com escopo RBAC (apply_scope)
 │   │   │   ├── services/          #   regras de negócio / mutações
 │   │   │   ├── api/               #   serializers · views (finas) · urls
-│   │   │   ├── management/commands/#  seed_municipal, seed_censo_igarassu
+│   │   │   ├── management/commands/#  seed_censo_igarassu, seed_municipal
 │   │   │   ├── data/              #   recorte do Censo INEP (Igarassu)
-│   │   │   └── tests/             #   factories · test_selectors · test_apis
-│   │   ├── authentication/        # (mesmo layout) — API sobre core.User
+│   │   │   └── tests/             #   factories · test_selectors · test_apis · test_privacy · test_year_closing
+│   │   ├── authentication/        # (mesmo layout) — API sobre core.User + reset de senha
 │   │   ├── schools/  curriculum/  classes/  students/  class_diary/  reports/
-│   │   ├── audit/ backups/ communications/ dashboard/ documents/ …   # satélites
+│   │   ├── dashboard/  (seed_dashboard_demo — carga fictícia completa)
+│   │   ├── audit/ backups/ notifications/ communications/ documents/ student_cards/ …   # satélites
 │   │   └── health/
 │   ├── config/                   # settings.py · urls.py (contrato de URL) · celery.py
 │   ├── core/                     # User, BaseModel, permissions, scopes (RBAC), exceptions
@@ -126,7 +136,7 @@ Escola/
 │       ├── app/
 │       │   ├── providers/        # AppProviders (QueryClient, Toaster)
 │       │   └── routes/           # AppRoutes · ProtectedRoute (guarda RBAC)
-│       ├── features/<domínio>/   # authentication · schools · curriculum · classes · students · class-diary · reports · governance
+│       ├── features/<domínio>/   # authentication · governance · schools · curriculum · classes · students · guardians · class-diary · reports · dashboard · notifications
 │       │   ├── api/              #   funções de requisição da feature
 │       │   ├── hooks/            #   hooks de TanStack Query
 │       │   ├── schemas/          #   schemas Zod dos formulários
@@ -196,13 +206,19 @@ docker compose up -d --build
 # migrações
 docker compose exec backend python manage.py migrate
 
-# opção A — carga a partir do Censo Escolar 2025 (rede de Igarassu/PE)
-#   cria SME, ano letivo, etapas, disciplinas, matrizes, 49 escolas,
-#   ~322 salas, ~535 turmas e os usuários admin/supervisor
+# 1) base estrutural a partir do Censo Escolar 2025 (rede de Igarassu/PE):
+#    SME, ano letivo, etapas, disciplinas, matrizes, 49 escolas, ~322 salas,
+#    ~535 turmas e os usuários admin/supervisor
 docker compose exec backend python manage.py seed_censo_igarassu
 
-# opção B — rede fictícia de exemplo (São Paulo), com alunos/notas/frequência
-docker compose exec backend python manage.py seed_municipal
+# 2) carga fictícia completa (alunos, matrículas, notas, frequência, pareceres,
+#    responsáveis com login, consentimentos LGPD, documentos, notificações,
+#    transferências e o ano letivo anterior já encerrado):
+docker compose exec backend python manage.py seed_dashboard_demo --fresh
+#    -> cria também o login "responsavel" / "resp123" (portal da família)
+
+# alternativa menor e autocontida (rede de exemplo "São Paulo", usuários ".sp"):
+#    docker compose exec backend python manage.py seed_municipal
 
 # (alternativa) superusuário manual
 docker compose exec backend python manage.py createsuperuser
@@ -293,17 +309,25 @@ Toda a API vive sob o prefixo `/api/v1/`. O schema OpenAPI é gerado por `drf-sp
 | ------------ | ------------------------------------ | -------------------------------------------- | --------------------- |
 | `POST`       | `/api/v1/accounts/login/`            | Autentica e retorna `access` + `refresh`     | Não                   |
 | `POST`       | `/api/v1/accounts/token/refresh/`    | Renova o *access token*                      | Não (envia `refresh`) |
+| `POST`       | `/api/v1/accounts/password-reset/request/` | Recuperação de senha (sucesso genérico) | Não                   |
 | `GET`        | `/api/v1/accounts/users/me/`         | Perfil do usuário autenticado                | Bearer                |
-| `GET`        | `/api/v1/dashboard/summary/`         | Contadores da rede, filtrados pelo papel     | Bearer                |
+| `POST`       | `/api/v1/accounts/users/create_user/`| SME cria usuário da rede com papel           | Bearer (`sme_admin`)  |
+| `GET`        | `/api/v1/dashboard/overview/`        | KPIs, gráficos e completude do diário        | Bearer                |
 | `GET` `POST` | `/api/v1/schools/`                   | Lista / cadastra escolas (escopo RBAC)       | Bearer                |
-| `GET` `POST` | `/api/v1/classes/`                   | Turmas                                       | Bearer                |
+| `GET` `POST` | `/api/v1/classes/` · `/classrooms/`  | Turmas e salas (escopo por escola)           | Bearer                |
 | `GET` `POST` | `/api/v1/students/`                  | Alunos (cadastro único)                      | Bearer                |
 | `POST`       | `/api/v1/enrollments/`               | Matricula aluno em turma (regras de negócio) | Bearer                |
 | `POST`       | `/api/v1/grades/batch-upsert/`       | Lançamento de notas em lote                  | Bearer                |
 | `POST`       | `/api/v1/attendance/batch-upsert/`   | Lançamento de frequência em lote             | Bearer                |
-| `GET`        | `/api/v1/sme/departments/`           | Secretaria Municipal e indicadores           | Bearer                |
-| `GET`        | `/api/v1/reports/boletim_pdf/`       | Boletim do aluno em PDF                      | Bearer                |
-| `GET`        | `/api/v1/reports/educacenso-export/` | Exportação no formato Educacenso (CSV)       | Bearer                |
+| `PATCH`      | `/api/v1/sme/transfers/{id}/accept/` | Aceite da transferência (efeito na matrícula)| Bearer                |
+| `POST`       | `/api/v1/sme/academic-years/{id}/close/` | Fecha o ano + consolida histórico       | Bearer (`sme_admin`)  |
+| `GET`        | `/api/v1/guardians/my-dependents/`   | Portal da família — resumo por filho         | Bearer                |
+| `GET` `POST` | `/api/v1/privacy/consents/` · `my-data/` | Consentimento / portabilidade LGPD      | Bearer                |
+| `GET` `POST` | `/api/v1/documents/`                 | Upload validado de documentos (multipart)    | Bearer                |
+| `GET`        | `/api/v1/notifications/unread_count/`| Contador do sino                             | Bearer                |
+| `GET`        | `/api/v1/reports/boletim_pdf/?student_id=` | Boletim do aluno em PDF                 | Bearer                |
+| `GET`        | `/api/v1/reports/educacenso/validate/` · `/export/` | Diagnóstico + ZIP do Educacenso | Bearer (`sme_supervisor`+) |
+| `GET`        | `/health/live/` · `/health/ready/`   | *Health checks* (liveness / readiness)       | Não                   |
 
 
 O **contrato de URL é estável**: consolidações de apps não alteram os prefixos existentes.

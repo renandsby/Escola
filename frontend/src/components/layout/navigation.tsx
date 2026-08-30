@@ -58,6 +58,12 @@ export const NAV: NavGroup[] = [
         roles: [...SME, ...SCHOOL],
         icon: <LayoutDashboard className={ICON} />,
       },
+      {
+        label: 'Meus filhos',
+        to: ROUTES.home,
+        roles: ['student_guardian'],
+        icon: <UsersRound className={ICON} />,
+      },
     ],
   },
   {
