@@ -7,6 +7,8 @@ from .views import (
     PermissionViewSet,
     ProfileViewSet,
     LoginLogViewSet,
+    PasswordResetRequestView,
+    PasswordResetConfirmView,
 )
 
 router = DefaultRouter()
@@ -18,5 +20,7 @@ router.register(r'login-logs', LoginLogViewSet, basename='login-log')
 urlpatterns = [
     path('login/', LoginView.as_view(), name='login'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('password-reset/request/', PasswordResetRequestView.as_view(), name='password-reset-request'),
+    path('password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
     path('', include(router.urls)),
 ]

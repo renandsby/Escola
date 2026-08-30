@@ -3,11 +3,13 @@ import { useQuery } from '@tanstack/react-query'
 import { Download, LogOut } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/authStore'
-import { apiClient } from '@/services/api'
-import { apiGet } from '@/utils/api-helpers'
+import { apiClient, authService } from '@/services/api'
+import { apiGet, getErrorCode } from '@/utils/api-helpers'
+import { resolveError } from '@/services/errorMessages'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
-import { Select } from '@/components/ui/Field'
+import { Field, Input, Select } from '@/components/ui/Field'
+import { InlineError } from '@/components/ui/InlineError'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
 import { USER_ROLE } from '@/components/ui/statusMaps'
 import { cn } from '@/utils/cn'
@@ -139,12 +141,157 @@ function PrivacyCard() {
   )
 }
 
+function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
+  const [form, setForm] = useState({
+    current_password: '',
+    new_password: '',
+    new_password_confirm: '',
+  })
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const { logout } = useAuthStore()
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (form.new_password !== form.new_password_confirm) {
+      setError('As senhas não correspondem.')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      await authService.changePassword(form)
+      toast.success('Senha alterada. Faça login novamente.')
+      logout()
+      window.location.href = '/login'
+    } catch (err) {
+      const code = getErrorCode(err)
+      setError(code ? resolveError(code).message() : 'Não foi possível alterar a senha. Verifique a senha atual.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <form
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={submit}
+        className="grid w-full max-w-sm gap-4 rounded-lg border border-line bg-white p-6 shadow-overlay"
+      >
+        <h2 className="text-section text-ink-900">Alterar senha</h2>
+        {error && <InlineError title="Erro" message={error} />}
+        <Field label="Senha atual" name="current_password" required>
+          <Input
+            type="password"
+            value={form.current_password}
+            onChange={(e) => setForm({ ...form, current_password: e.target.value })}
+          />
+        </Field>
+        <Field label="Nova senha" name="new_password" required>
+          <Input
+            type="password"
+            minLength={8}
+            value={form.new_password}
+            onChange={(e) => setForm({ ...form, new_password: e.target.value })}
+          />
+        </Field>
+        <Field label="Confirmar nova senha" name="new_password_confirm" required>
+          <Input
+            type="password"
+            minLength={8}
+            value={form.new_password_confirm}
+            onChange={(e) => setForm({ ...form, new_password_confirm: e.target.value })}
+          />
+        </Field>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button type="submit" variant="primary" loading={busy}>
+            Alterar senha
+          </Button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+function EditProfileDialog({ onClose }: { onClose: () => void }) {
+  const { user, setUser } = useAuthStore()
+  const [form, setForm] = useState({ email: user?.email ?? '', phone: user?.phone ?? '' })
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await apiClient.patch('/accounts/users/update_profile/', form)
+      setUser({ ...(user as NonNullable<typeof user>), ...res.data })
+      toast.success('Perfil atualizado.')
+      onClose()
+    } catch {
+      setError('Não foi possível salvar. Verifique os campos.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <form
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={submit}
+        className="grid w-full max-w-sm gap-4 rounded-lg border border-line bg-white p-6 shadow-overlay"
+      >
+        <h2 className="text-section text-ink-900">Editar perfil</h2>
+        {error && <InlineError title="Erro" message={error} />}
+        <Field label="E-mail" name="email" required>
+          <Input
+            type="email"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+          />
+        </Field>
+        <Field label="Telefone" name="phone">
+          <Input
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+          />
+        </Field>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button type="submit" variant="primary" loading={busy}>
+            Salvar
+          </Button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 export default function SettingsPage() {
   const { user, logout } = useAuthStore()
   const [notifications, setNotifications] = useState(true)
   const [emailNotifications, setEmailNotifications] = useState(true)
   const [darkMode, setDarkMode] = useState(false)
   const [confirmLogout, setConfirmLogout] = useState(false)
+  const [showPwd, setShowPwd] = useState(false)
+  const [showProfile, setShowProfile] = useState(false)
 
   return (
     <>
@@ -162,7 +309,9 @@ export default function SettingsPage() {
           <Row label="Função" value={user?.role ? USER_ROLE[user.role] : '—'} />
         </div>
         <div>
-          <Button variant="secondary">Editar perfil</Button>
+          <Button variant="secondary" onClick={() => setShowProfile(true)}>
+            Editar perfil
+          </Button>
         </div>
       </Card>
 
@@ -204,9 +353,9 @@ export default function SettingsPage() {
 
       <Card title="Segurança">
         <div className="grid gap-3 sm:max-w-sm">
-          <Button variant="secondary">Alterar senha</Button>
-          <Button variant="secondary">Ativar autenticação em dois fatores</Button>
-          <Button variant="secondary">Revisar sessões ativas</Button>
+          <Button variant="secondary" onClick={() => setShowPwd(true)}>
+            Alterar senha
+          </Button>
         </div>
       </Card>
 
@@ -227,6 +376,9 @@ export default function SettingsPage() {
           </Button>
         </div>
       </section>
+
+      {showPwd && <ChangePasswordDialog onClose={() => setShowPwd(false)} />}
+      {showProfile && <EditProfileDialog onClose={() => setShowProfile(false)} />}
 
       <ConfirmDialog
         open={confirmLogout}

@@ -150,6 +150,15 @@ export const authService = {
     new_password: string
     new_password_confirm: string
   }) => apiClient.post('/accounts/users/change_password/', data),
+
+  requestPasswordReset: (email_or_username: string) =>
+    apiClient.post('/accounts/password-reset/request/', { email_or_username }),
+
+  confirmPasswordReset: (data: {
+    token: string
+    new_password: string
+    new_password_confirm: string
+  }) => apiClient.post('/accounts/password-reset/confirm/', data),
 }
 
 /** Endpoints da Secretaria Municipal de Educação */

@@ -123,6 +123,20 @@ export const ERROR_MESSAGES: Record<string, ErrorDef> = {
     message: () => 'Só é possível anonimizar um aluno sem matrícula ativa na rede.',
   },
 
+  // --- Recuperação de senha ---
+  INVALID_RESET_TOKEN: {
+    title: 'Link inválido',
+    message: () => 'Este link de redefinição é inválido ou já foi utilizado. Solicite um novo.',
+  },
+  EXPIRED_RESET_TOKEN: {
+    title: 'Link expirado',
+    message: () => 'O link de redefinição vale por 2 horas. Solicite um novo.',
+  },
+  WEAK_PASSWORD: {
+    title: 'Senha fraca',
+    message: () => 'A nova senha deve ter ao menos 8 caracteres.',
+  },
+
   // --- Genéricos do envelope ---
   VALIDATION_ERROR: {
     title: 'Dados inválidos',

@@ -181,6 +181,25 @@ class ChangePasswordSerializer(serializers.Serializer):
         return user
 
 
+class PasswordResetRequestSerializer(serializers.Serializer):
+    """Solicitação de redefinição — aceita e-mail ou nome de usuário."""
+
+    email_or_username = serializers.CharField(required=True)
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    """Confirmação da redefinição com o token recebido por e-mail."""
+
+    token = serializers.CharField(required=True)
+    new_password = serializers.CharField(write_only=True, required=True, min_length=8)
+    new_password_confirm = serializers.CharField(write_only=True, required=True, min_length=8)
+
+    def validate(self, data):
+        if data['new_password'] != data.pop('new_password_confirm'):
+            raise serializers.ValidationError({'new_password': 'As senhas não correspondem.'})
+        return data
+
+
 class UserProfileSerializer(serializers.ModelSerializer):
     """Serializer para perfil do usuário."""
 

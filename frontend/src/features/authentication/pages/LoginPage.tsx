@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -71,6 +71,12 @@ export default function LoginPage() {
             <Button type="submit" variant="primary" loading={isLoading} className="w-full">
               Entrar
             </Button>
+            <Link
+              to={ROUTES.forgotPassword}
+              className="text-center text-help text-ink-400 hover:text-ink-700"
+            >
+              Esqueci minha senha
+            </Link>
           </form>
         </FormProvider>
       </div>

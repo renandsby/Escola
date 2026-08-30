@@ -8,6 +8,8 @@ import { ROUTES, LEGACY_REDIRECTS } from './paths'
 import { PlaceholderPage } from '@/components/feedback/PlaceholderPage'
 
 import LoginPage from '@/features/authentication/pages/LoginPage'
+import ForgotPasswordPage from '@/features/authentication/pages/ForgotPasswordPage'
+import ResetPasswordPage from '@/features/authentication/pages/ResetPasswordPage'
 import DashboardPage from '@/pages/dashboard/DashboardPage'
 import SchoolsListPage from '@/features/schools/pages/SchoolsListPage'
 import SchoolFormPage from '@/features/schools/pages/SchoolFormPage'
@@ -62,6 +64,8 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<LoginRoute />} />
+      <Route path={ROUTES.forgotPassword} element={<ForgotPasswordPage />} />
+      <Route path="/redefinir-senha/:token" element={<ResetPasswordPage />} />
 
       {/* Redirects das rotas antigas (inglês) */}
       {Object.entries(LEGACY_REDIRECTS).map(([from, to]) => (

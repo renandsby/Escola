@@ -1,11 +1,17 @@
 from rest_framework import viewsets, status, permissions, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 from django_filters.rest_framework import DjangoFilterBackend
 from core.models import User, UserRole
 from core.permissions import IsAdmin
+
+from apps.authentication.services.password_reset_service import (
+    confirm_password_reset,
+    request_password_reset,
+)
 
 from apps.authentication.selectors.users import get_users_for_user
 from apps.authentication.models import Permission, Profile, LoginLog
@@ -20,6 +26,8 @@ from .serializers import (
     UserUpdateSerializer,
     ChangePasswordSerializer,
     UserProfileSerializer,
+    PasswordResetRequestSerializer,
+    PasswordResetConfirmSerializer,
 )
 
 
@@ -27,6 +35,42 @@ class LoginView(TokenObtainPairView):
     """Endpoint de login."""
 
     serializer_class = CustomTokenObtainPairSerializer
+
+
+class PasswordResetRequestView(APIView):
+    """POST /api/v1/accounts/password-reset/request/ — sempre 200 genérico."""
+
+    permission_classes = [permissions.AllowAny]
+    authentication_classes: list = []
+
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        request_password_reset(
+            email_or_username=serializer.validated_data['email_or_username']
+        )
+        return Response(
+            {
+                'detail': 'Se houver uma conta com esse identificador, '
+                'enviamos um link de redefinição.'
+            }
+        )
+
+
+class PasswordResetConfirmView(APIView):
+    """POST /api/v1/accounts/password-reset/confirm/."""
+
+    permission_classes = [permissions.AllowAny]
+    authentication_classes: list = []
+
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        confirm_password_reset(
+            token=serializer.validated_data['token'],
+            new_password=serializer.validated_data['new_password'],
+        )
+        return Response({'detail': 'Senha redefinida com sucesso. Faça login.'})
 
 
 class UserViewSet(viewsets.ModelViewSet):

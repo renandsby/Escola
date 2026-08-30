@@ -5,6 +5,8 @@
  */
 export const ROUTES = {
   login: '/login',
+  forgotPassword: '/esqueci-senha',
+  resetPassword: (token: string) => `/redefinir-senha/${token}`,
   home: '/', // Painel do dia
 
   // REDE

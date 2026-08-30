@@ -354,6 +354,11 @@ if IS_PRODUCTION:
 
 AUTH_USER_MODEL = 'core.User'
 
+# Base pública do frontend — usada em links de e-mail (reset de senha etc.).
+FRONTEND_BASE_URL = decouple_config(
+    'FRONTEND_BASE_URL', default='http://localhost:3000'
+).rstrip('/')
+
 DEFAULT_FROM_EMAIL = decouple_config('EMAIL_HOST_USER', default='noreply@escola.com')
 
 _EMAIL_BACKEND = decouple_config(
