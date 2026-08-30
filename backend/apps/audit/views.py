@@ -1,65 +1,63 @@
-from rest_framework import viewsets, permissions, filters, status
+from datetime import timedelta
+
+from django.utils.timezone import now
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django_filters.rest_framework import DjangoFilterBackend
-from django.utils.timezone import now
-from datetime import timedelta
-from .models import AuditLog
+
+from core.permissions import IsSMEAdmin
+
+from .selectors.audit import get_audit_logs_for_user
 from .serializers import AuditLogSerializer
-from core.permissions import IsAdmin
+
+_ACTION_LABEL = {
+    'CREATE': 'Criou',
+    'UPDATE': 'Atualizou',
+    'DELETE': 'Removeu',
+    'LOGIN': 'Fez login',
+    'LOGIN_FAILED': 'Tentativa de login',
+    'REPORT_GENERATED': 'Gerou relatório',
+}
+_RESOURCE_LABEL = {
+    'students': 'aluno', 'enrollments': 'matrícula', 'classes': 'turma',
+    'schools': 'escola', 'sme': 'transferência', 'grades': 'notas',
+    'attendance': 'frequência', 'documents': 'documento', 'reports': 'relatório',
+    'communications': 'mensagem', 'ReportExecution': 'relatório', 'auth': 'acesso',
+}
 
 
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = AuditLog.objects.all()
     serializer_class = AuditLogSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdmin]
+    permission_classes = [permissions.IsAuthenticated, IsSMEAdmin]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['action', 'model_name']
-    search_fields = ['object_id', 'ip_address']
+    filterset_fields = ['action', 'model_name', 'user']
+    search_fields = ['object_id', 'ip_address', 'request_path']
     ordering_fields = ['created_at']
     ordering = ['-created_at']
 
-    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated, IsAdmin])
+    def get_queryset(self):
+        return get_audit_logs_for_user(user=self.request.user)
+
+    @action(detail=False, methods=['get'])
     def recent_activities(self, request):
-        """Retorna atividades recentes do dashboard (apenas SME admin)."""
-        seven_days_ago = now() - timedelta(days=7)
-        activities = AuditLog.objects.filter(created_at__gte=seven_days_ago)[:10]
-
-        formatted_activities = []
-        for activity in activities:
-            action_text = {
-                'create': f"Criou {activity.model_name}",
-                'update': f"Atualizou {activity.model_name}",
-                'delete': f"Deletou {activity.model_name}",
-                'login': "Fez login",
-            }.get(activity.action, activity.action)
-
-            formatted_activities.append({
-                'id': str(activity.id),
-                'user': activity.user.get_full_name() if activity.user else 'Sistema',
-                'action': action_text,
-                'model': activity.model_name,
-                'timestamp': activity.created_at,
-                'time_ago': self._time_ago(activity.created_at),
-            })
-
-        return Response(formatted_activities)
+        """Atividade recente para o painel (últimos 7 dias, top 12)."""
+        since = now() - timedelta(days=7)
+        logs = self.get_queryset().filter(created_at__gte=since)[:12]
+        return Response([
+            {
+                'id': str(log.id),
+                'user': log.user.get_full_name() if log.user_id else 'Sistema',
+                'summary': self._summary(log),
+                'timestamp': log.created_at,
+            }
+            for log in logs
+        ])
 
     @staticmethod
-    def _time_ago(dt):
-        """Calcula tempo decorrido em formato legível"""
-        diff = now() - dt
-
-        if diff.total_seconds() < 60:
-            return "Há poucos segundos"
-        elif diff.total_seconds() < 3600:
-            mins = int(diff.total_seconds() / 60)
-            return f"Há {mins}m"
-        elif diff.total_seconds() < 86400:
-            hours = int(diff.total_seconds() / 3600)
-            return f"Há {hours}h"
-        elif diff.total_seconds() < 604800:
-            days = int(diff.total_seconds() / 86400)
-            return f"Há {days}d"
-        else:
-            return dt.strftime("%d/%m/%Y")
+    def _summary(log) -> str:
+        verb = _ACTION_LABEL.get(log.action, log.action)
+        if log.action in ('LOGIN', 'LOGIN_FAILED'):
+            return verb
+        resource = _RESOURCE_LABEL.get(log.model_name, log.model_name or 'registro')
+        return f'{verb} {resource}'.strip()

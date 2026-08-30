@@ -15,6 +15,7 @@ import { EnrollmentByStage } from '../components/EnrollmentByStage'
 import { MovementPanel } from '../components/MovementPanel'
 import { DiaryCompletenessTable } from '../components/DiaryCompletenessTable'
 import { NeedsYouPanel } from '../components/NeedsYouPanel'
+import { RecentActivityPanel } from '../components/RecentActivityPanel'
 import { ReportsSection } from '@/features/reports'
 
 export default function OverviewDashboardPage() {
@@ -191,7 +192,10 @@ export default function OverviewDashboardPage() {
 
       <DiaryCompletenessTable data={data.diary_completeness} />
 
-      <NeedsYouPanel items={data.needs_you} />
+      <div className="grid gap-5 lg:grid-cols-[1.25fr_1fr]">
+        <NeedsYouPanel items={data.needs_you} />
+        {isNetwork && <RecentActivityPanel />}
+      </div>
 
       <ReportsSection
         level={isNetwork ? 'network' : 'school'}
