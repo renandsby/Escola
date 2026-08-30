@@ -4,6 +4,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.dashboard.selectors.context import get_network_context
 from apps.dashboard.selectors.overview import DASHBOARD_ROLES, get_dashboard_overview
 from apps.dashboard.selectors.summary import get_dashboard_summary
 
@@ -31,6 +32,16 @@ class DashboardSummaryView(APIView):
 
     def get(self, request):
         return Response(get_dashboard_summary(user=request.user))
+
+
+class NetworkContextView(APIView):
+    """Município da rede + período letivo corrente para o `AppHeader`.
+    Disponível para qualquer usuário autenticado."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        return Response(get_network_context(user=request.user))
 
 
 class DashboardOverviewView(APIView):
