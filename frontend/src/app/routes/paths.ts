@@ -32,6 +32,9 @@ export const ROUTES = {
 
   // VIDA ESCOLAR
   classes: '/turmas',
+  classNew: '/turmas/nova',
+  classEdit: (id: string) => `/turmas/${id}/editar`,
+  classrooms: '/salas',
   enrollments: '/matriculas',
   enrollmentNew: '/matriculas/nova',
   transfers: '/transferencias',

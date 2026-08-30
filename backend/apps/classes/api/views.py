@@ -2,10 +2,10 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, permissions, status, viewsets
 from rest_framework.response import Response
 
-from core.permissions import IsSMEAdmin, IsSMEStaff
+from core.permissions import IsSchoolStaff, IsSMEAdmin, IsSMEStaff
 
 from apps.classes.models import Classroom, SchoolClass, TeacherAllocation, TeacherProfile
-from apps.classes.selectors.classrooms import get_active_classrooms
+from apps.classes.selectors.classrooms import get_classrooms_for_user
 from apps.classes.selectors.school_classes import get_school_classes_for_user
 from apps.classes.selectors.teachers import (
     get_teacher_allocations_for_user,
@@ -69,7 +69,12 @@ class ClassroomViewSet(viewsets.ModelViewSet):
     ordering = ['number']
 
     def get_queryset(self):
-        return get_active_classrooms()
+        return get_classrooms_for_user(user=self.request.user)
+
+    def get_permissions(self):
+        if self.action in ('create', 'update', 'partial_update', 'destroy'):
+            return [permissions.IsAuthenticated(), (IsSMEStaff | IsSchoolStaff)()]
+        return [permissions.IsAuthenticated()]
 
 
 class TeacherProfileViewSet(viewsets.ModelViewSet):

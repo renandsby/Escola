@@ -21,6 +21,8 @@ import SubjectFormPage from '@/features/curriculum/pages/SubjectFormPage'
 import MessagesPage from '@/pages/messages/MessagesPage'
 import MessageFormPage from '@/pages/messages/MessageFormPage'
 import ClassesListPage from '@/features/classes/pages/ClassesListPage'
+import ClassFormPage from '@/features/classes/pages/ClassFormPage'
+import ClassroomsPage from '@/features/classes/pages/ClassroomsPage'
 import EnrollmentsListPage from '@/features/students/pages/EnrollmentsListPage'
 import EnrollmentFormPage from '@/features/students/pages/EnrollmentFormPage'
 import GradesPage from '@/features/class-diary/pages/GradesPage'
@@ -111,6 +113,9 @@ export function AppRoutes() {
 
           {/* VIDA ESCOLAR */}
           <Route path={ROUTES.classes} element={guard([...SME, ...SCHOOL_MGMT, 'teacher'], <ClassesListPage />)} />
+          <Route path={ROUTES.classNew} element={guard([...SME, ...SCHOOL_MGMT], <ClassFormPage />)} />
+          <Route path="/turmas/:id/editar" element={guard([...SME, ...SCHOOL_MGMT], <ClassFormPage />)} />
+          <Route path={ROUTES.classrooms} element={guard([...SME, ...SCHOOL_MGMT], <ClassroomsPage />)} />
           <Route path={ROUTES.enrollments} element={guard([...SME, ...SCHOOL_MGMT], <EnrollmentsListPage />)} />
           <Route path={ROUTES.enrollmentNew} element={guard([...SME, ...SCHOOL_MGMT], <EnrollmentFormPage />)} />
           <Route path={ROUTES.transfers} element={guard([...SME, ...SCHOOL_MGMT], <TransfersPage />)} />

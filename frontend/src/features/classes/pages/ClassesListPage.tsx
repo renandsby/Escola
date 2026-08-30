@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Search, Trash2 } from 'lucide-react'
+import { Search, Trash2, Pencil, Plus } from 'lucide-react'
 import { useCrud } from '@/hooks/useCrud'
 import type { SchoolClass } from '@/types/api'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -11,10 +12,17 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
 import { getErrorMessage } from '@/utils/api-helpers'
+import { useAuthStore } from '@/stores/authStore'
 import { SHIFT } from '@/components/ui/statusMaps'
+import { ROUTES } from '@/app/routes/paths'
+
+const MANAGE_ROLES = ['sme_admin', 'sme_supervisor', 'school_director', 'school_secretary']
 
 export default function ClassesListPage() {
   const scope = useScope()
+  const navigate = useNavigate()
+  const role = useAuthStore((s) => s.user?.role) ?? ''
+  const canManage = MANAGE_ROLES.includes(role)
   const { list, delete_ } = useCrud<SchoolClass>('classes/', 'classes')
   const [term, setTerm] = useState('')
   const [toDelete, setToDelete] = useState<SchoolClass | null>(null)
@@ -67,7 +75,26 @@ export default function ClassesListPage() {
 
   return (
     <>
-      <PageHeader breadcrumb={[{ label: 'Vida escolar' }, { label: 'Turmas' }]} title="Turmas" />
+      <PageHeader
+        breadcrumb={[{ label: 'Vida escolar' }, { label: 'Turmas' }]}
+        title="Turmas"
+        actions={
+          canManage ? (
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => navigate(ROUTES.classrooms)}>
+                Salas de aula
+              </Button>
+              <Button
+                variant="primary"
+                iconLeft={<Plus className="h-4 w-4" />}
+                onClick={() => navigate(ROUTES.classNew)}
+              >
+                Nova turma
+              </Button>
+            </div>
+          ) : undefined
+        }
+      />
       <ScopeBar
         level={scope.level}
         title={scope.title}
@@ -100,9 +127,20 @@ export default function ClassesListPage() {
           />
         }
         rowActions={(c) => (
-          <Button size="sm" variant="ghost" onClick={() => setToDelete(c)}>
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          <>
+            {canManage && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => navigate(ROUTES.classEdit(c.id))}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            )}
+            <Button size="sm" variant="ghost" onClick={() => setToDelete(c)}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </>
         )}
       />
 

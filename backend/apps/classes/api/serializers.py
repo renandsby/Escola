@@ -1,6 +1,22 @@
 from rest_framework import serializers
 
+from core.models import UserRole
 from apps.classes.models import Classroom, SchoolClass, TeacherAllocation, TeacherProfile
+
+_SCHOOL_ROLES = {UserRole.SCHOOL_DIRECTOR, UserRole.SCHOOL_SECRETARY}
+
+
+class SchoolScopedWriteMixin:
+    """Impede que direção/secretaria crie ou mova registros para outra escola."""
+
+    def _validate_school_scope(self, school):
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if user and getattr(user, 'role', None) in _SCHOOL_ROLES:
+            if school is not None and school.id != getattr(user, 'school_id', None):
+                raise serializers.ValidationError(
+                    {'school': 'Você só pode gerenciar registros da sua própria escola.'}
+                )
 
 
 # ---------------------------------------------------------------------------
@@ -8,7 +24,7 @@ from apps.classes.models import Classroom, SchoolClass, TeacherAllocation, Teach
 # ---------------------------------------------------------------------------
 
 
-class SchoolClassSerializer(serializers.ModelSerializer):
+class SchoolClassSerializer(SchoolScopedWriteMixin, serializers.ModelSerializer):
     school_name = serializers.CharField(source='school.name', read_only=True)
     academic_year_label = serializers.CharField(source='academic_year.year', read_only=True)
     curriculum_matrix_name = serializers.CharField(source='curriculum_matrix.name', read_only=True)
@@ -43,6 +59,16 @@ class SchoolClassSerializer(serializers.ModelSerializer):
     def get_student_count(self, obj):
         return obj.get_student_count()
 
+    def validate_max_capacity(self, value):
+        if value is None or value <= 0:
+            raise serializers.ValidationError('A capacidade deve ser um número positivo.')
+        return value
+
+    def validate(self, data):
+        school = data.get('school') or getattr(self.instance, 'school', None)
+        self._validate_school_scope(school)
+        return data
+
 
 class SchoolClassListSerializer(serializers.ModelSerializer):
     school_name = serializers.CharField(source='school.name', read_only=True)
@@ -74,16 +100,28 @@ ClassListSerializer = SchoolClassListSerializer
 # ---------------------------------------------------------------------------
 
 
-class ClassroomSerializer(serializers.ModelSerializer):
+class ClassroomSerializer(SchoolScopedWriteMixin, serializers.ModelSerializer):
+    school_name = serializers.CharField(source='school.name', read_only=True)
+
     class Meta:
         model = Classroom
         fields = [
-            'id', 'school', 'number', 'capacity', 'floor', 'building',
+            'id', 'school', 'school_name', 'number', 'capacity', 'floor', 'building',
             'has_projector', 'has_whiteboard', 'has_blackboard',
             'has_air_conditioning', 'has_wifi',
             'is_active', 'created_at', 'updated_at',
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'school_name', 'created_at', 'updated_at']
+
+    def validate_capacity(self, value):
+        if value is None or value <= 0:
+            raise serializers.ValidationError('A capacidade deve ser um número positivo.')
+        return value
+
+    def validate(self, data):
+        school = data.get('school') or getattr(self.instance, 'school', None)
+        self._validate_school_scope(school)
+        return data
 
 
 # ---------------------------------------------------------------------------
