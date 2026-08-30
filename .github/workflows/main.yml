@@ -20,23 +20,75 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Docker Compose
-        run: docker --version && docker-compose --version
-
       - name: Create .env file
         run: cp .env.example .env
 
       - name: Build and start services
-        run: docker-compose build
+        run: docker compose up -d --build postgres redis backend
 
-      - name: Wait for services
-        run: sleep 10
+      - name: Wait for backend to be ready
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/health/ready/ >/dev/null; then
+              echo "backend ready"; exit 0
+            fi
+            echo "waiting ($i)..."; sleep 5
+          done
+          echo "backend never became ready"; docker compose logs backend; exit 1
 
       - name: Check health endpoints
         run: |
-          curl -f http://localhost:8000/health/ || exit 1
-          curl -f http://localhost:8000/health/ready/ || exit 1
-        continue-on-error: true
+          curl -f http://localhost:8000/health/
+          curl -f http://localhost:8000/health/ready/
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
+
+  deploy-check:
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate production compose file
+        run: |
+          cp .env.example .env
+          docker compose -f docker-compose.prod.yml config >/dev/null
+          # portas de banco/redis não podem ser publicadas em produção
+          if docker compose -f docker-compose.prod.yml config | grep -E 'published:\s*"?(5432|6379)"?'; then
+            echo "ERRO: Postgres/Redis expostos no compose de produção"; exit 1
+          fi
+
+      - name: Build production backend image
+        run: docker build -t escola-backend:prod ./backend
+
+      - name: django check --deploy (sem avisos de segurança)
+        run: |
+          out=$(docker run --rm \
+            -e ENVIRONMENT=production -e DEBUG=False \
+            -e SECRET_KEY="$(python -c 'import secrets;print(secrets.token_urlsafe(64))')" \
+            -e JWT_SECRET_KEY="$(python -c 'import secrets;print(secrets.token_urlsafe(48))')" \
+            -e ALLOWED_HOSTS=sme.exemplo.gov.br \
+            -e CSRF_TRUSTED_ORIGINS=https://sme.exemplo.gov.br \
+            -e DB_HOST=localhost -e DB_NAME=x -e DB_USER=x -e DB_PASSWORD=x \
+            -e REDIS_URL=redis://localhost:6379/0 \
+            escola-backend:prod python manage.py check --deploy 2>&1) || true
+          echo "$out"
+          if echo "$out" | grep -E '\(security\.[WE][0-9]+\)'; then
+            echo "::error::manage.py check --deploy apontou problemas de segurança"; exit 1
+          fi
+
+      - name: recusa de boot inseguro em produção
+        run: |
+          if docker run --rm -e ENVIRONMENT=production -e DEBUG=True \
+             -e SECRET_KEY=django-insecure-x -e DB_HOST=x -e DB_NAME=x -e DB_USER=x -e DB_PASSWORD=x \
+             escola-backend:prod python manage.py check 2>&1 | grep -q ImproperlyConfigured; then
+            echo "OK: a app se recusou a subir com segredos inseguros"
+          else
+            echo "::error::a app deveria ter recusado a inicialização insegura"; exit 1
+          fi
 
   quality:
     runs-on: ubuntu-latest

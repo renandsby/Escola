@@ -1,0 +1,154 @@
+# Produção — PLANO_EXECUCAO_PRODUCAO_MINIMA / P1-HARDEN
+#
+#   docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+#
+# Diferenças em relação ao docker-compose.yml de desenvolvimento:
+#   - Postgres e Redis SEM portas publicadas (só na rede interna).
+#   - Backend/celery SEM bind-mount do código (a imagem é a fonte da verdade).
+#   - nginx como reverse proxy único exposto (80/443), TLS + gzip + limites.
+#   - restart: unless-stopped em todos os serviços.
+#   - ENVIRONMENT=production -> a app valida os segredos ao subir.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - escola_internal
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --save 60 1 --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - escola_internal
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: escola-backend:prod
+    restart: unless-stopped
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput &&
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000
+             --workers ${GUNICORN_WORKERS:-4} --timeout 120 --access-logfile - --error-logfile -"
+    env_file: .env
+    environment:
+      - ENVIRONMENT=production
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health/ready/',timeout=5).status==200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - escola_internal
+
+  celery:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: escola-backend:prod
+    restart: unless-stopped
+    command: celery -A config worker --loglevel=info --concurrency=${CELERY_CONCURRENCY:-4}
+    env_file: .env
+    environment:
+      - ENVIRONMENT=production
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - media_volume:/app/media
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - escola_internal
+
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: escola-backend:prod
+    restart: unless-stopped
+    command: celery -A config beat --loglevel=info
+    env_file: .env
+    environment:
+      - ENVIRONMENT=production
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - escola_internal
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+    image: escola-frontend:prod
+    restart: unless-stopped
+    networks:
+      - escola_internal
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+      - static_volume:/srv/static:ro
+      - media_volume:/srv/media:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - escola_internal
+
+volumes:
+  postgres_data:
+  redis_data:
+  static_volume:
+  media_volume:
+
+networks:
+  escola_internal:
+    driver: bridge

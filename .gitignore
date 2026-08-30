@@ -48,6 +48,11 @@ media/
 /staticfiles
 backend/staticfiles/
 
+# TLS / segredos de produção
+nginx/certs/*
+!nginx/certs/.gitkeep
+*.pem
+
 # Frontend
 node_modules/
 dist/

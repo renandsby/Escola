@@ -4,12 +4,19 @@ from datetime import timedelta
 
 import environ
 from decouple import config as decouple_config
+from django.core.exceptions import ImproperlyConfigured
 
 env = environ.Env(DEBUG=(bool, False))
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 env.read_env(os.path.join(BASE_DIR.parent, '.env'))
+
+
+def _csv(name, default=''):
+    """Lê uma variável separada por vírgula e devolve uma lista sem itens vazios."""
+    return [item.strip() for item in decouple_config(name, default=default).split(',') if item.strip()]
+
 
 SECRET_KEY = decouple_config(
     'SECRET_KEY',
@@ -18,12 +25,42 @@ SECRET_KEY = decouple_config(
 
 DEBUG = decouple_config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = decouple_config(
-    'ALLOWED_HOSTS',
-    default='localhost,127.0.0.1'
-).split(',')
+ALLOWED_HOSTS = _csv('ALLOWED_HOSTS', default='localhost,127.0.0.1')
 
 ENVIRONMENT = decouple_config('ENVIRONMENT', default='development')
+IS_PRODUCTION = ENVIRONMENT.strip().lower() == 'production'
+
+# ---------------------------------------------------------------------------
+# Validação estrita de inicialização (P1-HARDEN):
+# em produção a aplicação se recusa a subir com segredos padrão/curtos.
+# ---------------------------------------------------------------------------
+_INSECURE_SECRETS = {
+    '',
+    'django-insecure-change-me-in-production',
+    'your-secret-key-change-in-production',
+    'your-jwt-secret-key-change-in-production',
+    'test-secret-key',
+}
+
+if IS_PRODUCTION:
+    _jwt_key = decouple_config('JWT_SECRET_KEY', default='')
+    _problems = []
+    if DEBUG:
+        _problems.append('DEBUG deve ser False em produção.')
+    if (
+        SECRET_KEY in _INSECURE_SECRETS
+        or SECRET_KEY.startswith('django-insecure-')
+        or len(SECRET_KEY) < 50
+    ):
+        _problems.append('SECRET_KEY ausente, padrão ou curta demais (mínimo 50 caracteres).')
+    if _jwt_key in _INSECURE_SECRETS or len(_jwt_key) < 32:
+        _problems.append('JWT_SECRET_KEY ausente, padrão ou curta demais (mínimo 32 caracteres).')
+    if not ALLOWED_HOSTS or set(ALLOWED_HOSTS) <= {'localhost', '127.0.0.1', '0.0.0.0'}:
+        _problems.append('ALLOWED_HOSTS não configurado para o(s) domínio(s) reais.')
+    if _problems:
+        raise ImproperlyConfigured(
+            'Configuração insegura para ENVIRONMENT=production:\n  - ' + '\n  - '.join(_problems)
+        )
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -246,6 +283,11 @@ else:
 if not os.path.exists(BASE_DIR / 'logs'):
     os.makedirs(BASE_DIR / 'logs')
 
+# Avisos de geração de schema (type hints de SerializerMethodField, APIViews sem
+# serializer_class) — ruído no `manage.py check`; o schema ainda é gerado com
+# fallback para string. Não afeta a segurança nem o runtime.
+SILENCED_SYSTEM_CHECKS = ['drf_spectacular.W001', 'drf_spectacular.W002']
+
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Sistema de Gestão Escolar API',
     'DESCRIPTION': 'API REST para gerenciamento completo de escolas',
@@ -269,18 +311,34 @@ SPECTACULAR_SETTINGS = {
     },
 }
 
-SECURE_SSL_REDIRECT = False if DEBUG else True
-SESSION_COOKIE_SECURE = False if DEBUG else True
-CSRF_COOKIE_SECURE = False if DEBUG else True
-CSRF_TRUSTED_ORIGINS = [
+# ---------------------------------------------------------------------------
+# Segurança de transporte e cabeçalhos (P1-HARDEN)
+# ---------------------------------------------------------------------------
+_DEV_TRUSTED_ORIGINS = [
     'http://localhost:8000',
     'http://127.0.0.1:8000',
     'http://0.0.0.0:8000',
     'http://localhost:3000',
     'http://127.0.0.1:3000',
 ]
+CSRF_TRUSTED_ORIGINS = _csv('CSRF_TRUSTED_ORIGINS') or (
+    [] if IS_PRODUCTION else _DEV_TRUSTED_ORIGINS
+)
 
-if not DEBUG:
+# nginx termina TLS e repassa o esquema original
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+X_FRAME_OPTIONS = 'DENY'
+
+SECURE_SSL_REDIRECT = decouple_config('SECURE_SSL_REDIRECT', default=IS_PRODUCTION, cast=bool)
+SESSION_COOKIE_SECURE = IS_PRODUCTION
+CSRF_COOKIE_SECURE = IS_PRODUCTION
+SESSION_COOKIE_HTTPONLY = True
+
+if IS_PRODUCTION:
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True

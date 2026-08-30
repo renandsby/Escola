@@ -1,0 +1,4 @@
+# Coloque aqui os certificados TLS de produção:
+#   fullchain.pem   (certificado + cadeia)
+#   privkey.pem     (chave privada)
+# Nunca commite os .pem — só este .gitkeep.
