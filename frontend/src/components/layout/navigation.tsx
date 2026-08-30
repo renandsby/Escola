@@ -164,6 +164,13 @@ export const NAV: NavGroup[] = [
     label: 'DOCUMENTOS',
     items: [
       {
+        label: 'Arquivos dos alunos',
+        to: ROUTES.documents,
+        matchPrefix: '/documentos/arquivos',
+        roles: [...SME, ...SCHOOL, 'student_guardian'],
+        icon: <FileText className={ICON} />,
+      },
+      {
         label: 'Boletins e carteirinhas',
         to: ROUTES.boletins,
         roles: [...SME, ...SCHOOL, 'student_guardian'],

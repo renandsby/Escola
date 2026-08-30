@@ -1,8 +1,15 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Pencil, Printer } from 'lucide-react'
+import { Pencil, Printer, Plus, Download } from 'lucide-react'
 import { apiGet } from '@/utils/api-helpers'
-import type { Student, Grade, Attendance, PaginatedResponse } from '@/types/api'
+import type {
+  Student,
+  Grade,
+  Attendance,
+  PaginatedResponse,
+  Document as Doc,
+} from '@/types/api'
 import { ATTENDANCE_STATUS_LABELS } from '@/types/api'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { ScopeBar, useScope } from '@/components/ui/ScopeBar'
@@ -11,8 +18,10 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { TableSkeleton } from '@/components/ui/TableSkeleton'
-import { GENDER, RACE_COLOR, labelOf } from '@/components/ui/statusMaps'
+import { DOCUMENT_TYPE, GENDER, RACE_COLOR, labelOf } from '@/components/ui/statusMaps'
 import { ROUTES } from '@/app/routes/paths'
+import { useAuthStore } from '@/stores/authStore'
+import { DocumentUploadModal } from '@/features/documents/pages/DocumentUploadModal'
 import { PrivacyConsentSection } from '../components/PrivacyConsentSection'
 import {
   BarChart,
@@ -52,14 +61,23 @@ function Metric({
   )
 }
 
+const DOC_UPLOAD_ROLES = ['sme_admin', 'sme_supervisor', 'school_director', 'school_secretary']
+
 export default function StudentDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const scope = useScope()
+  const role = useAuthStore((s) => s.user?.role) ?? ''
+  const [uploadingDoc, setUploadingDoc] = useState(false)
 
   const student = useQuery({
     queryKey: ['student', id],
     queryFn: () => apiGet<Student>(`students/${id}/`),
+    enabled: !!id,
+  })
+  const documents = useQuery({
+    queryKey: ['documents', 'student', id],
+    queryFn: () => apiGet<PaginatedResponse<Doc>>(`documents/?student=${id}`),
     enabled: !!id,
   })
   const grades = useQuery({
@@ -266,7 +284,59 @@ export default function StudentDetailPage() {
         )}
       </Card>
 
+      <section className="grid gap-4 rounded-lg border border-line bg-white p-6">
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-section text-ink-900">Documentos</h2>
+          {DOC_UPLOAD_ROLES.includes(role) && (
+            <Button
+              size="sm"
+              variant="secondary"
+              iconLeft={<Plus className="h-4 w-4" />}
+              onClick={() => setUploadingDoc(true)}
+            >
+              Enviar documento
+            </Button>
+          )}
+        </div>
+        {(documents.data?.results ?? []).length === 0 ? (
+          <EmptyState title="Sem documentos" description="Nada arquivado para este aluno." />
+        ) : (
+          <ul className="grid gap-2">
+            {documents.data?.results.map((doc) => (
+              <li
+                key={doc.id}
+                className="flex items-center justify-between gap-4 border-b border-line-soft pb-2 last:border-0 last:pb-0"
+              >
+                <span className="text-base text-ink-700">
+                  {doc.file_name}
+                  <span className="ml-2 text-help text-ink-400">
+                    {labelOf(DOCUMENT_TYPE, String(doc.document_type))}
+                  </span>
+                </span>
+                {doc.file && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => window.open(doc.file, '_blank')}
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       <PrivacyConsentSection studentId={data.id} studentName={data.full_name} />
+
+      {uploadingDoc && (
+        <DocumentUploadModal
+          studentId={data.id}
+          studentName={data.full_name}
+          onClose={() => setUploadingDoc(false)}
+        />
+      )}
     </>
   )
 }

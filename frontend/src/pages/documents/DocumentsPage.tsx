@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Download, Trash2, Eye } from 'lucide-react'
+import { Search, Download, Trash2, Eye, Plus } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useCrud } from '@/hooks/useCrud'
@@ -12,14 +12,20 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
 import { DOCUMENT_TYPE, labelOf } from '@/components/ui/statusMaps'
+import { useAuthStore } from '@/stores/authStore'
+import { DocumentUploadModal } from '@/features/documents/pages/DocumentUploadModal'
 import { ROUTES } from '@/app/routes/paths'
+
+const UPLOAD_ROLES = ['sme_admin', 'sme_supervisor', 'school_director', 'school_secretary']
 
 export default function DocumentsPage() {
   const navigate = useNavigate()
   const scope = useScope()
+  const role = useAuthStore((s) => s.user?.role) ?? ''
   const { list, delete_ } = useCrud<Document>('documents/', 'documents')
   const [term, setTerm] = useState('')
   const [toDelete, setToDelete] = useState<Document | null>(null)
+  const [uploading, setUploading] = useState(false)
 
   const q = term.toLowerCase()
   const rows =
@@ -59,7 +65,21 @@ export default function DocumentsPage() {
 
   return (
     <>
-      <PageHeader breadcrumb={[{ label: 'Documentos' }, { label: 'Arquivos' }]} title="Documentos" />
+      <PageHeader
+        breadcrumb={[{ label: 'Documentos' }, { label: 'Arquivos' }]}
+        title="Documentos"
+        actions={
+          UPLOAD_ROLES.includes(role) ? (
+            <Button
+              variant="primary"
+              iconLeft={<Plus className="h-4 w-4" />}
+              onClick={() => setUploading(true)}
+            >
+              Enviar documento
+            </Button>
+          ) : undefined
+        }
+      />
       <ScopeBar level={scope.level} title={scope.title} />
 
       <div className="relative">
@@ -113,6 +133,8 @@ export default function DocumentsPage() {
         confirmLabel="Excluir"
         destructive
       />
+
+      {uploading && <DocumentUploadModal onClose={() => setUploading(false)} />}
     </>
   )
 }
