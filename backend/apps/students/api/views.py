@@ -17,7 +17,11 @@ from apps.students.selectors.enrollments import get_enrollments_for_user, get_tr
 from apps.students.selectors.guardians import get_guardians_for_user, get_student_guardian_links_for_user
 from apps.students.selectors.students import get_students_for_user
 from apps.students.services.enrollment_service import enroll_student_in_class
-from apps.students.services.transfer_service import accept_transfer, authorize_transfer
+from apps.students.services.transfer_service import (
+    accept_transfer,
+    authorize_transfer,
+    reject_transfer,
+)
 
 from .serializers import (
     EnrollmentCreateInputSerializer,
@@ -261,8 +265,32 @@ class TransferRequestViewSet(viewsets.ModelViewSet):
         )
         return Response(TransferRequestSerializer(transfer).data)
 
-    @action(detail=True, methods=['patch'], permission_classes=[permissions.IsAuthenticated, IsSchoolStaff])
+    @action(
+        detail=True,
+        methods=['patch'],
+        permission_classes=[permissions.IsAuthenticated, IsSchoolStaff | IsSMEStaff],
+    )
     def accept(self, request, pk=None):
+        """Aceite pela escola de destino (ou SME): encerra a matrícula de origem
+        e, com ``destination_class_id``, enturma o aluno na unidade de destino."""
         transfer = self.get_object()
-        transfer = accept_transfer(transfer_id=transfer.id, actor_user=request.user)
+        transfer = accept_transfer(
+            transfer_id=transfer.id,
+            destination_class_id=request.data.get('destination_class_id'),
+            actor_user=request.user,
+        )
+        return Response(TransferRequestSerializer(transfer).data)
+
+    @action(
+        detail=True,
+        methods=['patch'],
+        permission_classes=[permissions.IsAuthenticated, IsSchoolStaff | IsSMEStaff],
+    )
+    def reject(self, request, pk=None):
+        transfer = self.get_object()
+        transfer = reject_transfer(
+            transfer_id=transfer.id,
+            actor_user=request.user,
+            reason=request.data.get('reason', ''),
+        )
         return Response(TransferRequestSerializer(transfer).data)

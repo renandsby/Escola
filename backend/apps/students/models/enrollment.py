@@ -122,6 +122,14 @@ class TransferRequest(SoftDeleteModel):
         default=TransferRequestStatus.PENDING_SME,
         verbose_name=_('Status'),
     )
+    target_enrollment = models.ForeignKey(
+        'students.Enrollment',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='originating_transfer',
+        verbose_name=_('Matrícula de destino'),
+    )
     requested_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Solicitado em'))
     resolved_at = models.DateTimeField(null=True, blank=True, verbose_name=_('Resolvido em'))
 

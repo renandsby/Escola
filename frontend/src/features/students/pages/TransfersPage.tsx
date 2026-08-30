@@ -3,9 +3,10 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
-import { Check, ThumbsUp, Plus, Search, ArrowRight } from 'lucide-react'
+import { ThumbsUp, Plus, Search, ArrowRight, LogIn, X } from 'lucide-react'
 import { useCrud } from '@/hooks/useCrud'
 import { smeService } from '@/services/api'
+import { useAuthStore } from '@/stores/authStore'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { ScopeBar, useScope } from '@/components/ui/ScopeBar'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -14,27 +15,30 @@ import { Button } from '@/components/ui/Button'
 import { Field, Select, Textarea } from '@/components/ui/Field'
 import { FormError } from '@/components/feedback/FormError'
 import { TableSkeleton } from '@/components/ui/TableSkeleton'
-import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
 import type { TransferRequest, CreateTransferRequestPayload } from '@/types/api'
 import { formatDate } from '@/utils/formatting'
 import { labelOf, TRANSFER_STATUS } from '@/components/ui/statusMaps'
 import { TransferTimeline } from '../components/TransferTimeline'
+import { TransferActionDialog } from '../components/TransferActionDialog'
 import { useStudentsQuery } from '../hooks/useStudentsQuery'
 import { useSchoolsQuery } from '../hooks/useSchoolsQuery'
 import { useAcademicYearsQuery } from '../hooks/useAcademicYearsQuery'
 import { transferSchema, type TransferFormData } from '../schemas/transferSchema'
 
-type PendingAction = { type: 'authorize' | 'accept'; id: string } | null
+type DialogMode = 'authorize' | 'accept' | 'reject'
+type DialogAction = { mode: DialogMode; transfer: TransferRequest } | null
 
 const toneOf = (status: string) => TRANSFER_STATUS[status]?.tone ?? 'neutral'
+const SME_ROLES = ['sme_admin', 'sme_supervisor']
+const SCHOOL_ROLES = ['school_director', 'school_secretary']
 
 export default function TransfersPage() {
   const queryClient = useQueryClient()
   const scope = useScope()
+  const user = useAuthStore((s) => s.user)
   const { list } = useCrud<TransferRequest>('sme/transfers/', 'transfers')
   const [term, setTerm] = useState('')
-  const [busyId, setBusyId] = useState<string | null>(null)
-  const [pendingAction, setPendingAction] = useState<PendingAction>(null)
+  const [dialog, setDialog] = useState<DialogAction>(null)
   const [showForm, setShowForm] = useState(false)
   const [creating, setCreating] = useState(false)
   const [formError, setFormError] = useState<unknown>(null)
@@ -68,24 +72,22 @@ export default function TransfersPage() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['transfers', 'list'] })
 
-  const runAction = async (action: PendingAction) => {
-    if (!action) {return}
-    setBusyId(action.id)
-    try {
-      if (action.type === 'authorize') {
-        await smeService.transfers.authorize(action.id)
-        toast.success('Transferência autorizada.')
-      } else {
-        await smeService.transfers.accept(action.id)
-        toast.success('Transferência aceita.')
-      }
-      invalidate()
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erro ao processar a transferência.')
-    } finally {
-      setBusyId(null)
-      setPendingAction(null)
+  const role = user?.role ?? ''
+  const isSme = SME_ROLES.includes(role)
+  const isSchoolStaff = SCHOOL_ROLES.includes(role)
+
+  /** Ações disponíveis para o papel atual, dado o status da transferência. */
+  const actionsFor = (t: TransferRequest): DialogMode[] => {
+    if (t.status === 'PENDING_SME' && isSme) {
+      return ['authorize', 'reject']
     }
+    if (t.status === 'APPROVED_BY_SME') {
+      const isDestination = isSchoolStaff && String(user?.school) === String(t.destination_school)
+      if (isDestination || role === 'sme_admin') {
+        return ['accept', 'reject']
+      }
+    }
+    return []
   }
 
   const closeForm = () => {
@@ -244,26 +246,34 @@ export default function TransfersPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge tone={toneOf(t.status)}>{labelOf(TRANSFER_STATUS, t.status)}</Badge>
-                  {t.status === 'PENDING_SME' && (
+                  {actionsFor(t).includes('authorize') && (
                     <Button
                       size="sm"
                       variant="secondary"
-                      loading={busyId === t.id}
                       iconLeft={<ThumbsUp className="h-4 w-4" />}
-                      onClick={() => setPendingAction({ type: 'authorize', id: t.id })}
+                      onClick={() => setDialog({ mode: 'authorize', transfer: t })}
                     >
                       Autorizar
                     </Button>
                   )}
-                  {t.status === 'APPROVED_BY_SME' && (
+                  {actionsFor(t).includes('accept') && (
                     <Button
                       size="sm"
-                      variant="secondary"
-                      loading={busyId === t.id}
-                      iconLeft={<Check className="h-4 w-4" />}
-                      onClick={() => setPendingAction({ type: 'accept', id: t.id })}
+                      variant="primary"
+                      iconLeft={<LogIn className="h-4 w-4" />}
+                      onClick={() => setDialog({ mode: 'accept', transfer: t })}
                     >
-                      Aceitar no destino
+                      Efetivar matrícula e aceitar
+                    </Button>
+                  )}
+                  {actionsFor(t).includes('reject') && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      iconLeft={<X className="h-4 w-4" />}
+                      onClick={() => setDialog({ mode: 'reject', transfer: t })}
+                    >
+                      Recusar
                     </Button>
                   )}
                 </div>
@@ -275,18 +285,14 @@ export default function TransfersPage() {
         </ul>
       )}
 
-      <ConfirmDialog
-        open={!!pendingAction}
-        title={pendingAction?.type === 'authorize' ? 'Autorizar transferência' : 'Aceitar transferência'}
-        description={
-          pendingAction?.type === 'authorize'
-            ? 'Autorizar esta transferência pela SME? A escola de destino poderá então aceitar a vaga.'
-            : 'Aceitar a transferência na escola de destino? Uma nova matrícula será criada.'
-        }
-        onConfirm={() => runAction(pendingAction)}
-        onCancel={() => setPendingAction(null)}
-        confirmLabel={pendingAction?.type === 'authorize' ? 'Autorizar' : 'Aceitar'}
-      />
+      {dialog && (
+        <TransferActionDialog
+          mode={dialog.mode}
+          transfer={dialog.transfer}
+          onClose={() => setDialog(null)}
+          onDone={invalidate}
+        />
+      )}
     </>
   )
 }

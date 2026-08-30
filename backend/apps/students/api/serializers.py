@@ -221,6 +221,7 @@ class TransferRequestSerializer(serializers.ModelSerializer):
             'academic_year',
             'reason',
             'status',
+            'target_enrollment',
             'requested_at',
             'resolved_at',
             'is_active',
@@ -230,6 +231,7 @@ class TransferRequestSerializer(serializers.ModelSerializer):
         read_only_fields = [
             'id',
             'status',
+            'target_enrollment',
             'requested_at',
             'resolved_at',
             'created_at',

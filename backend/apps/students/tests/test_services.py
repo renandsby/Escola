@@ -5,10 +5,12 @@ from apps.students.models import Enrollment, EnrollmentStatus, TransferRequestSt
 from apps.students.services.enrollment_service import enroll_student_in_class
 from apps.students.services.transfer_service import accept_transfer, authorize_transfer
 from apps.students.tests.factories import (
+    AcademicYearFactory,
     EnrollmentFactory,
     SchoolClassFactory,
     SchoolDirectorFactory,
     SchoolFactory,
+    SMEAdminFactory,
     StudentFactory,
     TransferRequestFactory,
     UserFactory,
@@ -170,3 +172,90 @@ class TestTransferService:
             accept_transfer(transfer_id=transfer.id, actor_user=actor)
 
         assert exc_info.value.code == "NOT_DESTINATION_SCHOOL"
+
+
+@pytest.mark.django_db
+class TestAcceptTransferEffect:
+    """A aceitação com turma de destino encerra a matrícula antiga e cria a nova."""
+
+    def _setup(self, *, dest_capacity=30, dest_dept=None):
+        dept = AcademicYearFactory().education_department
+        year = AcademicYearFactory(education_department=dept, status='ACTIVE')
+        origin = SchoolFactory(education_department=dept)
+        dest = SchoolFactory(education_department=dest_dept or dept)
+        origin_class = SchoolClassFactory(school=origin, academic_year=year)
+        dest_class = SchoolClassFactory(
+            school=dest, academic_year=year, max_capacity=dest_capacity
+        )
+        student = StudentFactory(education_department=dept)
+        origin_enr = EnrollmentFactory(
+            student=student, school_class=origin_class, status='ENROLLED'
+        )
+        transfer = TransferRequestFactory(
+            student=student, origin_school=origin, destination_school=dest,
+            academic_year=year, status=TransferRequestStatus.APPROVED_BY_SME,
+        )
+        return dict(
+            dept=dept, dest=dest, dest_class=dest_class, student=student,
+            origin_enr=origin_enr, transfer=transfer,
+        )
+
+    def test_moves_enrollment_and_consumes_capacity(self):
+        s = self._setup()
+        director = SchoolDirectorFactory(school=s['dest'], education_department=s['dept'])
+
+        result = accept_transfer(
+            transfer_id=s['transfer'].id,
+            destination_class_id=s['dest_class'].id,
+            actor_user=director,
+        )
+
+        s['origin_enr'].refresh_from_db()
+        assert s['origin_enr'].status == EnrollmentStatus.TRANSFERRED_INTERNAL
+        assert result.status == TransferRequestStatus.ACCEPTED_BY_DESTINATION
+        assert result.target_enrollment is not None
+        assert result.target_enrollment.school_class_id == s['dest_class'].id
+        assert Enrollment.objects.filter(
+            school_class=s['dest_class'], status='ENROLLED'
+        ).count() == 1
+
+    def test_external_transfer_marks_transferred_external(self):
+        from apps.classes.tests.factories import EducationDepartmentFactory
+
+        s = self._setup(dest_dept=EducationDepartmentFactory())
+        director = SchoolDirectorFactory(school=s['dest'], education_department=s['dest'].education_department)
+        accept_transfer(
+            transfer_id=s['transfer'].id,
+            destination_class_id=s['dest_class'].id,
+            actor_user=director,
+        )
+        s['origin_enr'].refresh_from_db()
+        assert s['origin_enr'].status == EnrollmentStatus.TRANSFERRED_EXTERNAL
+
+    def test_full_class_rolls_back_completely(self):
+        s = self._setup(dest_capacity=1)
+        EnrollmentFactory(school_class=s['dest_class'], status='ENROLLED')  # lota
+        director = SchoolDirectorFactory(school=s['dest'], education_department=s['dept'])
+
+        with pytest.raises(BusinessLogicError) as exc:
+            accept_transfer(
+                transfer_id=s['transfer'].id,
+                destination_class_id=s['dest_class'].id,
+                actor_user=director,
+            )
+
+        assert exc.value.code == 'CLASS_CAPACITY_EXCEEDED'
+        s['origin_enr'].refresh_from_db()
+        s['transfer'].refresh_from_db()
+        assert s['origin_enr'].status == EnrollmentStatus.ENROLLED  # rollback
+        assert s['transfer'].status == TransferRequestStatus.APPROVED_BY_SME
+
+    def test_sme_admin_can_accept_for_any_school(self):
+        s = self._setup()
+        admin = SMEAdminFactory(education_department=s['dept'])
+        result = accept_transfer(
+            transfer_id=s['transfer'].id,
+            destination_class_id=s['dest_class'].id,
+            actor_user=admin,
+        )
+        assert result.status == TransferRequestStatus.ACCEPTED_BY_DESTINATION

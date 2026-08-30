@@ -523,12 +523,19 @@ class Command(BaseCommand):
     def _seed_transfers(self, dept, year, classes):
         rng = self.rng
         schools = list({c.school for c in classes})
-        students = list(
-            Student.objects.filter(
-                education_department=dept, unique_municipal_id__startswith=DEMO_ID_PREFIX
-            )[:400]
+        # Base cada transferência numa matrícula ativa real: origin_school =
+        # a escola onde o aluno está de fato matriculado neste ano letivo.
+        active = list(
+            Enrollment.objects.filter(
+                school_class__academic_year=year,
+                status=EnrollmentStatus.ENROLLED,
+                deleted_at__isnull=True,
+                student__unique_municipal_id__startswith=DEMO_ID_PREFIX,
+            )
+            .select_related("student", "school_class__school")
+            .order_by("enrollment_number")[:400]
         )
-        if len(schools) < 2 or not students:
+        if len(schools) < 2 or not active:
             return
         plan = (
             [TransferRequestStatus.PENDING_SME] * 34
@@ -539,9 +546,11 @@ class Command(BaseCommand):
         )
         now = timezone.now()
         for status in plan:
-            origin, dest = rng.sample(schools, 2)
+            enrollment = rng.choice(active)
+            origin = enrollment.school_class.school
+            dest = rng.choice([s for s in schools if s.id != origin.id])
             tr = TransferRequest.objects.create(
-                student=rng.choice(students),
+                student=enrollment.student,
                 origin_school=origin,
                 destination_school=dest if status != TransferRequestStatus.PENDING_SME else None,
                 academic_year=year,
