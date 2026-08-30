@@ -10,6 +10,7 @@
     --chart-grid: oklch(0.9 0.008 255);
     --chart-axis: oklch(0.55 0.02 255);
     --chart-danger: oklch(0.52 0.16 27);
+    --chart-surface: #ffffff;
   }
   html {
     -webkit-font-smoothing: antialiased;

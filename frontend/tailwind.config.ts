@@ -25,6 +25,8 @@ export default {
           400: 'oklch(0.68 0.12 252)',
           600: 'oklch(0.45 0.12 252)',
           700: 'oklch(0.36 0.11 254)',
+          // topo do gradiente do AppHeader institucional (§4.1)
+          900: 'oklch(0.30 0.09 258)',
         },
         ink: {
           900: 'oklch(0.24 0.03 258)',
@@ -56,6 +58,8 @@ export default {
           base: 'oklch(0.62 0.13 72)',
           bg: 'oklch(0.97 0.04 72)',
           border: 'oklch(0.88 0.05 72)',
+          // avatar de iniciais no AppHeader (§3.6 / §4.1) — âmbar suave
+          200: 'oklch(0.86 0.08 72)',
         },
         danger: {
           fg: 'oklch(0.45 0.15 27)',
