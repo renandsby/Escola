@@ -94,6 +94,9 @@ services:
       - REDIS_URL=redis://redis:6379/0
     volumes:
       - ./backend:/app
+      # compartilha o storage de mídia com o backend — geração de relatórios grava
+      # o arquivo aqui e a API o serve de lá.
+      - media_volume:/app/media
     depends_on:
       - postgres
       - redis

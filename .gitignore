@@ -44,7 +44,9 @@ htmlcov/
 *.log
 local_settings.py
 /media
+media/
 /staticfiles
+backend/staticfiles/
 
 # Frontend
 node_modules/
