@@ -1,7 +1,12 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Pencil, Printer, Plus, Download } from 'lucide-react'
+import { Pencil, Plus, Download, FileDown, QrCode } from 'lucide-react'
+import { toast } from 'sonner'
+import {
+  downloadBoletimPdf,
+  downloadCarteirinhaPdf,
+} from '@/features/reports/api/officialDocs'
 import { apiGet } from '@/utils/api-helpers'
 import type {
   Student,
@@ -69,6 +74,20 @@ export default function StudentDetailPage() {
   const scope = useScope()
   const role = useAuthStore((s) => s.user?.role) ?? ''
   const [uploadingDoc, setUploadingDoc] = useState(false)
+  const [emitting, setEmitting] = useState<'boletim' | 'carteirinha' | null>(null)
+
+  async function emitirDoc(kind: 'boletim' | 'carteirinha', studentId: string) {
+    setEmitting(kind)
+    try {
+      await (kind === 'boletim'
+        ? downloadBoletimPdf(studentId)
+        : downloadCarteirinhaPdf(studentId))
+    } catch {
+      toast.error(`Não foi possível emitir o documento (${kind}).`)
+    } finally {
+      setEmitting(null)
+    }
+  }
 
   const student = useQuery({
     queryKey: ['student', id],
@@ -200,10 +219,19 @@ export default function StudentDetailPage() {
           <>
             <Button
               variant="secondary"
-              iconLeft={<Printer className="h-4 w-4" />}
-              onClick={() => window.print()}
+              iconLeft={<FileDown className="h-4 w-4" />}
+              loading={emitting === 'boletim'}
+              onClick={() => emitirDoc('boletim', data.id)}
             >
-              Imprimir
+              Emitir Boletim
+            </Button>
+            <Button
+              variant="secondary"
+              iconLeft={<QrCode className="h-4 w-4" />}
+              loading={emitting === 'carteirinha'}
+              onClick={() => emitirDoc('carteirinha', data.id)}
+            >
+              Emitir Carteirinha
             </Button>
             <Button
               variant="primary"

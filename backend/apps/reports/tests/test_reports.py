@@ -6,6 +6,7 @@ from rest_framework.test import APIClient
 from apps.class_diary.tests.factories import (
     EducationDepartmentFactory,
     EnrollmentFactory,
+    SchoolDirectorFactory,
     StudentFactory,
     StudentGuardianUserFactory,
 )
@@ -13,7 +14,9 @@ from apps.reports.selectors.reports import (
     get_department_students,
     get_student_by_user,
     get_students_for_school,
+    resolve_report_student,
 )
+from core.exceptions import BusinessLogicError
 
 
 @pytest.mark.django_db
@@ -54,6 +57,34 @@ class TestReportEndpoints:
         response = client.get('/api/v1/reports/boletim_pdf/')
 
         assert response.status_code == 404
+
+    def test_manager_emits_boletim_for_scoped_student(self):
+        enrollment = EnrollmentFactory()
+        director = SchoolDirectorFactory(
+            education_department=None, school=enrollment.school_class.school
+        )
+        client = APIClient()
+        client.force_authenticate(director)
+
+        response = client.get(
+            '/api/v1/reports/boletim_pdf/', {'student_id': str(enrollment.student_id)}
+        )
+        assert response.status_code == 200
+        assert response['Content-Type'] == 'application/pdf'
+
+    def test_manager_cannot_emit_for_out_of_scope_student(self):
+        enrollment = EnrollmentFactory()
+        outsider_student = StudentFactory()
+        director = SchoolDirectorFactory(
+            education_department=None, school=enrollment.school_class.school
+        )
+        client = APIClient()
+        client.force_authenticate(director)
+
+        response = client.get(
+            '/api/v1/reports/boletim_pdf/', {'student_id': str(outsider_student.id)}
+        )
+        assert response.status_code == 403
 
     def test_educacenso_export_streams_csv(self):
         dept = EducationDepartmentFactory()

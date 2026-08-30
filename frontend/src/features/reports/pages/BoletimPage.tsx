@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Printer } from 'lucide-react'
+import { Printer, FileDown } from 'lucide-react'
+import { toast } from 'sonner'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { ScopeBar, useScope } from '@/components/ui/ScopeBar'
 import { DataTable, type Column } from '@/components/ui/DataTable'
@@ -9,13 +10,29 @@ import { Button } from '@/components/ui/Button'
 import { TableSkeleton } from '@/components/ui/TableSkeleton'
 import { Field, Select } from '@/components/ui/Field'
 import { labelOf, SHIFT } from '@/components/ui/statusMaps'
+import { useAuthStore } from '@/stores/authStore'
 import type { Student } from '@/types/api'
 import { useBoletimData } from '../hooks/useBoletimData'
+import { downloadBoletimPdf } from '../api/officialDocs'
 
 export default function BoletimPage() {
   const scope = useScope()
+  const role = useAuthStore((s) => s.user?.role) ?? ''
+  const isGuardian = role === 'student_guardian'
   const [classId, setClassId] = useState('')
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const { students, classes, grades, enrollments } = useBoletimData(classId)
+
+  async function baixarBoletim(studentId?: string) {
+    setDownloadingId(studentId ?? 'self')
+    try {
+      await downloadBoletimPdf(studentId)
+    } catch {
+      toast.error('Não foi possível gerar o boletim oficial.')
+    } finally {
+      setDownloadingId(null)
+    }
+  }
 
   if (students.isLoading || classes.isLoading) {
     return (
@@ -108,13 +125,25 @@ export default function BoletimPage() {
         title="Boletins consolidados"
         meta={`${filteredStudents.length} alunos · ${gradesList.length} lançamentos de nota`}
         actions={
-          <Button
-            variant="primary"
-            iconLeft={<Printer className="h-4 w-4" />}
-            onClick={() => window.print()}
-          >
-            Imprimir
-          </Button>
+          <div className="flex gap-2">
+            {isGuardian && (
+              <Button
+                variant="primary"
+                iconLeft={<FileDown className="h-4 w-4" />}
+                loading={downloadingId === 'self'}
+                onClick={() => baixarBoletim()}
+              >
+                Baixar Boletim Oficial (PDF)
+              </Button>
+            )}
+            <Button
+              variant={isGuardian ? 'secondary' : 'primary'}
+              iconLeft={<Printer className="h-4 w-4" />}
+              onClick={() => window.print()}
+            >
+              Imprimir
+            </Button>
+          </div>
         }
       />
       <ScopeBar level={scope.level} title={scope.title} />
@@ -137,6 +166,20 @@ export default function BoletimPage() {
         rows={filteredStudents}
         rowKey={(s) => s.id}
         empty={<EmptyState title="Nenhum aluno" description="Nenhum aluno para a turma selecionada." />}
+        rowActions={
+          isGuardian
+            ? undefined
+            : (s) => (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  loading={downloadingId === s.id}
+                  onClick={() => baixarBoletim(s.id)}
+                >
+                  <FileDown className="h-4 w-4" />
+                </Button>
+              )
+        }
       />
     </>
   )

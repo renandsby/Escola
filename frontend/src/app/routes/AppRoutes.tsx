@@ -30,6 +30,7 @@ import EnrollmentFormPage from '@/features/students/pages/EnrollmentFormPage'
 import GradesPage from '@/features/class-diary/pages/GradesPage'
 import AttendancePage from '@/features/class-diary/pages/AttendancePage'
 import BoletimPage from '@/features/reports/pages/BoletimPage'
+import ExportsPage from '@/features/reports/pages/ExportsPage'
 import DocumentsPage from '@/pages/documents/DocumentsPage'
 import DocumentFormPage from '@/pages/documents/DocumentFormPage'
 import SettingsPage from '@/pages/settings/SettingsPage'
@@ -147,10 +148,7 @@ export function AppRoutes() {
           <Route path={ROUTES.boletins} element={guard([...SME, 'school_director', 'teacher', 'student_guardian'], <BoletimPage />)} />
           <Route
             path={ROUTES.exports}
-            element={guard(
-              SME,
-              <PlaceholderPage title="Educacenso e exportações" note="Exportações Educacenso / Excel / CSV. Hoje via API (/api/v1/reports/*)." />
-            )}
+            element={guard([...SME, ...SCHOOL_MGMT], <ExportsPage />)}
           />
           <Route path={ROUTES.documents} element={<DocumentsPage />} />
           <Route path="/documentos/arquivos/:id" element={<DocumentFormPage />} />

@@ -19,9 +19,9 @@ from apps.reports.selectors.reports import (
     get_department_schools,
     get_department_students,
     get_student_attendance,
-    get_student_by_user,
     get_student_grades,
     get_students_for_school,
+    resolve_report_student,
 )
 from apps.reports.services.executions import create_execution
 from apps.reports.services.signing import make_token, read_token
@@ -158,9 +158,9 @@ class ReportViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def boletim_pdf(self, request):
-        student = get_student_by_user(request.user)
-        if not student:
-            return Response({'error': 'Aluno não encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        student = resolve_report_student(
+            user=request.user, student_id=request.query_params.get('student_id')
+        )
         pdf_buffer = generate_student_report_pdf(
             student, get_student_grades(student), get_student_attendance(student)
         )
@@ -172,9 +172,9 @@ class ReportViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def carteirinha_pdf(self, request):
-        student = get_student_by_user(request.user)
-        if not student:
-            return Response({'error': 'Aluno não encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        student = resolve_report_student(
+            user=request.user, student_id=request.query_params.get('student_id')
+        )
         return FileResponse(
             generate_student_card_pdf(student), as_attachment=True,
             filename=f'carteirinha_{student.unique_municipal_id}.pdf',
