@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { CalendarRange, Pencil, Plus } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { ScopeBar, useScope } from '@/components/ui/ScopeBar'
@@ -16,6 +17,8 @@ import type { AcademicYear, PaginatedResponse, School } from '@/types/api'
 import { useMyDepartmentQuery } from '../hooks/useDepartmentQuery'
 import { useDepartmentSchoolsQuery } from '../hooks/useDepartmentSchoolsQuery'
 import { AcademicYearClosingModal } from './AcademicYearClosingModal'
+
+const fmtDate = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString('pt-BR')
 
 const YEAR_STATUS: Record<string, { label: string; tone: 'ok' | 'warn' | 'neutral' }> = {
   ACTIVE: { label: 'Ativo', tone: 'ok' },
@@ -56,6 +59,33 @@ export default function DepartmentPage() {
 
   const dept = department.data
   const schoolList = schools.data?.results ?? []
+  const yearList = years.data?.results ?? []
+
+  const yearColumns: Column<AcademicYear>[] = [
+    { key: 'year', header: 'Ano', width: '96px', align: 'right', mono: true, render: (y) => y.year },
+    {
+      key: 'status',
+      header: 'Status',
+      width: '140px',
+      render: (y) => {
+        const st = YEAR_STATUS[y.status] ?? { label: y.status, tone: 'neutral' as const }
+        return <Badge tone={st.tone}>{st.label}</Badge>
+      },
+    },
+    {
+      key: 'vigencia',
+      header: 'Vigência',
+      render: (y) => `${fmtDate(y.start_date)} – ${fmtDate(y.end_date)}`,
+    },
+    {
+      key: 'periods',
+      header: 'Bimestres',
+      align: 'right',
+      mono: true,
+      width: '110px',
+      render: (y) => y.periods_count ?? 0,
+    },
+  ]
 
   const columns: Column<School>[] = [
     { key: 'name', header: 'Nome', render: (s) => s.name },
@@ -102,31 +132,75 @@ export default function DepartmentPage() {
       </div>
 
       <section className="grid gap-3 rounded-lg border border-line bg-white p-6">
-        <h2 className="text-section text-ink-900">Anos letivos</h2>
-        <ul className="grid gap-2">
-          {(years.data?.results ?? []).map((y) => {
-            const st = YEAR_STATUS[y.status] ?? { label: y.status, tone: 'neutral' as const }
-            return (
-              <li
-                key={y.id}
-                className="flex flex-wrap items-center justify-between gap-3 border-b border-line-soft pb-2 last:border-0 last:pb-0"
-              >
-                <span className="flex items-center gap-2 text-base text-ink-800">
-                  <span className="font-mono tabular-nums">{y.year}</span>
-                  <Badge tone={st.tone}>{st.label}</Badge>
-                </span>
-                {isAdmin && y.status === 'ACTIVE' && (
-                  <Button size="sm" variant="secondary" onClick={() => setClosing(y)}>
-                    Encerrar ano letivo
-                  </Button>
-                )}
-              </li>
-            )
-          })}
-          {years.data && years.data.results.length === 0 && (
-            <li className="text-help text-ink-400">Nenhum ano letivo cadastrado.</li>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-section text-ink-900">Anos letivos e bimestres</h2>
+          {isAdmin && (
+            <Button
+              size="sm"
+              variant="primary"
+              iconLeft={<Plus className="h-4 w-4" />}
+              onClick={() => navigate(ROUTES.academicYearNew)}
+            >
+              Novo ano letivo
+            </Button>
           )}
-        </ul>
+        </div>
+
+        <DataTable
+          columns={yearColumns}
+          rows={yearList}
+          rowKey={(y) => y.id}
+          isLoading={years.isLoading}
+          onRowClick={
+            isAdmin ? (y) => navigate(ROUTES.academicYearEdit(y.id)) : undefined
+          }
+          empty={
+            <EmptyState
+              title="Nenhum ano letivo cadastrado"
+              description="Crie o primeiro ano letivo para organizar turmas, matrículas e bimestres."
+              actions={
+                isAdmin ? (
+                  <Button
+                    variant="primary"
+                    iconLeft={<Plus className="h-4 w-4" />}
+                    onClick={() => navigate(ROUTES.academicYearNew)}
+                  >
+                    Criar ano letivo
+                  </Button>
+                ) : undefined
+              }
+            />
+          }
+          rowActions={
+            isAdmin
+              ? (y) => (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      aria-label="Bimestres"
+                      onClick={() => navigate(ROUTES.academicPeriods(y.id))}
+                    >
+                      <CalendarRange className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      aria-label="Editar"
+                      onClick={() => navigate(ROUTES.academicYearEdit(y.id))}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    {y.status === 'ACTIVE' && (
+                      <Button size="sm" variant="secondary" onClick={() => setClosing(y)}>
+                        Encerrar
+                      </Button>
+                    )}
+                  </>
+                )
+              : undefined
+          }
+        />
       </section>
 
       <DataTable

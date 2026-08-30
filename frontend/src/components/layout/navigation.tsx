@@ -87,6 +87,7 @@ export const NAV: NavGroup[] = [
         label: 'Ano letivo e bimestres',
         to: ROUTES.academicYear,
         roles: SME,
+        matchPrefix: '/ano-letivo',
         icon: <CalendarDays className={ICON} />,
       },
     ],

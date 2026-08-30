@@ -105,6 +105,7 @@ export interface AcademicYear {
   status: AcademicYearStatus
   start_date: string
   end_date: string
+  periods_count?: number
   is_active: boolean
   created_at: string
   updated_at: string

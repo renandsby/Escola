@@ -18,6 +18,12 @@ export const ROUTES = {
   subjectNew: '/curriculo/disciplinas/nova',
   subjectEdit: (id: string) => `/curriculo/disciplinas/${id}/editar`,
   academicYear: '/ano-letivo',
+  academicYearNew: '/ano-letivo/novo',
+  academicYearEdit: (id: string) => `/ano-letivo/${id}/editar`,
+  academicPeriods: (yearId: string) => `/ano-letivo/${yearId}/periodos`,
+  academicPeriodNew: (yearId: string) => `/ano-letivo/${yearId}/periodos/novo`,
+  academicPeriodEdit: (yearId: string, periodId: string) =>
+    `/ano-letivo/${yearId}/periodos/${periodId}/editar`,
 
   // PESSOAS
   students: '/alunos',

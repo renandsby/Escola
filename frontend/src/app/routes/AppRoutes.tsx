@@ -37,6 +37,9 @@ import DocumentFormPage from '@/pages/documents/DocumentFormPage'
 import SettingsPage from '@/pages/settings/SettingsPage'
 import MatricesPage from '@/features/governance/pages/MatricesPage'
 import DepartmentPage from '@/features/governance/pages/DepartmentPage'
+import AcademicYearFormPage from '@/features/governance/pages/AcademicYearFormPage'
+import AcademicPeriodsListPage from '@/features/governance/pages/AcademicPeriodsListPage'
+import AcademicPeriodFormPage from '@/features/governance/pages/AcademicPeriodFormPage'
 import TransfersPage from '@/features/students/pages/TransfersPage'
 import AllocationsPage from '@/features/classes/pages/AllocationsPage'
 import TeachersListPage from '@/features/classes/pages/TeachersListPage'
@@ -93,6 +96,17 @@ export function AppRoutes() {
           <Route
             path={ROUTES.academicYear}
             element={guard(SME, <DepartmentPage />)}
+          />
+          <Route path={ROUTES.academicYearNew} element={guard(['sme_admin'], <AcademicYearFormPage />)} />
+          <Route path="/ano-letivo/:id/editar" element={guard(['sme_admin'], <AcademicYearFormPage />)} />
+          <Route path="/ano-letivo/:yearId/periodos" element={guard(SME, <AcademicPeriodsListPage />)} />
+          <Route
+            path="/ano-letivo/:yearId/periodos/novo"
+            element={guard(['sme_admin'], <AcademicPeriodFormPage />)}
+          />
+          <Route
+            path="/ano-letivo/:yearId/periodos/:periodId/editar"
+            element={guard(['sme_admin'], <AcademicPeriodFormPage />)}
           />
 
           {/* PESSOAS */}
