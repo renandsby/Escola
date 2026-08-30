@@ -2,9 +2,8 @@ import { useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { ScopeBar } from '@/components/ui/ScopeBar'
-import { EmptyState } from '@/components/ui/EmptyState'
+import { InlineError } from '@/components/ui/InlineError'
 import { Button } from '@/components/ui/Button'
-import { TableSkeleton } from '@/components/ui/TableSkeleton'
 import { cn } from '@/utils/cn'
 import { useDashboardOverview } from '../hooks/useDashboardOverview'
 import type { OverviewParams } from '../types'
@@ -51,7 +50,7 @@ export default function OverviewDashboardPage() {
     return (
       <>
         <PageHeader breadcrumb={breadcrumb} title={title} />
-        <TableSkeleton rows={10} cols={4} />
+        <DashboardSkeleton />
       </>
     )
   }
@@ -60,9 +59,9 @@ export default function OverviewDashboardPage() {
     return (
       <>
         <PageHeader breadcrumb={breadcrumb} title={title} />
-        <EmptyState
+        <InlineError
           title="Não foi possível carregar o painel"
-          description="Verifique sua conexão e tente novamente."
+          message="Verifique sua conexão e tente novamente."
           actions={
             <Button variant="primary" onClick={() => refetch()}>
               Tentar novamente
@@ -190,5 +189,33 @@ export default function OverviewDashboardPage() {
 
       <ReportCatalog level={isNetwork ? 'network' : 'school'} schoolId={currentSchool || null} />
     </>
+  )
+}
+
+/** Esqueleto com a forma final do painel (§7.7 do DS — nada de spinner de página). */
+function DashboardSkeleton() {
+  return (
+    <div className="grid gap-5" aria-hidden>
+      <div className="grid overflow-hidden rounded-lg border border-line bg-white sm:grid-cols-2 xl:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div
+            key={i}
+            className={cn('grid gap-2 px-[18px] py-4', i < 4 && 'xl:border-r xl:border-line-soft')}
+          >
+            <div className="h-2.5 w-24 animate-pulse rounded bg-line" />
+            <div className="h-7 w-16 animate-pulse rounded bg-line" />
+            <div className="h-2 w-28 animate-pulse rounded bg-line" />
+          </div>
+        ))}
+      </div>
+      <div className="grid gap-5 lg:grid-cols-[1.45fr_1fr]">
+        <div className="h-64 animate-pulse rounded-lg border border-line bg-white" />
+        <div className="h-64 animate-pulse rounded-lg border border-line bg-white" />
+      </div>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <div className="h-56 animate-pulse rounded-lg border border-line bg-white" />
+        <div className="h-56 animate-pulse rounded-lg border border-line bg-white" />
+      </div>
+    </div>
   )
 }

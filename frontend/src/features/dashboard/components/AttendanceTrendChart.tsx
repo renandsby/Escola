@@ -75,7 +75,7 @@ function Chart({ data }: { data: AttendanceTrend }) {
           y1={y(75)}
           x2={W - 12}
           y2={y(75)}
-          stroke="var(--chart-danger, oklch(0.52 0.16 27))"
+          stroke="var(--chart-danger)"
           strokeWidth={2}
           strokeDasharray="6 5"
         />
@@ -88,7 +88,7 @@ function Chart({ data }: { data: AttendanceTrend }) {
               cx={x(p.i)}
               cy={y(p.value as number)}
               r={4.5}
-              fill="#fff"
+              fill="var(--chart-surface)"
               stroke="var(--chart-brand)"
               strokeWidth={2.5}
             />
