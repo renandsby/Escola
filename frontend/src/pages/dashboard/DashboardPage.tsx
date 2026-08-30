@@ -2,6 +2,7 @@ import { Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { ROUTES } from '@/app/routes/paths'
 import OverviewDashboardPage from '@/features/dashboard/pages/OverviewDashboardPage'
+import GuardianPortalPage from '@/features/guardians/pages/GuardianPortalPage'
 
 /**
  * Rota "/" — a Visão geral é exclusiva da gestão da rede (SME) e da direção
@@ -26,7 +27,7 @@ export default function DashboardPage() {
     return <Navigate to={ROUTES.classes} replace />
   }
   if (role === 'student_guardian') {
-    return <Navigate to={ROUTES.boletins} replace />
+    return <GuardianPortalPage />
   }
   return <Navigate to={ROUTES.settings} replace />
 }

@@ -14,6 +14,10 @@ vi.mock('@/features/dashboard/pages/OverviewDashboardPage', () => ({
   default: () => <div>VISÃO GERAL</div>,
 }))
 
+vi.mock('@/features/guardians/pages/GuardianPortalPage', () => ({
+  default: () => <div>PORTAL DA FAMÍLIA</div>,
+}))
+
 import DashboardPage from './DashboardPage'
 
 function renderAt() {
@@ -48,9 +52,9 @@ describe('DashboardPage — acesso por papel', () => {
     expect(screen.queryByText('VISÃO GERAL')).not.toBeInTheDocument()
   })
 
-  it('redireciona responsável para Boletins', () => {
+  it('mostra o portal da família para o responsável', () => {
     mockUser.mockReturnValue({ role: 'student_guardian' })
     renderAt()
-    expect(screen.getByText('BOLETINS')).toBeInTheDocument()
+    expect(screen.getByText('PORTAL DA FAMÍLIA')).toBeInTheDocument()
   })
 })
