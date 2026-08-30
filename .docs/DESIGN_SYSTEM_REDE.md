@@ -14,6 +14,10 @@
 > *Feature-Sliced* (`src/features/<domínio>/`, `src/components/{ui,layout,feedback}/`, `src/app/`).
 >
 > Referência visual: `Design System SME.dc.html`.
+>
+> **Revisão desta versão (casca):** a identidade do usuário migrou da `Sidebar`
+> para um `AppHeader` institucional de 76px; a `Sidebar` passou a ser recolhível
+> (268px ⇄ 68px); a `TopBar` de busca global foi **removida**. Ver §4.1.
 
 ---
 
@@ -24,7 +28,7 @@ Quando houver ambiguidade, resolva pelo princípio de menor número.
 1. **P1 — Escopo sempre declarado.** Toda página que **exibe dados filtrados por
    RBAC** (rede / escola / turma) renderiza `<ScopeBar>` logo abaixo do
    `<PageHeader>`. Formulários de criação, o login, as configurações e a caixa de
-   mensagens pessoal estão fora da regra (não “exibem” um recorte de escopo).
+   mensagens pessoal estão fora da regra (não "exibem" um recorte de escopo).
 2. **P2 — O aluno é a chave.** Fluxos de criação de pessoa (aluno, responsável,
    professor) começam por busca no cadastro único, nunca por formulário vazio.
 3. **P3 — Lote é o caso normal.** Notas, frequência e pareceres usam grade
@@ -53,7 +57,7 @@ Definidos em `frontend/tailwind.config.ts` (`theme.extend`) e `frontend/src/inde
 | Grupo | Chaves | Uso |
 | :--- | :--- | :--- |
 | `brand` | `50 100 200 400 600 700` | ação, navegação, item ativo, link. `600` base, `700` hover |
-| `ink` | `900 800 700 500 400` | `900` sidebar · `700` texto principal · `500` secundário · `400` apoio/placeholder |
+| `ink` | `900 800 700 500 400` | `900` sidebar e header · `700` texto principal · `500` secundário · `400` apoio/placeholder |
 | `surface` | `DEFAULT canvas subtle hover` | `canvas` fundo de conteúdo · `subtle` cabeçalho de tabela / footer de card · `hover` linha em hover |
 | `line` | `DEFAULT strong soft` | `DEFAULT` borda de painel · `strong` borda de input · `soft` divisor interno de tabela |
 | `ok` `warn` `danger` | `fg base bg border` | **somente estado** (badge, validação, indicador de pendência) |
@@ -195,6 +199,10 @@ type DataTableProps<T> = {
 `bg-surface-hover`; rodapé de paginação "1–20 de 49" em `tabular-nums`.
 **Nunca** truncar sem `title`.
 
+**Busca da lista vive aqui**, junto dos filtros da própria tela — não existe
+busca global na casca (§4.1). Campo de busca em `h-control-sm`, à esquerda da
+barra de filtros do painel que envolve a tabela.
+
 ### 3.5. `PageHeader.tsx`
 
 ```ts
@@ -250,23 +258,72 @@ type ConfirmDialogProps = { open: boolean; title: string; description: string; c
 
 ## 4. Casca — `src/components/layout/`
 
-### 4.1. `AppShell.tsx`
+### 4.1. `AppShell.tsx` — cabeçalho institucional + menu recolhível
 
 ```
-grid lg:grid-cols-[280px_1fr] h-screen
-├── <Sidebar/>   bg-ink-900 text-white · drawer em < 1024px
-└── <main class="bg-surface-canvas">
-      <TopBar/>  busca global (atalho '/') por aluno / escola / professor / código
-      <div class="mx-auto max-w-content px-4 lg:px-8 py-6 grid gap-5">{children}</div>
+grid grid-rows-[76px_1fr] h-screen
+├── <AppHeader/>                        sticky top-0 z-30 · bg-ink-900 · full-bleed
+└── <div class="grid overflow-hidden"   grid-cols-[268px_1fr] · recolhido: [68px_1fr]
+    ├── <Sidebar collapsed={bool}/>     bg-ink-900 text-white overflow-y-auto
+    └── <main class="bg-surface-canvas overflow-y-auto">
+          <div class="mx-auto max-w-content px-4 lg:px-8 py-6 grid gap-5">{children}</div>
 ```
 
-A identidade do usuário fica no **rodapé da Sidebar** (sem duplicar no topo).
+**Não existe `TopBar` de busca global.** A faixa branca entre o cabeçalho e o
+conteúdo foi removida: duplicava a busca que cada lista já tem junto dos seus
+filtros e empurrava o `PageHeader` para baixo da dobra. Busca é responsabilidade
+de cada `DataTable` (§3.4).
+
+#### `AppHeader.tsx` — altura fixa 76px
+
+```
+bg-ink-900 (gradiente vertical brand-900 → ink-900); foto institucional OPCIONAL
+com overlay escuro até garantir 4.5:1 no texto branco.
+├── esquerda: <NavToggle/>        44×44, 3 barras, atalho '[' , aria-expanded
+│             <NetworkIdentity/>  'Rede Municipal de {municipio}' (text-lg font-bold text-white)
+│                                 + 'Secretaria Municipal de Educação' (text-help text-white/60)
+└── direita:  <PeriodBadge/>      'ANO LETIVO 2025 · 3º BIMESTRE' — font-mono text-micro text-white/60
+              <NotificationBell/> círculo branco 40px + contador
+              <UserMenuButton/>   PAPEL em caixa alta + escopo + chevron + avatar 44px de iniciais
+```
+
+| Elemento | Regras |
+| :--- | :--- |
+| `NavToggle` | único responsável por recolher/expandir a `Sidebar`; reflete o estado em `aria-expanded`; `title` com o atalho |
+| `NotificationBell` | contador em `bg-danger-base text-white rounded-pill font-mono text-[11px]`, borda de 2px na cor do header para destacar; **zero** aparece em `neutral`, não em `danger`; some quando o usuário não tem canal de notificação |
+| `UserMenuButton` | **um único alvo clicável** (`h-control`): papel em `text-label font-bold tracking-wide text-white`, escopo em `text-help text-white/70`, chevron, avatar com iniciais (`bg-warn-200 text-ink-800`, 44px). Abre: trocar perfil · trocar escola (só com mais de um escopo) · meus dados · sair |
+| Foto de fundo | opcional, `object-cover` + overlay `bg-ink-900/70`; sem foto, o gradiente sólido é o padrão. Nunca deixe texto sobre área clara da imagem |
+
+A identidade do usuário existe **somente aqui**. A `Sidebar` não repete nome nem
+papel — ela é navegação e nada mais (ganha ~60px de altura útil com isso).
+
+#### `Sidebar.tsx` — recolhível (268px ⇄ 68px)
+
+```ts
+type SidebarProps = { collapsed: boolean; onToggle(): void };
+```
+
+| Estado | Comportamento |
+| :--- | :--- |
+| Expandida (268px) | rótulo de grupo `font-mono text-micro text-white/60`; item `px-3 py-2.5 rounded text-sm`; badge de pendência à direita |
+| Recolhida (68px) | só ícones 40×40 centralizados em alvo de 44px, **mesma ordem e mesmos separadores de grupo**; rótulo em tooltip (delay 400ms) no hover **e** no foco |
+
+- Estado persistido por usuário em `localStorage` (`rede:nav:collapsed`); a
+  transição de largura é 160ms `ease-out`; o conteúdo reflui, não remonta.
+- Recolhe automaticamente abaixo de 1280px; abaixo de 1024px vira drawer
+  sobreposto com overlay e `Esc` para fechar (mantém o comportamento anterior).
+- Telas de grade densa (`BatchGrid`, Educacenso) abrem recolhidas por padrão.
+- O **contador de pendência continua visível** no estado recolhido — recolher o
+  menu não pode esconder trabalho pendente.
+- Domínio sem ícone reconhecível não recebe pictograma inventado: use as três
+  primeiras letras em `font-mono`.
+- Item ativo mantém `bg-brand-600` nos dois estados.
 
 ### 4.2. `navigation.ts` — 6 grupos filtrados por papel
 
 ```ts
 type Role = 'sme_admin' | 'sme_supervisor' | 'school_director' | 'school_secretary' | 'teacher' | 'student_guardian';
-type NavItem = { label: string; to: string; roles: Role[]; matchPrefix?: string; badgeKey?: 'pendingTransfers' | 'gradeDeadlines' };
+type NavItem = { label: string; to: string; roles: Role[]; matchPrefix?: string; icon?: React.ReactNode; badgeKey?: 'pendingTransfers' | 'gradeDeadlines' };
 type NavGroup = { label: string | null; items: NavItem[] };
 
 navForRole(role): NavGroup[]  // filtra por roles.includes(role) e descarta grupos vazios
@@ -277,12 +334,14 @@ Grupos: `(sem rótulo) Painel do dia` · `REDE` (escolas, currículo, ano letivo
 matrículas, transferências) · `DIÁRIO DE CLASSE` (notas/frequência, pareceres,
 conteúdo) · `DOCUMENTOS` (boletins, exportações) · `COMUNICAÇÃO` (mensagens).
 
+`icon` passa a ser **obrigatório** para todo item que aparece no estado recolhido
+(ou seja, todos) — sem ícone, o fallback é a abreviação de 3 letras em `font-mono`.
+
 **Regra dura:** o menu nunca exibe item que retornaria 403 para o papel atual.
 Rotas em português vivem em `src/app/routes/paths.ts` (`ROUTES`); rotas antigas em
 inglês redirecionam via `LEGACY_REDIRECTS`.
 
-Estilo: rótulo de grupo `font-mono text-micro text-white/60`; item
-`px-3 py-2.5 rounded text-sm text-white/90 hover:bg-white/10`; ativo
+Estilo: item `px-3 py-2.5 rounded text-sm text-white/90 hover:bg-white/10`; ativo
 `bg-brand-600 font-semibold`; badge de pendência `bg-warn-base text-ink-900
 rounded-pill px-1.5 text-[11px] font-bold`.
 
@@ -342,6 +401,9 @@ Cobertos: `DUPLICATE_ENROLLMENT`, `CLASS_CAPACITY_EXCEEDED`,
 {/* conteúdo: painéis bg-white border border-line rounded-lg */}
 ```
 
+O `PageHeader` é o **primeiro** elemento do conteúdo — nada de faixa de busca ou
+banner entre ele e o `AppHeader`.
+
 ### 7.2. Formulário longo → seções de duas colunas + barra de ação fixa
 
 `FormProvider` (RHF) + `FormSection` por afinidade + `StickyActions` no rodapé +
@@ -378,6 +440,7 @@ célula · contador de pendências + inválidas · `deadline` opcional com `Badg
 alteração · Salvar desabilitado se `dirty === 0` ou `invalid > 0` · salvamento
 único via `POST .../batch-upsert/` · erro em uma linha **não** descarta as outras.
 Usado em `GradesPage` (numérico) e `AttendancePage` (segmentado).
+A `Sidebar` abre recolhida nestas telas (§4.1).
 
 ### 7.4. Busca antes de criar (P2) — `src/components/feedback/PersonLookupStep.tsx`
 
@@ -409,6 +472,26 @@ Duas colunas `lg:grid-cols-[1.25fr_1fr]`:
 Se um contador for 0 por ausência de dados, mostre `<EmptyState>` explicando o
 motivo e oferecendo a ação de importação/cadastro.
 
+### 7.7. Painel analítico (dashboard gerencial)
+
+Padrão para telas de indicadores — detalhamento funcional em
+`docs/PLANO_DASHBOARD_GERENCIAL.md`.
+
+- Ordem fixa: `PageHeader` → `ScopeBar` → barra de filtros → faixa de KPIs →
+  gráficos → tabelas → ações → relatórios.
+- **KPI é faixa, não card:** um painel branco dividido em colunas por
+  `border-line-soft`, valor em `font-mono tabular-nums text-[27px]`, rótulo em
+  `font-mono text-micro text-ink-500`. Proibido card com ícone colorido (P4).
+- Todo número é link para a lista já filtrada. Indicador sem destino não entra.
+- Falha ou carregamento é **por painel**: `TableSkeleton`/esqueleto com a forma
+  final e `InlineError` dentro do painel — uma falha não derruba a página.
+- Dado ausente não é zero: `EmptyState` ou `—`.
+- Gráfico usa recharts com as CSS vars `--chart-*`; `ok`/`warn`/`danger` só em
+  faixa de desempenho e status, `qual` no eixo qualitativo. Todo gráfico traz
+  rótulo numérico visível (legível sem hover e no PDF) e linha de referência
+  legal com rótulo textual na legenda.
+- Etapa qualitativa (Creche, Pré-escola, AEE) nunca entra em média de nota.
+
 ---
 
 ## 8. Acessibilidade e responsividade — critérios de aceite
@@ -417,10 +500,14 @@ motivo e oferecendo a ação de importação/cadastro.
 - `:focus-visible` com anel de 3px em 100% dos focáveis; tabulação segue a ordem visual.
 - Todo `<Field>` tem `<label for>` real; erro ligado por `aria-describedby` e `aria-invalid`.
 - Estado nunca só por cor: `Badge` sempre traz texto + marcador de forma.
-- Contraste mínimo 4.5:1 (os tokens `*-fg` sobre `*-bg` já cumprem).
+- Contraste mínimo 4.5:1 (os tokens `*-fg` sobre `*-bg` já cumprem) — inclusive
+  texto branco do `AppHeader` sobre foto institucional.
 - Tabela larga: scroll horizontal no próprio contêiner; **nunca** empilhar linha em card.
-- `< 1024px`: sidebar vira drawer; grades de formulário caem para 1 coluna;
-  `BatchGrid` mantém scroll horizontal (é ferramenta de desktop).
+- `< 1280px`: `Sidebar` recolhe automaticamente. `< 1024px`: vira drawer com
+  overlay; grades de formulário caem para 1 coluna; `BatchGrid` mantém scroll
+  horizontal (é ferramenta de desktop).
+- No estado recolhido, todo item de menu precisa de nome acessível
+  (`aria-label` ou tooltip ligado por `aria-describedby`) — ícone sozinho não basta.
 - Portal do responsável é **mobile-first**, texto base 16px, sem jargão.
 
 ---
@@ -438,4 +525,7 @@ motivo e oferecendo a ação de importação/cadastro.
 - [ ] Notas e frequência salvam em uma única chamada `batch-upsert`.
 - [ ] `error.code` com correção na tela → `InlineError` no formulário, não só toast.
 - [ ] Novo enum / novo `error.code` no backend → mapa atualizado na mesma PR.
+- [ ] Identidade do usuário só no `AppHeader`; `Sidebar` sem bloco de usuário.
+- [ ] `Sidebar` funciona recolhida: ícone + tooltip + contador de pendência visíveis.
+- [ ] Nenhuma faixa de busca global entre o `AppHeader` e o `PageHeader`.
 - [ ] `npx tsc --noEmit`, `npm run build`, `npm run lint` e `npx vitest run` limpos.
