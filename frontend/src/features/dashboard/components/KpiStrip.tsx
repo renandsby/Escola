@@ -30,10 +30,17 @@ function Cell({
 }) {
   const navigate = useNavigate()
   const valueTone = kpi.value === null ? 'text-ink-400' : TONE_TEXT[kpi.tone ?? 'neutral'] ?? 'text-ink-900'
+  const go = () => {
+    if (kpi.link.startsWith('#')) {
+      document.getElementById(kpi.link.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return
+    }
+    navigate(kpi.link)
+  }
   return (
     <button
       type="button"
-      onClick={() => navigate(kpi.link)}
+      onClick={go}
       className={cn(
         'grid gap-1 px-[18px] py-4 text-left transition-colors hover:bg-surface-hover',
         !last && 'border-b border-line-soft xl:border-b-0 xl:border-r'

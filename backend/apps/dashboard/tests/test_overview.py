@@ -146,3 +146,62 @@ class TestSchoolScope:
         # continua travado na própria escola
         assert res.data["scope"]["level"] == "school"
         assert res.data["scope"]["title"] == school_a.name
+
+
+@pytest.mark.django_db
+class TestDiaryCompleteness:
+    """A completude do diário deve trazer % de notas lançadas e frequência
+    média reais por escola (regressão: antes vinha sempre null no nível rede)."""
+
+    def _fixture(self):
+        from apps.class_diary.tests.factories import (
+            AcademicPeriodFactory,
+            AttendanceFactory,
+            GradeFactory,
+        )
+        from apps.curriculum.tests.factories import CurriculumMatrixItemFactory
+
+        dept = EducationDepartmentFactory()
+        year = AcademicYearFactory(education_department=dept, status="ACTIVE")
+        period = AcademicPeriodFactory(academic_year=year, period_number=1)
+        school = SchoolFactory(education_department=dept)
+        klass = SchoolClassFactory(school=school, academic_year=year)
+        # matriz com 2 disciplinas → 2 células esperadas por matrícula
+        items = [
+            CurriculumMatrixItemFactory(curriculum_matrix=klass.curriculum_matrix)
+            for _ in range(2)
+        ]
+        TeacherAllocationFactory(school_class=klass, is_regent=True)
+        enr = EnrollmentFactory(
+            student=StudentFactory(education_department=dept), school_class=klass
+        )
+        # 1 das 2 células lançadas → 50 %
+        GradeFactory(enrollment=enr, subject=items[0].subject, academic_period=period)
+        # 8 presenças / 10 registros → 80 %
+        for i in range(10):
+            AttendanceFactory(
+                enrollment=enr,
+                school_class=klass,
+                status="PRESENT" if i < 8 else "ABSENT",
+            )
+        return dept, school
+
+    def test_network_rows_have_real_pct_and_attendance(self):
+        dept, school = self._fixture()
+        res = _client(SMEAdminFactory(education_department=dept)).get(URL)
+
+        rows = res.data["diary_completeness"]["rows"]
+        row = next(r for r in rows if r["id"] == str(school.id))
+        assert row["grades_launched_pct"] == 50.0
+        assert row["average_attendance"] == 80.0
+        assert row["status"] == "LATE"  # regente ok, 40 <= 50 < 90
+
+    def test_school_scope_rows_by_class_have_real_pct(self):
+        dept, school = self._fixture()
+        director = SchoolDirectorFactory(school=school, education_department=dept)
+        res = _client(director).get(URL)
+
+        data = res.data["diary_completeness"]
+        assert data["group_by"] == "class"
+        assert data["rows"][0]["grades_launched_pct"] == 50.0
+        assert data["rows"][0]["average_attendance"] == 80.0

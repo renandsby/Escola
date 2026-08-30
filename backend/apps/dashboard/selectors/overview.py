@@ -182,7 +182,7 @@ def _kpis(user, classes, enrollments, *, level, school, year, period):
             'value': below_minimum,
             'threshold': 75,
             'tone': 'danger' if below_minimum else 'neutral',
-            'link': '/alunos',
+            'link': '/alunos?attendance_lt=75',
         },
         'diary_completeness': {
             'value': diary_completeness,
@@ -369,7 +369,12 @@ def _movement(user, year, level, school):
     transfers = get_transfer_requests_for_user(user=user)
     if year:
         transfers = transfers.filter(academic_year=year)
-    counts = {r['status']: r['n'] for r in transfers.values('status').annotate(n=Count('id'))}
+    # .order_by() limpa o Meta.ordering de TransferRequest — sem isso o campo de
+    # ordenação entra no GROUP BY e quebra a contagem por status.
+    counts = {
+        r['status']: r['n']
+        for r in transfers.values('status').annotate(n=Count('id')).order_by()
+    }
     by_status = [
         {'status': s, 'count': counts.get(s, 0)}
         for s in _TRANSFER_ORDER
@@ -395,50 +400,98 @@ def _movement(user, year, level, school):
     return {'by_status': by_status, 'dropout': dropout, 'sme_analysis_avg_days': avg_days}
 
 
+def _status_for_completeness(pct, *, has_regent, is_qualitative):
+    """Enum de completude do diário (statusMaps.DIARY_COMPLETENESS_STATUS)."""
+    if not has_regent:
+        return 'NO_TEACHER'
+    if is_qualitative:
+        return 'QUALITATIVE'
+    if pct is None:
+        return 'NO_DATA'
+    if pct < 40:
+        return 'CRITICAL'
+    if pct >= 100:
+        return 'CLOSED'
+    if pct < 90:
+        return 'LATE'
+    return 'IN_PROGRESS'
+
+
+def _attendance_pct_by(enrollments, group_field):
+    """{group_id: freq_%} — presença / total de registros no grupo."""
+    out = {}
+    for r in (
+        Attendance.objects.filter(enrollment__in=enrollments)
+        .values(group_field)
+        .annotate(total=Count('id'), present=Count('id', filter=Q(status='PRESENT')))
+    ):
+        if r['total']:
+            out[r[group_field]] = round(r['present'] / r['total'] * 100, 1)
+    return out
+
+
+def _expected_cells_by(enrollments, group_field):
+    """{group_id: Σ (matrícula × itens da matriz da turma)} — células esperadas."""
+    return {
+        r[group_field]: r['n']
+        for r in enrollments.values(group_field).annotate(
+            n=Count('school_class__curriculum_matrix__items')
+        )
+    }
+
+
+def _launched_grades_by(enrollments, period, group_field):
+    if period is None or not enrollments.exists():
+        return {}
+    return {
+        r[group_field]: r['n']
+        for r in Grade.objects.filter(enrollment__in=enrollments, academic_period=period)
+        .values(group_field)
+        .annotate(n=Count('id'))
+    }
+
+
 def _diary_completeness(user, classes, enrollments, *, level, period, schools):
     deadline = period.grade_deadline.isoformat() if period else None
     regent_class_ids = set(
         TeacherAllocation.objects.filter(school_class__in=classes, is_regent=True)
         .values_list('school_class_id', flat=True)
     )
-
-    def status_for(pct, class_count, regent_count, is_infantil=False):
-        if regent_count < class_count:
-            return 'NO_TEACHER'
-        if is_infantil:
-            return 'QUALITATIVE'
-        if pct is None:
-            return 'NO_DATA'
-        if pct < 40:
-            return 'CRITICAL'
-        if pct < 90:
-            return 'LATE'
-        if pct >= 100:
-            return 'CLOSED'
-        return 'IN_PROGRESS'
+    infantil_class_ids = set(
+        classes.filter(
+            curriculum_matrix__education_stage__stage_type='INFANTIL'
+        ).values_list('id', flat=True)
+    )
 
     rows = []
     if level == 'network':
-        by_school_classes = {
-            s.id: {'name': s.name, 'inep': s.inep_code or '', 'classes': 0, 'regent': 0}
+        by_school = {
+            s.id: {'name': s.name, 'inep': s.inep_code or '', 'classes': 0, 'regent': 0, 'infantil': 0}
             for s in schools
         }
         for school_id, class_id in classes.values_list('school_id', 'id'):
-            if school_id in by_school_classes:
-                by_school_classes[school_id]['classes'] += 1
-                if class_id in regent_class_ids:
-                    by_school_classes[school_id]['regent'] += 1
-        launched_by_school = {}
-        if period and enrollments.exists():
-            for r in Grade.objects.filter(
-                enrollment__in=enrollments, academic_period=period
-            ).values('enrollment__school_class__school_id').annotate(n=Count('id')):
-                launched_by_school[r['enrollment__school_class__school_id']] = r['n']
-        for sid, info in by_school_classes.items():
+            info = by_school.get(school_id)
+            if info is None:
+                continue
+            info['classes'] += 1
+            if class_id in regent_class_ids:
+                info['regent'] += 1
+            if class_id in infantil_class_ids:
+                info['infantil'] += 1
+
+        expected = _expected_cells_by(enrollments, 'school_class__school_id')
+        launched = _launched_grades_by(enrollments, period, 'enrollment__school_class__school_id')
+        attendance = _attendance_pct_by(enrollments, 'enrollment__school_class__school_id')
+
+        for sid, info in by_school.items():
             if not info['classes']:
                 continue
-            pct = None
-            st = status_for(pct, info['classes'], info['regent'])
+            exp = expected.get(sid, 0)
+            pct = round(launched.get(sid, 0) / exp * 100, 1) if exp else None
+            is_qual = info['infantil'] == info['classes']
+            st = _status_for_completeness(
+                pct, has_regent=info['regent'] > 0, is_qualitative=is_qual
+            )
             rows.append(
                 {
                     'id': str(sid),
@@ -446,17 +499,19 @@ def _diary_completeness(user, classes, enrollments, *, level, period, schools):
                     'inep': info['inep'],
                     'classes': info['classes'],
                     'grades_launched_pct': pct,
-                    'average_attendance': None,
+                    'average_attendance': attendance.get(sid),
                     'status': st,
                     'link': f'/escolas/{sid}/editar',
                 }
             )
-        rows.sort(key=lambda x: (x['status'] != 'NO_TEACHER', x['grades_launched_pct'] or 0, x['name']))
+        rows.sort(key=lambda x: (_completeness_rank(x['status']), x['grades_launched_pct'] or 0, x['name']))
         return {'group_by': 'school', 'deadline': deadline, 'rows': rows[:8], 'total': len(rows)}
 
     # nível escola → por turma
     regent_name = {
-        r['school_class_id']: f"{r['teacher_profile__user__first_name']} {r['teacher_profile__user__last_name']}".strip()
+        r['school_class_id']: (
+            f"{r['teacher_profile__user__first_name']} {r['teacher_profile__user__last_name']}".strip()
+        )
         for r in TeacherAllocation.objects.filter(school_class__in=classes, is_regent=True)
         .select_related('teacher_profile__user')
         .values('school_class_id', 'teacher_profile__user__first_name', 'teacher_profile__user__last_name')
@@ -465,24 +520,46 @@ def _diary_completeness(user, classes, enrollments, *, level, period, schools):
         x['school_class_id']: x['n']
         for x in enrollments.values('school_class_id').annotate(n=Count('id'))
     }
+    expected = _expected_cells_by(enrollments, 'school_class_id')
+    launched = _launched_grades_by(enrollments, period, 'enrollment__school_class_id')
+    attendance = _attendance_pct_by(enrollments, 'enrollment__school_class_id')
+
     for c in classes.select_related('curriculum_matrix__education_stage').order_by('name'):
-        stage = c.curriculum_matrix.education_stage
-        is_infantil = bool(stage and stage.stage_type == 'INFANTIL')
-        has_regent = c.id in regent_class_ids
-        st = status_for(None, 1, 1 if has_regent else 0, is_infantil)
+        is_qual = c.id in infantil_class_ids
+        exp = expected.get(c.id, 0)
+        pct = round(launched.get(c.id, 0) / exp * 100, 1) if exp else None
+        st = _status_for_completeness(
+            pct, has_regent=c.id in regent_class_ids, is_qualitative=is_qual
+        )
         rows.append(
             {
                 'id': str(c.id),
                 'name': f'{c.name} · {c.shift}',
                 'regent': regent_name.get(c.id) or 'Sem regente definido',
                 'students': enr_by_class.get(c.id, 0),
-                'grades_launched_pct': None,
+                'grades_launched_pct': pct,
+                'average_attendance': attendance.get(c.id),
                 'status': st,
                 'link': '/diario/lancamentos',
             }
         )
-    rows.sort(key=lambda x: (x['status'] != 'NO_TEACHER', x['name']))
+    rows.sort(key=lambda x: (_completeness_rank(x['status']), x['grades_launched_pct'] or 0, x['name']))
     return {'group_by': 'class', 'deadline': deadline, 'rows': rows[:8], 'total': len(rows)}
+
+
+_COMPLETENESS_RANK = {
+    'NO_TEACHER': 0,
+    'CRITICAL': 1,
+    'NO_DATA': 2,
+    'LATE': 3,
+    'IN_PROGRESS': 4,
+    'QUALITATIVE': 5,
+    'CLOSED': 6,
+}
+
+
+def _completeness_rank(status):
+    return _COMPLETENESS_RANK.get(status, 9)
 
 
 def _needs_you(user, classes, enrollments, *, level, school, kpis):
