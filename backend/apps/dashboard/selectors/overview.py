@@ -463,11 +463,19 @@ def _status_for_completeness(pct, *, has_regent, is_qualitative):
     return 'IN_PROGRESS'
 
 
-def _attendance_pct_by(enrollments, group_field):
-    """{group_id: freq_%} — presença / total de registros no grupo."""
+def _attendance_pct_by(enrollment_ids, group_field):
+    """{group_id: freq_%} — presença / total de registros no grupo.
+
+    Recebe uma lista já materializada de ids de matrícula: filtrar por
+    ``enrollment_id__in=[...]`` dá ao planner do Postgres uma cardinalidade
+    exata e evita o plano patológico do ``IN (SELECT ... joins ...)`` quando
+    as estatísticas da tabela estão frias (ex.: dentro de um teste).
+    """
+    if not enrollment_ids:
+        return {}
     out = {}
     for r in (
-        Attendance.objects.filter(enrollment__in=enrollments)
+        Attendance.objects.filter(enrollment_id__in=enrollment_ids)
         .values(group_field)
         .annotate(total=Count('id'), present=Count('id', filter=Q(status='PRESENT')))
     ):
@@ -486,12 +494,14 @@ def _expected_cells_by(enrollments, group_field):
     }
 
 
-def _launched_grades_by(enrollments, period, group_field):
-    if period is None or not enrollments.exists():
+def _launched_grades_by(enrollment_ids, period, group_field):
+    if period is None or not enrollment_ids:
         return {}
     return {
         r[group_field]: r['n']
-        for r in Grade.objects.filter(enrollment__in=enrollments, academic_period=period)
+        for r in Grade.objects.filter(
+            enrollment_id__in=enrollment_ids, academic_period=period
+        )
         .values(group_field)
         .annotate(n=Count('id'))
     }
@@ -508,6 +518,9 @@ def _diary_completeness(user, classes, enrollments, *, level, period, schools):
             curriculum_matrix__education_stage__stage_type='INFANTIL'
         ).values_list('id', flat=True)
     )
+
+    # materializa uma vez — reusado pelos agregados de notas e frequência
+    enrollment_ids = list(enrollments.values_list('id', flat=True))
 
     rows = []
     if level == 'network':
@@ -526,8 +539,12 @@ def _diary_completeness(user, classes, enrollments, *, level, period, schools):
                 info['infantil'] += 1
 
         expected = _expected_cells_by(enrollments, 'school_class__school_id')
-        launched = _launched_grades_by(enrollments, period, 'enrollment__school_class__school_id')
-        attendance = _attendance_pct_by(enrollments, 'enrollment__school_class__school_id')
+        launched = _launched_grades_by(
+            enrollment_ids, period, 'enrollment__school_class__school_id'
+        )
+        attendance = _attendance_pct_by(
+            enrollment_ids, 'enrollment__school_class__school_id'
+        )
 
         for sid, info in by_school.items():
             if not info['classes']:
@@ -567,8 +584,8 @@ def _diary_completeness(user, classes, enrollments, *, level, period, schools):
         for x in enrollments.values('school_class_id').annotate(n=Count('id'))
     }
     expected = _expected_cells_by(enrollments, 'school_class_id')
-    launched = _launched_grades_by(enrollments, period, 'enrollment__school_class_id')
-    attendance = _attendance_pct_by(enrollments, 'enrollment__school_class_id')
+    launched = _launched_grades_by(enrollment_ids, period, 'enrollment__school_class_id')
+    attendance = _attendance_pct_by(enrollment_ids, 'enrollment__school_class_id')
 
     for c in classes.select_related('curriculum_matrix__education_stage').order_by('name'):
         is_qual = c.id in infantil_class_ids
