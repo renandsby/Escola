@@ -1,12 +1,17 @@
 import { useState } from 'react'
-import { LogOut } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { Download, LogOut } from 'lucide-react'
+import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/authStore'
+import { apiClient } from '@/services/api'
+import { apiGet } from '@/utils/api-helpers'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Field'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
 import { USER_ROLE } from '@/components/ui/statusMaps'
 import { cn } from '@/utils/cn'
+import type { PaginatedResponse, Student } from '@/types/api'
 
 function Card({
   title,
@@ -75,6 +80,65 @@ function Row({ label, value }: { label: string; value?: string | null }) {
   )
 }
 
+function PrivacyCard() {
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const { data } = useQuery({
+    queryKey: ['privacy', 'my-students'],
+    queryFn: () => apiGet<PaginatedResponse<Student>>('students/', { page_size: 20 }),
+  })
+  const students = data?.results ?? []
+  if (students.length === 0) {
+    return null
+  }
+
+  async function download(student: Student) {
+    setBusyId(student.id)
+    try {
+      const res = await apiClient.get('/privacy/my-data/', {
+        params: { student_id: student.id },
+      })
+      const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `dados-lgpd-${student.full_name.replace(/\s+/g, '-').toLowerCase()}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error('Não foi possível baixar os dados agora.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  return (
+    <Card
+      title="Privacidade e dados (LGPD)"
+      description="Baixe uma cópia dos dados cadastrais que a rede mantém."
+    >
+      <ul className="grid gap-2">
+        {students.map((s) => (
+          <li
+            key={s.id}
+            className="flex items-center justify-between gap-4 border-b border-line-soft pb-3 last:border-0 last:pb-0"
+          >
+            <span className="text-base text-ink-700">{s.full_name}</span>
+            <Button
+              size="sm"
+              variant="secondary"
+              iconLeft={<Download className="h-4 w-4" />}
+              loading={busyId === s.id}
+              onClick={() => download(s)}
+            >
+              Baixar dados cadastrais
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  )
+}
+
 export default function SettingsPage() {
   const { user, logout } = useAuthStore()
   const [notifications, setNotifications] = useState(true)
@@ -135,6 +199,8 @@ export default function SettingsPage() {
           </Select>
         </div>
       </Card>
+
+      <PrivacyCard />
 
       <Card title="Segurança">
         <div className="grid gap-3 sm:max-w-sm">

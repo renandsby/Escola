@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/Button'
 import { TableSkeleton } from '@/components/ui/TableSkeleton'
 import { GENDER, RACE_COLOR, labelOf } from '@/components/ui/statusMaps'
 import { ROUTES } from '@/app/routes/paths'
+import { PrivacyConsentSection } from '../components/PrivacyConsentSection'
 import {
   BarChart,
   Bar,
@@ -264,6 +265,8 @@ export default function StudentDetailPage() {
           <EmptyState title="Sem frequência registrada" description="Nenhuma aula lançada para este aluno." />
         )}
       </Card>
+
+      <PrivacyConsentSection studentId={data.id} studentName={data.full_name} />
     </>
   )
 }

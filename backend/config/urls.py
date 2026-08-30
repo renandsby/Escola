@@ -19,6 +19,7 @@ api_urlpatterns = [
     path('diary/', include('apps.class_diary.api.diary_urls')),
     path('curriculum/', include('apps.curriculum.api.urls')),
     path('sme/', include('apps.governance.api.sme_urls')),
+    path('privacy/', include('apps.governance.api.privacy_urls')),
     path('evaluations/', include('apps.class_diary.api.evaluation_urls')),
     path('descriptive-evaluations/', include('apps.class_diary.api.evaluation_urls')),
     path('history/', include('apps.class_diary.api.history_urls')),

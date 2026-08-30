@@ -117,6 +117,12 @@ export const ERROR_MESSAGES: Record<string, ErrorDef> = {
     message: () => 'Não há ano letivo com esse número na rede.',
   },
 
+  // --- Privacidade / LGPD ---
+  STUDENT_HAS_ACTIVE_ENROLLMENT: {
+    title: 'Aluno com matrícula ativa',
+    message: () => 'Só é possível anonimizar um aluno sem matrícula ativa na rede.',
+  },
+
   // --- Genéricos do envelope ---
   VALIDATION_ERROR: {
     title: 'Dados inválidos',
