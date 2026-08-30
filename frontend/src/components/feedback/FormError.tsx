@@ -5,7 +5,7 @@ import { getErrorCode, getErrorDetails } from '@/utils/api-helpers'
 import { resolveError, type ErrorActionKind } from '@/services/errorMessages'
 import { ROUTES } from '@/app/routes/paths'
 
-const ACTION_ROUTE: Record<ErrorActionKind, string> = {
+const ACTION_ROUTE: Partial<Record<ErrorActionKind, string>> = {
   'open-transfer': ROUTES.transfers,
   'view-class': ROUTES.classes,
   'view-allocation': ROUTES.allocations,
@@ -31,8 +31,12 @@ export function FormError({ error }: { error: unknown }) {
       title={def.title}
       message={def.message(details)}
       actions={
-        def.action ? (
-          <Button size="sm" variant="secondary" onClick={() => navigate(ACTION_ROUTE[def.action!.kind])}>
+        def.action && ACTION_ROUTE[def.action.kind] ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => navigate(ACTION_ROUTE[def.action!.kind] as string)}
+          >
             {def.action.label}
           </Button>
         ) : undefined

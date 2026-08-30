@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { ScopeBar } from '@/components/ui/ScopeBar'
@@ -15,10 +15,11 @@ import { EnrollmentByStage } from '../components/EnrollmentByStage'
 import { MovementPanel } from '../components/MovementPanel'
 import { DiaryCompletenessTable } from '../components/DiaryCompletenessTable'
 import { NeedsYouPanel } from '../components/NeedsYouPanel'
-import { ReportCatalog } from '../components/ReportCatalog'
+import { ReportsSection } from '@/features/reports'
 
 export default function OverviewDashboardPage() {
   const [sp, setSp] = useSearchParams()
+  const [exportPanelSignal, setExportPanelSignal] = useState(0)
 
   const params: OverviewParams = useMemo(
     () => ({
@@ -97,9 +98,14 @@ export default function OverviewDashboardPage() {
         }
         actions={
           <>
-            <Button variant="secondary" disabled title="Disponível na próxima versão">
-              Exportar painel (PDF)
-            </Button>
+            {isNetwork && (
+              <Button
+                variant="secondary"
+                onClick={() => setExportPanelSignal((n) => n + 1)}
+              >
+                Exportar painel (PDF)
+              </Button>
+            )}
             <Button
               variant="primary"
               onClick={() =>
@@ -187,7 +193,12 @@ export default function OverviewDashboardPage() {
 
       <NeedsYouPanel items={data.needs_you} />
 
-      <ReportCatalog level={isNetwork ? 'network' : 'school'} schoolId={currentSchool || null} />
+      <ReportsSection
+        level={isNetwork ? 'network' : 'school'}
+        scopeTitle={scope.title}
+        schoolId={currentSchool || null}
+        exportPanelSignal={exportPanelSignal}
+      />
     </>
   )
 }

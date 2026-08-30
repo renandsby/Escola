@@ -20,6 +20,14 @@ export const ENROLLMENT_STATUS: Record<string, StatusDef> = {
   DECEASED: { label: 'Óbito', tone: 'neutral', shape: 'square' },
 }
 
+/* -------- Execução de relatório (reports.ReportExecutionStatus) -------- */
+export const REPORT_STATUS: Record<string, StatusDef> = {
+  QUEUED: { label: 'Na fila', tone: 'neutral' },
+  PROCESSING: { label: 'Processando', tone: 'brand' },
+  DONE: { label: 'Concluído', tone: 'ok' },
+  ERROR: { label: 'Erro', tone: 'danger', shape: 'square' },
+}
+
 /* -------- Transferência (students.TransferRequestStatus) -------- */
 export const TRANSFER_STATUS: Record<string, StatusDef> = {
   PENDING_SME: { label: 'Aguardando SME', tone: 'warn' },

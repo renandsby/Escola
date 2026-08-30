@@ -7,7 +7,7 @@
  * O `code` deve ficar visível em mono para o suporte.
  */
 
-export type ErrorActionKind = 'open-transfer' | 'view-class' | 'view-allocation'
+export type ErrorActionKind = 'open-transfer' | 'view-class' | 'view-allocation' | 'view-failures'
 
 export type ErrorDef = {
   title: string
@@ -79,6 +79,42 @@ export const ERROR_MESSAGES: Record<string, ErrorDef> = {
   SUBJECT_NOT_FOUND: {
     title: 'Disciplina não encontrada',
     message: () => 'A disciplina foi removida ou está fora do seu escopo.',
+  },
+
+  // --- Painel gerencial / relatórios ---
+  SCOPE_FORBIDDEN: {
+    title: 'Escopo fora do seu alcance',
+    message: () => 'Você só pode gerar dados da sua rede, escola ou turma.',
+  },
+  ANALYTICS_FORBIDDEN: {
+    title: 'Painel indisponível para o seu perfil',
+    message: () => 'O painel gerencial e os relatórios são da gestão da rede e das escolas.',
+  },
+  INVALID_FILTER: {
+    title: 'Filtro inválido',
+    message: (d) => `O parâmetro "${d?.param ?? 'informado'}" não é aceito neste painel.`,
+  },
+  INVALID_REPORT_PARAMS: {
+    title: 'Parâmetros do relatório inválidos',
+    message: (d) => `Revise o campo "${d?.field ?? 'destacado'}" e tente de novo.`,
+  },
+  REPORT_RATE_LIMITED: {
+    title: 'Muitos relatórios em processamento',
+    message: () => 'Você já tem 5 relatórios na fila. Aguarde a conclusão de um deles.',
+  },
+  REPORT_EXPIRED: {
+    title: 'Relatório expirado',
+    message: () => 'O arquivo tem validade de 30 dias. Gere o relatório novamente.',
+  },
+  EDUCACENSO_VALIDATION_FAILED: {
+    title: 'Educacenso: campos obrigatórios ausentes',
+    message: (d) =>
+      `${(d?.failures as unknown[] | undefined)?.length ?? 'Alguns'} aluno(s) sem dados exigidos pelo INEP.`,
+    action: { label: 'Ver falhas', kind: 'view-failures' },
+  },
+  ACADEMIC_YEAR_NOT_FOUND: {
+    title: 'Ano letivo não encontrado',
+    message: () => 'Não há ano letivo com esse número na rede.',
   },
 
   // --- Genéricos do envelope ---
