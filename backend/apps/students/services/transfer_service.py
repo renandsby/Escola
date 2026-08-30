@@ -5,8 +5,33 @@ from core.exceptions import BusinessLogicError
 from core.models import UserRole
 
 from apps.classes.models import SchoolClass
+from apps.notifications.services.notification_service import notify_role
 from apps.students.models import Enrollment, EnrollmentStatus, TransferRequest, TransferRequestStatus
 from apps.students.services.enrollment_service import enroll_student_in_class
+
+_TRANSFERS_LINK = '/transferencias'
+
+
+def _notify_transfer(transfer, *, title, message):
+    """Avisa a direção da origem, do destino e a SME sobre o andamento."""
+    student = transfer.student.full_name
+    body = f'{student}: {message}'
+    if transfer.origin_school_id:
+        notify_role(
+            role=UserRole.SCHOOL_DIRECTOR, school_id=transfer.origin_school_id,
+            title=title, message=body, category='transfer', link=_TRANSFERS_LINK,
+        )
+    if transfer.destination_school_id:
+        notify_role(
+            role=UserRole.SCHOOL_DIRECTOR, school_id=transfer.destination_school_id,
+            title=title, message=body, category='transfer', link=_TRANSFERS_LINK,
+        )
+    dept_id = getattr(transfer.origin_school, 'education_department_id', None)
+    if dept_id:
+        notify_role(
+            role=UserRole.SME_ADMIN, department_id=dept_id,
+            title=title, message=body, category='transfer', link=_TRANSFERS_LINK,
+        )
 
 
 def authorize_transfer(*, transfer_id, destination_school_id=None, actor_user) -> TransferRequest:
@@ -29,6 +54,11 @@ def authorize_transfer(*, transfer_id, destination_school_id=None, actor_user) -
         transfer.destination_school_id = destination
     transfer.status = TransferRequestStatus.APPROVED_BY_SME
     transfer.save(update_fields=['destination_school', 'status', 'updated_at'])
+    _notify_transfer(
+        transfer,
+        title='Transferência autorizada pela SME',
+        message='a solicitação foi autorizada e aguarda o aceite da escola de destino.',
+    )
     return transfer
 
 
@@ -126,6 +156,11 @@ def accept_transfer(*, transfer_id, destination_class_id=None, actor_user) -> Tr
     transfer.resolved_at = timezone.now()
     transfer.target_enrollment = new_enrollment
     transfer.save(update_fields=['status', 'resolved_at', 'target_enrollment', 'updated_at'])
+    _notify_transfer(
+        transfer,
+        title='Transferência efetivada',
+        message='a escola de destino aceitou e o aluno foi movimentado.',
+    )
     return transfer
 
 
@@ -151,4 +186,9 @@ def reject_transfer(*, transfer_id, actor_user, reason='') -> TransferRequest:
     if reason:
         transfer.reason = f'{transfer.reason}\n\n[Recusa] {reason}'.strip()
     transfer.save(update_fields=['status', 'resolved_at', 'reason', 'updated_at'])
+    _notify_transfer(
+        transfer,
+        title='Transferência recusada',
+        message=f'a solicitação foi recusada. {reason}'.strip(),
+    )
     return transfer

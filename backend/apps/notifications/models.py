@@ -10,6 +10,9 @@ class Notification(BaseModel):
     title = models.CharField(max_length=255, verbose_name=_('Título'))
     message = models.TextField(verbose_name=_('Mensagem'))
     notification_type = models.CharField(max_length=50, verbose_name=_('Tipo'))
+    link = models.CharField(
+        max_length=255, blank=True, verbose_name=_('Rota do evento')
+    )
 
     read = models.BooleanField(default=False, verbose_name=_('Lido'))
     read_at = models.DateTimeField(null=True, blank=True, verbose_name=_('Lido em'))

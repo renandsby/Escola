@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { apiGet } from '@/utils/api-helpers'
 import { NETWORK_IDENTITY } from '@/config/network'
-import type { Notification, PaginatedResponse } from '@/types/api'
 
 type NetworkContext = {
   municipality_name: string | null
@@ -32,14 +31,6 @@ export function useHeaderData() {
     queryFn: () => apiGet<NetworkContext>('dashboard/context/'),
   })
 
-  const notifications = useQuery({
-    queryKey: ['header', 'notifications', 'unread'],
-    staleTime: 60_000,
-    retry: false,
-    queryFn: () =>
-      apiGet<PaginatedResponse<Notification>>('notifications/', { read: false, page_size: 1 }),
-  })
-
   const municipality = context.data?.municipality_name
   const networkIdentity = municipality ? `Rede Municipal de ${municipality}` : NETWORK_IDENTITY
 
@@ -53,7 +44,5 @@ export function useHeaderData() {
   return {
     networkIdentity,
     periodLabel,
-    /** null → papel sem canal de notificação; o sino não é renderizado. */
-    unreadCount: notifications.data ? notifications.data.count : null,
   }
 }

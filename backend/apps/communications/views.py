@@ -1,5 +1,7 @@
 from rest_framework import viewsets, permissions, filters
 from django_filters.rest_framework import DjangoFilterBackend
+
+from apps.notifications.services.notification_service import notify_user
 from .models import Message
 from .serializers import MessageSerializer, MessageCreateSerializer
 
@@ -22,4 +24,11 @@ class MessageViewSet(viewsets.ModelViewSet):
         return MessageSerializer
 
     def perform_create(self, serializer):
-        serializer.save(sender=self.request.user)
+        message = serializer.save(sender=self.request.user)
+        notify_user(
+            user=message.recipient,
+            title='Nova mensagem',
+            message=f'{self.request.user.get_full_name() or self.request.user.username}: {message.subject}',
+            category='message',
+            link='/mensagens',
+        )

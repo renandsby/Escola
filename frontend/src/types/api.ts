@@ -574,7 +574,8 @@ export interface Notification {
   user: string
   title: string
   message: string
-  type: NotificationType
+  notification_type: string
+  link?: string
   read: boolean
   read_at?: string
   created_at: string

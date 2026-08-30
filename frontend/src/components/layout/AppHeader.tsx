@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, ChevronDown } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useScope } from '@/components/ui/ScopeBar'
 import { USER_ROLE } from '@/components/ui/statusMaps'
 import { ROUTES } from '@/app/routes/paths'
 import { NETWORK_DEPARTMENT_LABEL } from '@/config/network'
-import { cn } from '@/utils/cn'
+import { NotificationPopover } from '@/features/notifications/components/NotificationPopover'
 import { useHeaderData } from './useHeaderData'
 
 type AppHeaderProps = {
@@ -20,7 +20,7 @@ type AppHeaderProps = {
  * onde a identidade do usuário aparece; a `Sidebar` é só navegação.
  */
 export function AppHeader({ navExpanded, onToggleNav }: AppHeaderProps) {
-  const { networkIdentity, periodLabel, unreadCount } = useHeaderData()
+  const { networkIdentity, periodLabel } = useHeaderData()
 
   return (
     <header className="sticky top-0 z-30 flex h-[76px] items-center gap-4 bg-gradient-to-b from-brand-900 to-ink-900 px-4 text-white lg:px-6">
@@ -29,7 +29,7 @@ export function AppHeader({ navExpanded, onToggleNav }: AppHeaderProps) {
 
       <div className="ml-auto flex items-center gap-3">
         {periodLabel && <PeriodBadge label={periodLabel} />}
-        {unreadCount !== null && <NotificationBell count={unreadCount} />}
+        <NotificationPopover />
         <UserMenuButton />
       </div>
     </header>
@@ -85,32 +85,6 @@ function NetworkIdentity({ title }: { title: string }) {
 function PeriodBadge({ label }: { label: string }) {
   return (
     <span className="hidden font-mono text-micro text-white/60 md:inline">{label}</span>
-  )
-}
-
-/* ----------------------------------------------------------- NotificationBell */
-
-function NotificationBell({ count }: { count: number }) {
-  const navigate = useNavigate()
-  const has = count > 0
-  return (
-    <button
-      type="button"
-      onClick={() => navigate(ROUTES.messages)}
-      aria-label={has ? `${count} notificações não lidas` : 'Sem notificações novas'}
-      className="relative grid h-10 w-10 place-items-center rounded-pill bg-white text-ink-700 hover:bg-white/90"
-    >
-      <Bell className="h-[18px] w-[18px]" />
-      <span
-        className={cn(
-          'absolute -right-1 -top-1 grid min-w-[18px] place-items-center rounded-pill border-2 px-1 font-mono text-[11px] font-bold leading-none',
-          'border-ink-900',
-          has ? 'bg-danger-base text-white' : 'bg-surface-subtle text-ink-500'
-        )}
-      >
-        {count}
-      </span>
-    </button>
   )
 }
 
