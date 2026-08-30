@@ -57,10 +57,12 @@ def test_seed_dashboard_demo_lights_up_every_panel():
 @pytest.mark.django_db
 def test_seed_dashboard_demo_fresh_is_idempotent():
     call_command("seed_censo_igarassu", "--no-admin")
-    call_command("seed_dashboard_demo", "--schools", "2", "--per-class", "6", "--seed", "2")
+    args = ["seed_dashboard_demo", "--fresh", "--schools", "2", "--per-class", "6", "--seed", "2"]
+    call_command(*args)
     first = Enrollment.objects.filter(enrollment_number__startswith="DEMO").count()
 
-    call_command("seed_dashboard_demo", "--fresh", "--schools", "2", "--per-class", "6", "--seed", "2")
+    call_command(*args)
     second = Enrollment.objects.filter(enrollment_number__startswith="DEMO").count()
 
     assert first == second
+    assert first > 0

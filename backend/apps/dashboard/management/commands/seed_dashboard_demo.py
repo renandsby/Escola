@@ -238,6 +238,7 @@ class Command(BaseCommand):
             SchoolClass.objects.filter(
                 school__education_department=dept, deleted_at__isnull=True
             )
+            .order_by("school__name")
             .values_list("school_id", flat=True)
             .distinct()
         )
@@ -247,7 +248,9 @@ class Command(BaseCommand):
         return list(
             SchoolClass.objects.filter(
                 school_id__in=school_ids, deleted_at__isnull=True
-            ).select_related("school", "curriculum_matrix__education_stage")
+            )
+            .order_by("school__name", "name")
+            .select_related("school", "curriculum_matrix__education_stage")
         )
 
     def _matrix_items(self, classes) -> dict:
@@ -306,7 +309,10 @@ class Command(BaseCommand):
             cursor += n
         Enrollment.objects.bulk_create(enrollments, batch_size=1000)
         return list(
-            Enrollment.objects.filter(enrollment_number__startswith=DEMO_ID_PREFIX)
+            Enrollment.objects.filter(
+                enrollment_number__startswith=DEMO_ID_PREFIX, academic_year=year
+            )
+            .order_by("enrollment_number")
             .select_related("school_class__curriculum_matrix__education_stage", "student")
         )
 
@@ -498,7 +504,7 @@ class Command(BaseCommand):
         prev_enr = list(
             Enrollment.objects.filter(
                 academic_year=prev, enrollment_number__startswith=DEMO_ID_PREFIX
-            )
+            ).order_by("enrollment_number")
         )
 
         rows = []
