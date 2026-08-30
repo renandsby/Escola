@@ -33,9 +33,14 @@ A arquitetura-alvo descrita neste documento foi **implementada**. Situação atu
 * **Regras de negócio implementadas e testadas:** cadastro único, matrícula ativa duplicada, capacidade de turma, conflito de agenda docente, fluxo de transferência, lançamento em lote de notas/frequência (ver §7).
 * **Carga inicial** da rede a partir dos dados públicos do **Censo Escolar 2025 do INEP** (ver §9).
 * **Contrato de URL congelado:** a consolidação de apps não alterou os prefixos da API.
-* Cobertura de testes de backend: ~190 casos (pytest).
+* Cobertura de testes de backend: ~290 casos (pytest).
 
-**Pendências conhecidas** (não bloqueiam a operação): criação de turma pela interface; geração de boletim/carteirinha em PDF pela interface (existe via API); troca de senha pela tela de Configurações; persistência automática da trilha de auditoria (`AuditLog`).
+**Produção mínima (plano `PLANO_EXECUCAO_PRODUCAO_MINIMA`) — concluída.** As ondas P1 e P2 foram implementadas:
+
+* **P1 — prontidão de produção:** hardening de configuração/deploy (settings guardados por `ENVIRONMENT=production`, `docker-compose.prod.yml`, nginx/TLS, job de CI `deploy-check`); backup automatizado do banco (task Celery noturna + retenção); trilha de auditoria persistida no middleware (escritas `/api/` + login/login falho); transferência com efeito real na matrícula (encerra origem, cria destino, atômico).
+* **P2 — operação completa:** módulo mínimo de LGPD (consentimento, portabilidade, anonimização); recuperação de senha e perfil real; upload seguro de documentos com isolamento RBAC; CRUD de turmas e salas na interface; gestão administrativa de usuários da rede; central de exportações e emissão de boletim/carteirinha; motor de validação e exportação do Educacenso; portal do responsável ("Meus Filhos"); notificações in-app com gatilhos de negócio; fechamento de ano letivo com consolidação de histórico e trava do diário.
+
+**Fora de escopo (non-goals do plano):** Merenda/PNAE, Transporte/Frotas, Financeiro/Folha, app mobile nativo, 2FA/MFA TOTP, homologação do selo INEP/MEC.
 
 ---
 
