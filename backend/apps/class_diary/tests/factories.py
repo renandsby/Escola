@@ -106,7 +106,7 @@ class UserFactory(DjangoModelFactory):
     class Meta:
         model = User
 
-    username = factory.Sequence(lambda n: f'user_{n}')
+    username = factory.Sequence(lambda n: f'cd_user_{n}')
     email = factory.LazyAttribute(lambda o: f'{o.username}@example.com')
     first_name = factory.Faker('first_name', locale='pt_BR')
     last_name = factory.Faker('last_name', locale='pt_BR')
