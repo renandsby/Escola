@@ -4,9 +4,13 @@ import pytest
 from rest_framework.test import APIClient
 
 from apps.class_diary.tests.factories import (
+    AttendanceFactory,
     EducationDepartmentFactory,
     EnrollmentFactory,
+    GradeFactory,
     SchoolDirectorFactory,
+    SchoolHistoryFactory,
+    SMEAdminFactory,
     StudentFactory,
     StudentGuardianUserFactory,
 )
@@ -84,6 +88,55 @@ class TestReportEndpoints:
         response = client.get(
             '/api/v1/reports/boletim_pdf/', {'student_id': str(outsider_student.id)}
         )
+        assert response.status_code == 403
+
+    def test_historico_pdf_success(self):
+        enrollment = EnrollmentFactory()
+        student = enrollment.student
+        GradeFactory(enrollment=enrollment)
+        AttendanceFactory(enrollment=enrollment, status='PRESENT')
+        SchoolHistoryFactory(student=student, final_status='approved')
+        director = SchoolDirectorFactory(
+            education_department=None, school=enrollment.school_class.school
+        )
+        client = APIClient()
+        client.force_authenticate(director)
+
+        response = client.get(
+            '/api/v1/reports/historico_pdf/', {'student_id': str(student.id)}
+        )
+
+        assert response.status_code == 200
+        assert response['Content-Type'] == 'application/pdf'
+        assert 'historico_escolar' in response['Content-Disposition']
+
+    def test_historico_pdf_without_active_enrollment_returns_400(self):
+        dept = EducationDepartmentFactory()
+        student = StudentFactory(education_department=dept)
+        admin = SMEAdminFactory(education_department=dept)
+        client = APIClient()
+        client.force_authenticate(admin)
+
+        response = client.get(
+            '/api/v1/reports/historico_pdf/', {'student_id': str(student.id)}
+        )
+
+        assert response.status_code == 400
+        assert response.data['error']['code'] == 'NO_ACTIVE_ENROLLMENT'
+
+    def test_historico_pdf_out_of_scope_student_is_forbidden(self):
+        enrollment = EnrollmentFactory()
+        outsider = StudentFactory()
+        director = SchoolDirectorFactory(
+            education_department=None, school=enrollment.school_class.school
+        )
+        client = APIClient()
+        client.force_authenticate(director)
+
+        response = client.get(
+            '/api/v1/reports/historico_pdf/', {'student_id': str(outsider.id)}
+        )
+
         assert response.status_code == 403
 
     def test_educacenso_export_streams_csv(self):

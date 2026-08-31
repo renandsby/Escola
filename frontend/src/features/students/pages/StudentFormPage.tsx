@@ -10,6 +10,7 @@ import { Field, Input, Select, Textarea, Checkbox } from '@/components/ui/Field'
 import { FormSection, StickyActions } from '@/components/ui/FormSection'
 import { Button } from '@/components/ui/Button'
 import { FormError } from '@/components/feedback/FormError'
+import { LGPDTermsModal, LGPD_TERM_VERSION } from '@/components/lgpd/LGPDTermsModal'
 import { PersonLookupStep } from '@/components/feedback/PersonLookupStep'
 import { TableSkeleton } from '@/components/ui/TableSkeleton'
 import { apiGet, apiPost, apiPut } from '@/utils/api-helpers'
@@ -34,6 +35,7 @@ const studentSchema = z.object({
   nis_code: z.string().optional(),
   race_color: z.string().optional(),
   special_needs_details: z.string().optional(),
+  lgpd_consent: z.boolean().optional(),
 })
 
 type StudentFormData = z.infer<typeof studentSchema>
@@ -46,6 +48,7 @@ export default function StudentFormPage() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<unknown>(null)
   const [showForm, setShowForm] = useState(isEditing)
+  const [showTerms, setShowTerms] = useState(false)
 
   const departmentsQuery = useEducationDepartmentsQuery()
   const departments = departmentsQuery.data?.results || []
@@ -63,7 +66,7 @@ export default function StudentFormPage() {
       has_special_needs: false,
     },
   })
-  const { register, handleSubmit, reset, watch } = methods
+  const { register, handleSubmit, reset, watch, setError } = methods
   const hasSpecialNeeds = watch('has_special_needs')
 
   useEffect(() => {
@@ -96,13 +99,25 @@ export default function StudentFormPage() {
 
   const onSubmit = async (data: StudentFormData) => {
     setSubmitError(null)
+
+    if (!id && !data.lgpd_consent) {
+      setError('lgpd_consent', {
+        type: 'manual',
+        message:
+          'É obrigatório aceitar os termos de uso de dados pessoais para cadastrar o aluno.',
+      })
+      return
+    }
+
     setSubmitting(true)
     try {
       if (id) {
-        await apiPut(`students/${id}/`, data)
+        const payload = { ...data }
+        delete payload.lgpd_consent
+        await apiPut(`students/${id}/`, payload)
         toast.success('Aluno atualizado.')
       } else {
-        await apiPost('students/', data)
+        await apiPost('students/', { ...data, lgpd_consent: true, term_version: LGPD_TERM_VERSION })
         toast.success('Aluno criado.')
       }
       navigate(ROUTES.students)
@@ -248,6 +263,32 @@ export default function StudentFormPage() {
                   )}
                 </div>
               </FormSection>
+              {!isEditing && (
+                <FormSection
+                  title="Proteção de dados (LGPD)"
+                  description="Aceite obrigatório dos termos de uso de dados pessoais do aluno."
+                >
+                  <div className="sm:col-span-2 grid gap-2 rounded border border-line-strong bg-surface-subtle p-4">
+                    <Field label="Consentimento LGPD" name="lgpd_consent" required>
+                      <Checkbox
+                        label="Declaro que o responsável legal leu e aceitou os termos de uso de dados pessoais para fins de matrícula e gestão escolar."
+                        {...register('lgpd_consent')}
+                      />
+                    </Field>
+                    <button
+                      type="button"
+                      onClick={() => setShowTerms(true)}
+                      className="justify-self-start text-help text-brand-600 underline"
+                    >
+                      Ler os termos completos (versão {LGPD_TERM_VERSION})
+                    </button>
+                    <p className="text-help text-ink-400">
+                      Base legal: execução de políticas públicas e cumprimento de obrigação
+                      legal (Lei 13.709/2018). O aceite fica registrado com data e IP de origem.
+                    </p>
+                  </div>
+                </FormSection>
+              )}
             </fieldset>
 
             <StickyActions>
@@ -261,6 +302,8 @@ export default function StudentFormPage() {
           </form>
         </FormProvider>
       )}
+
+      {showTerms && <LGPDTermsModal onClose={() => setShowTerms(false)} />}
     </>
   )
 }

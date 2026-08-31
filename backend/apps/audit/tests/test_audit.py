@@ -27,6 +27,7 @@ class TestAuditMiddleware:
             'mother_name': 'Mãe Teste',
             'birth_date': '2015-05-05',
             'education_department': str(dept.id),
+            'lgpd_consent': True,
         }
         res = client.post('/api/v1/students/', payload, format='json')
         assert res.status_code in (200, 201), res.data

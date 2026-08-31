@@ -122,6 +122,17 @@ export const ERROR_MESSAGES: Record<string, ErrorDef> = {
     title: 'Aluno com matrícula ativa',
     message: () => 'Só é possível anonimizar um aluno sem matrícula ativa na rede.',
   },
+  LGPD_CONSENT_REQUIRED: {
+    title: 'Consentimento LGPD pendente',
+    message: () =>
+      'É obrigatório registrar o aceite dos termos de uso de dados pessoais do aluno. ' +
+      'Abra a ficha do aluno, seção “Privacidade e dados (LGPD)”, e conceda o consentimento de matrícula.',
+  },
+  NO_ACTIVE_ENROLLMENT: {
+    title: 'Aluno sem matrícula ativa',
+    message: () =>
+      'O histórico escolar usa os dados da matrícula do ano corrente. Matricule o aluno em uma turma antes de emitir.',
+  },
 
   // --- 2FA / TOTP ---
   INVALID_TOTP_CODE: {

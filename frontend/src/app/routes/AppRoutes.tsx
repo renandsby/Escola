@@ -18,6 +18,9 @@ import SchoolFormPage from '@/features/schools/pages/SchoolFormPage'
 import StudentsListPage from '@/features/students/pages/StudentsListPage'
 import StudentDetailPage from '@/features/students/pages/StudentDetailPage'
 import StudentFormPage from '@/features/students/pages/StudentFormPage'
+import GuardiansListPage from '@/features/guardians/pages/GuardiansListPage'
+import GuardianFormPage from '@/features/guardians/pages/GuardianFormPage'
+import GuardianDetailPage from '@/features/guardians/pages/GuardianDetailPage'
 import SubjectsListPage from '@/features/curriculum/pages/SubjectsListPage'
 import SubjectFormPage from '@/features/curriculum/pages/SubjectFormPage'
 import MessagesPage from '@/pages/messages/MessagesPage'
@@ -117,13 +120,10 @@ export function AppRoutes() {
             path="/alunos/:id"
             element={guard([...SME, ...SCHOOL_MGMT, 'teacher', 'student_guardian'], <StudentDetailPage />)}
           />
-          <Route
-            path={ROUTES.guardians}
-            element={guard(
-              [...SME, ...SCHOOL_MGMT],
-              <PlaceholderPage title="Responsáveis" note="O cadastro de responsáveis será feito por aqui. Hoje disponível via API (/api/v1/guardians/)." />
-            )}
-          />
+          <Route path={ROUTES.guardians} element={guard([...SME, ...SCHOOL_MGMT], <GuardiansListPage />)} />
+          <Route path={ROUTES.guardianNew} element={guard([...SME, ...SCHOOL_MGMT], <GuardianFormPage />)} />
+          <Route path="/responsaveis/:id/editar" element={guard([...SME, ...SCHOOL_MGMT], <GuardianFormPage />)} />
+          <Route path="/responsaveis/:id" element={guard([...SME, ...SCHOOL_MGMT], <GuardianDetailPage />)} />
           <Route path={ROUTES.teachers} element={guard(['sme_admin'], <TeachersListPage />)} />
           <Route path={ROUTES.teacherNew} element={guard(['sme_admin'], <TeacherFormPage />)} />
           <Route path="/professores/:id/editar" element={guard(['sme_admin'], <TeacherFormPage />)} />

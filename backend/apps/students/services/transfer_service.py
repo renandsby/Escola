@@ -146,10 +146,13 @@ def accept_transfer(*, transfer_id, destination_class_id=None, actor_user) -> Tr
                 message="Turma de destino não existe ou não pertence à escola de destino.",
                 status_code=404,
             )
+        # O consentimento LGPD já foi coletado na matrícula de origem; a
+        # transferência apenas movimenta o aluno dentro/entre redes.
         new_enrollment = enroll_student_in_class(
             student_id=transfer.student_id,
             school_class_id=destination_class_id,
             actor_user=actor_user,
+            require_lgpd_consent=False,
         )
 
     transfer.status = TransferRequestStatus.ACCEPTED_BY_DESTINATION

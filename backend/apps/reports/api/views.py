@@ -16,6 +16,7 @@ from apps.class_diary.models import Grade
 from apps.reports.catalog import catalog_for_role
 from apps.reports.models import Report, ReportExecution
 from apps.reports.selectors.reports import (
+    get_active_enrollment,
     get_department_schools,
     get_department_students,
     get_student_attendance,
@@ -28,6 +29,7 @@ from apps.reports.services.signing import make_token, read_token
 from apps.reports.services.pdf_generator import (
     generate_csv_report,
     generate_excel_report,
+    generate_school_history_pdf,
     generate_student_card_pdf,
     generate_student_report_pdf,
 )
@@ -172,6 +174,45 @@ class ReportViewSet(viewsets.ModelViewSet):
         return FileResponse(
             pdf_buffer, as_attachment=True,
             filename=f'boletim_{student.unique_municipal_id}.pdf',
+            content_type='application/pdf',
+        )
+
+    @action(detail=False, methods=['get'], url_path='historico_pdf')
+    def historico_pdf(self, request):
+        """PDF do histórico escolar (ano letivo corrente) do aluno.
+
+        Escopo idêntico ao boletim: SME vê toda a rede, escola vê os próprios
+        alunos, responsável vê os dependentes.
+        """
+        student = resolve_report_student(
+            user=request.user, student_id=request.query_params.get('student_id')
+        )
+        enrollment = get_active_enrollment(student)
+        if enrollment is None:
+            raise BusinessLogicError(
+                code='NO_ACTIVE_ENROLLMENT',
+                message='O aluno não possui matrícula ativa para gerar o histórico.',
+            )
+
+        grades = (
+            get_student_grades(student)
+            .filter(enrollment=enrollment)
+            .select_related('subject', 'academic_period')
+        )
+        attendance = get_student_attendance(student).filter(enrollment=enrollment)
+        history = getattr(student, 'school_history', None)
+
+        pdf_buffer = generate_school_history_pdf(
+            student,
+            enrollment=enrollment,
+            grades=grades,
+            attendance=attendance,
+            history=history,
+        )
+        return FileResponse(
+            pdf_buffer,
+            as_attachment=True,
+            filename=f'historico_escolar_{student.unique_municipal_id}.pdf',
             content_type='application/pdf',
         )
 

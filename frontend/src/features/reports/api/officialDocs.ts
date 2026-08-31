@@ -22,6 +22,10 @@ export function downloadCarteirinhaPdf(studentId?: string) {
   return downloadFile('/reports/carteirinha_pdf/', { student_id: studentId }, 'carteirinha.pdf')
 }
 
+export function downloadHistoricoPdf(studentId?: string) {
+  return downloadFile('/reports/historico_pdf/', { student_id: studentId }, 'historico_escolar.pdf')
+}
+
 export function downloadRelatorioExcel(schoolId?: string) {
   return downloadFile('/reports/relatorio_excel/', { school: schoolId }, 'relatorio_notas.xlsx')
 }

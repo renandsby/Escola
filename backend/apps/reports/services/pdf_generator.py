@@ -167,6 +167,234 @@ def generate_student_report_pdf(student, grades, attendance):
     return buffer
 
 
+def generate_school_history_pdf(student, *, enrollment, grades, attendance, history=None):
+    """Gera o PDF do histórico escolar (ano letivo corrente) do aluno.
+
+    Args:
+        student: instância de ``Student``.
+        enrollment: matrícula ativa do aluno (``Enrollment``).
+        grades: iterável de ``Grade`` do aluno (com ``subject`` e ``academic_period``).
+        attendance: iterável de ``Attendance`` do aluno.
+        history: ``SchoolHistory`` consolidado, se houver.
+    """
+    from collections import OrderedDict
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        topMargin=0.6 * inch,
+        bottomMargin=0.6 * inch,
+        leftMargin=0.6 * inch,
+        rightMargin=0.6 * inch,
+    )
+
+    styles = getSampleStyleSheet()
+    header_style = ParagraphStyle(
+        'HistHeader',
+        parent=styles['Heading1'],
+        fontSize=15,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#1f2937'),
+        spaceAfter=4,
+        fontName='Helvetica-Bold',
+    )
+    subheader_style = ParagraphStyle(
+        'HistSubHeader',
+        parent=styles['Normal'],
+        fontSize=10,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#4b5563'),
+        spaceAfter=2,
+    )
+    section_style = ParagraphStyle(
+        'HistSection',
+        parent=styles['Heading2'],
+        fontSize=12,
+        textColor=colors.HexColor('#1f2937'),
+        spaceBefore=14,
+        spaceAfter=8,
+        fontName='Helvetica-Bold',
+    )
+
+    school = enrollment.school_class.school
+    department = getattr(school, 'education_department', None)
+    academic_year = getattr(enrollment.academic_year, 'year', None) or '—'
+
+    elements = []
+    if department is not None:
+        elements.append(
+            Paragraph('SECRETARIA MUNICIPAL DE EDUCAÇÃO', subheader_style)
+        )
+    elements.append(Paragraph(school.name, header_style))
+    if school.inep_code:
+        elements.append(Paragraph(f'Código INEP: {school.inep_code}', subheader_style))
+    elements.append(Spacer(1, 0.15 * inch))
+    elements.append(Paragraph('HISTÓRICO ESCOLAR', header_style))
+    elements.append(Paragraph(f'Ano letivo {academic_year}', subheader_style))
+    elements.append(Spacer(1, 0.2 * inch))
+
+    # ------------------------------------------------------------------ aluno
+    info_data = [
+        ['Nome do aluno:', _student_display_name(student)],
+        ['Data de nascimento:', student.birth_date.strftime('%d/%m/%Y') if student.birth_date else '—'],
+        ['CPF:', student.cpf or 'Não informado'],
+        ['ID municipal:', student.unique_municipal_id],
+        ['Matrícula:', enrollment.enrollment_number],
+        ['Turma:', enrollment.school_class.name],
+        ['Nome da mãe:', student.mother_name or '—'],
+    ]
+    info_table = Table(info_data, colWidths=[2 * inch, 4.6 * inch])
+    info_table.setStyle(TableStyle([
+        ('FONT', (0, 0), (-1, -1), 'Helvetica', 10),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#4b5563')),
+        ('ROWBACKGROUNDS', (0, 0), (-1, -1), [colors.white, colors.HexColor('#f3f4f6')]),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e5e7eb')),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    elements.append(info_table)
+
+    # -------------------------------------------------------------- desempenho
+    elements.append(Paragraph('Desempenho por disciplina', section_style))
+
+    grades_list = list(grades)
+    periods = OrderedDict()
+    for g in sorted(
+        grades_list,
+        key=lambda x: getattr(x.academic_period, 'period_number', 0) or 0,
+    ):
+        periods.setdefault(g.academic_period_id, g.academic_period.name)
+    period_ids = list(periods.keys())
+    period_names = list(periods.values())
+
+    by_subject = OrderedDict()
+    for g in sorted(grades_list, key=lambda x: x.subject.name):
+        by_subject.setdefault(g.subject.name, {})[g.academic_period_id] = g
+
+    if by_subject:
+        head = ['Disciplina', *period_names, 'Média']
+        table_data = [head]
+        for subject_name, period_map in by_subject.items():
+            row = [subject_name]
+            effective_values = []
+            for pid in period_ids:
+                grade = period_map.get(pid)
+                if grade is None:
+                    row.append('—')
+                    continue
+                eff = grade.get_effective_score()
+                row.append(f'{eff}' if eff is not None else '—')
+                if eff is not None:
+                    effective_values.append(float(eff))
+            if effective_values:
+                row.append(f'{sum(effective_values) / len(effective_values):.1f}')
+            else:
+                row.append('—')
+            table_data.append(row)
+
+        col_count = len(head)
+        first_col = 2.2 * inch
+        other_col = (6.6 * inch - first_col) / (col_count - 1)
+        grades_table = Table(
+            table_data,
+            colWidths=[first_col, *[other_col] * (col_count - 1)],
+        )
+        grades_table.setStyle(TableStyle([
+            ('FONT', (0, 0), (-1, -1), 'Helvetica', 9),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3b82f6')),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f3f4f6')]),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e5e7eb')),
+            ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ]))
+        elements.append(grades_table)
+    else:
+        elements.append(Paragraph('Sem notas lançadas para este ano letivo.', styles['Normal']))
+
+    # -------------------------------------------------------------- frequência
+    elements.append(Paragraph('Frequência', section_style))
+    attendance_list = list(attendance)
+    total = len(attendance_list)
+    present = sum(1 for a in attendance_list if a.status == AttendanceStatus.PRESENT)
+    absent = sum(1 for a in attendance_list if a.status == AttendanceStatus.ABSENT)
+    excused = sum(1 for a in attendance_list if a.status == AttendanceStatus.EXCUSED_ABSENCE)
+
+    if history is not None and history.total_classes:
+        total_classes = history.total_classes
+        absences = history.absences
+        percent = history.attendance_percentage
+    else:
+        total_classes = total
+        absences = absent + excused
+        percent = (present / total * 100) if total else 100.0
+
+    freq_data = [
+        ['Total de aulas', 'Faltas', 'Frequência'],
+        [str(total_classes), str(absences), f'{percent:.1f}%'],
+    ]
+    freq_table = Table(freq_data, colWidths=[2.2 * inch, 2.2 * inch, 2.2 * inch])
+    freq_table.setStyle(TableStyle([
+        ('FONT', (0, 0), (-1, -1), 'Helvetica', 10),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#10b981')),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e5e7eb')),
+        ('TOPPADDING', (0, 0), (-1, -1), 7),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
+    ]))
+    elements.append(freq_table)
+
+    # ------------------------------------------------------------ situação final
+    status_map = {'approved': 'APROVADO', 'failed': 'REPROVADO', 'pending': 'CURSANDO'}
+    final_status = status_map.get(getattr(history, 'final_status', None), 'CURSANDO')
+    overall = getattr(history, 'overall_average', None)
+    elements.append(Paragraph('Situação final', section_style))
+    situacao_text = f'<b>{final_status}</b>'
+    if overall is not None:
+        situacao_text += f' &nbsp;·&nbsp; Média geral: {overall:.1f}'
+    elements.append(Paragraph(situacao_text, styles['Normal']))
+
+    # --------------------------------------------------------------- assinaturas
+    elements.append(Spacer(1, 0.7 * inch))
+    sign_data = [
+        ['_______________________________', '_______________________________'],
+        ['Diretor(a) Escolar', 'Secretário(a) Escolar'],
+    ]
+    sign_table = Table(sign_data, colWidths=[3.3 * inch, 3.3 * inch])
+    sign_table.setStyle(TableStyle([
+        ('FONT', (0, 0), (-1, -1), 'Helvetica', 9),
+        ('FONTNAME', (0, 1), (-1, 1), 'Helvetica-Bold'),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('TOPPADDING', (0, 1), (-1, 1), 6),
+    ]))
+    elements.append(sign_table)
+
+    elements.append(Spacer(1, 0.3 * inch))
+    footer_style = ParagraphStyle(
+        'HistFooter',
+        parent=styles['Normal'],
+        fontSize=8,
+        textColor=colors.HexColor('#9ca3af'),
+        alignment=TA_CENTER,
+    )
+    elements.append(Paragraph(
+        f'Documento gerado em {datetime.now().strftime("%d/%m/%Y às %H:%M")} · '
+        f'Histórico do ano letivo {academic_year}',
+        footer_style,
+    ))
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+
 def generate_student_card_pdf(student):
     """Gera PDF da carteirinha do aluno com QR Code"""
     buffer = io.BytesIO()

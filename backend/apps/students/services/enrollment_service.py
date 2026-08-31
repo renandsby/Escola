@@ -4,6 +4,8 @@ from django.db import transaction
 
 from core.exceptions import BusinessLogicError
 from apps.classes.models import SchoolClass
+from apps.governance.models import ConsentType
+from apps.governance.services.privacy_service import has_active_consent
 from apps.students.models import Enrollment, EnrollmentStatus, Student
 
 
@@ -20,6 +22,7 @@ def enroll_student_in_class(
     school_class_id,
     actor_user,
     enrollment_number=None,
+    require_lgpd_consent=True,
 ) -> Enrollment:
     school_class = SchoolClass.objects.select_for_update().filter(
         id=school_class_id,
@@ -38,6 +41,17 @@ def enroll_student_in_class(
             code="STUDENT_NOT_FOUND",
             message="Aluno informado não existe.",
             status_code=404,
+        )
+
+    if require_lgpd_consent and not has_active_consent(
+        student=student, consent_type=ConsentType.ENROLLMENT_DATA_USE
+    ):
+        raise BusinessLogicError(
+            code="LGPD_CONSENT_REQUIRED",
+            message=(
+                "Não é possível matricular o aluno sem o consentimento LGPD para "
+                "uso de dados pessoais. Registre o aceite dos termos na ficha do aluno."
+            ),
         )
 
     has_active_enrollment = Enrollment.objects.filter(

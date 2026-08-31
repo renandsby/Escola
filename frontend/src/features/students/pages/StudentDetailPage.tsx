@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import {
   downloadBoletimPdf,
   downloadCarteirinhaPdf,
+  downloadHistoricoPdf,
 } from '@/features/reports/api/officialDocs'
 import { apiGet } from '@/utils/api-helpers'
 import type {
@@ -74,14 +75,18 @@ export default function StudentDetailPage() {
   const scope = useScope()
   const role = useAuthStore((s) => s.user?.role) ?? ''
   const [uploadingDoc, setUploadingDoc] = useState(false)
-  const [emitting, setEmitting] = useState<'boletim' | 'carteirinha' | null>(null)
+  const [emitting, setEmitting] = useState<'boletim' | 'carteirinha' | 'historico' | null>(null)
 
-  async function emitirDoc(kind: 'boletim' | 'carteirinha', studentId: string) {
+  const DOC_DOWNLOADERS = {
+    boletim: downloadBoletimPdf,
+    carteirinha: downloadCarteirinhaPdf,
+    historico: downloadHistoricoPdf,
+  } as const
+
+  async function emitirDoc(kind: 'boletim' | 'carteirinha' | 'historico', studentId: string) {
     setEmitting(kind)
     try {
-      await (kind === 'boletim'
-        ? downloadBoletimPdf(studentId)
-        : downloadCarteirinhaPdf(studentId))
+      await DOC_DOWNLOADERS[kind](studentId)
     } catch {
       toast.error(`Não foi possível emitir o documento (${kind}).`)
     } finally {
@@ -232,6 +237,14 @@ export default function StudentDetailPage() {
               onClick={() => emitirDoc('carteirinha', data.id)}
             >
               Emitir Carteirinha
+            </Button>
+            <Button
+              variant="secondary"
+              iconLeft={<FileDown className="h-4 w-4" />}
+              loading={emitting === 'historico'}
+              onClick={() => emitirDoc('historico', data.id)}
+            >
+              Emitir Histórico
             </Button>
             <Button
               variant="primary"

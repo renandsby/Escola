@@ -1,6 +1,7 @@
 import pytest
 
 from core.exceptions import BusinessLogicError
+from apps.governance.models import ConsentRecord, ConsentType
 from apps.students.models import Enrollment, EnrollmentStatus, TransferRequestStatus
 from apps.students.services.enrollment_service import enroll_student_in_class
 from apps.students.services.transfer_service import accept_transfer, authorize_transfer
@@ -28,6 +29,7 @@ class TestEnrollmentService:
             student_id=student.id,
             school_class_id=school_class.id,
             actor_user=actor,
+            require_lgpd_consent=False,
         )
 
         assert enrollment.status == EnrollmentStatus.ENROLLED
@@ -45,6 +47,7 @@ class TestEnrollmentService:
             student_id=student_1.id,
             school_class_id=school_class.id,
             actor_user=actor,
+            require_lgpd_consent=False,
         )
 
         with pytest.raises(BusinessLogicError) as exc_info:
@@ -52,6 +55,7 @@ class TestEnrollmentService:
                 student_id=student_2.id,
                 school_class_id=school_class.id,
                 actor_user=actor,
+                require_lgpd_consent=False,
             )
 
         assert exc_info.value.code == "CLASS_CAPACITY_EXCEEDED"
@@ -70,6 +74,7 @@ class TestEnrollmentService:
                 student_id=student.id,
                 school_class_id=other_class.id,
                 actor_user=actor,
+                require_lgpd_consent=False,
             )
 
         assert exc_info.value.code == "DUPLICATE_ENROLLMENT"
@@ -90,6 +95,7 @@ class TestEnrollmentService:
             student_id=student.id,
             school_class_id=other_class.id,
             actor_user=actor,
+            require_lgpd_consent=False,
         )
 
         assert enrollment.status == EnrollmentStatus.ENROLLED
@@ -98,6 +104,57 @@ class TestEnrollmentService:
             status=EnrollmentStatus.ENROLLED,
             deleted_at__isnull=True,
         ).count() == 1
+
+
+@pytest.mark.django_db
+class TestEnrollmentLGPDConsent:
+    def _grant(self, student, granted=True):
+        return ConsentRecord.objects.create(
+            student=student,
+            consent_type=ConsentType.ENROLLMENT_DATA_USE,
+            granted=granted,
+        )
+
+    def test_enrollment_requires_lgpd_consent(self):
+        student = StudentFactory()
+        school_class = SchoolClassFactory(max_capacity=20)
+
+        with pytest.raises(BusinessLogicError) as exc_info:
+            enroll_student_in_class(
+                student_id=student.id,
+                school_class_id=school_class.id,
+                actor_user=UserFactory(),
+            )
+
+        assert exc_info.value.code == "LGPD_CONSENT_REQUIRED"
+
+    def test_enrollment_with_lgpd_consent_succeeds(self):
+        student = StudentFactory()
+        school_class = SchoolClassFactory(max_capacity=20)
+        self._grant(student)
+
+        enrollment = enroll_student_in_class(
+            student_id=student.id,
+            school_class_id=school_class.id,
+            actor_user=UserFactory(),
+        )
+
+        assert enrollment.status == EnrollmentStatus.ENROLLED
+
+    def test_enrollment_with_revoked_consent_fails(self):
+        student = StudentFactory()
+        school_class = SchoolClassFactory(max_capacity=20)
+        self._grant(student, granted=True)
+        self._grant(student, granted=False)  # revogação é o registro mais recente
+
+        with pytest.raises(BusinessLogicError) as exc_info:
+            enroll_student_in_class(
+                student_id=student.id,
+                school_class_id=school_class.id,
+                actor_user=UserFactory(),
+            )
+
+        assert exc_info.value.code == "LGPD_CONSENT_REQUIRED"
 
 
 @pytest.mark.django_db

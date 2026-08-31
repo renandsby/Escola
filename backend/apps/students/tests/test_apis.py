@@ -5,6 +5,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from apps.governance.models import ConsentRecord, ConsentType
 from apps.students.models import EnrollmentStatus, TransferRequestStatus
 from apps.students.tests.factories import (
     EducationDepartmentFactory,
@@ -27,6 +28,14 @@ def _client(user=None):
     if user is not None:
         client.force_authenticate(user=user)
     return client
+
+
+def _grant_enrollment_consent(student):
+    return ConsentRecord.objects.create(
+        student=student,
+        consent_type=ConsentType.ENROLLMENT_DATA_USE,
+        granted=True,
+    )
 
 
 @pytest.mark.django_db
@@ -53,11 +62,28 @@ class TestStudentAPI:
             'full_name': 'Novo Aluno',
             'mother_name': 'Mãe do Aluno',
             'birth_date': '2016-05-10',
+            'lgpd_consent': True,
         }
 
         response = _client(admin).post(reverse('student-list'), payload, format='json')
 
         assert response.status_code == status.HTTP_201_CREATED
+
+    def test_create_student_without_lgpd_consent_is_rejected(self):
+        department = EducationDepartmentFactory()
+        admin = SMEAdminFactory(education_department=department)
+        payload = {
+            'education_department': str(department.id),
+            'unique_municipal_id': 'MUN77777777',
+            'full_name': 'Aluno Sem LGPD',
+            'mother_name': 'Mãe',
+            'birth_date': '2016-05-10',
+        }
+
+        response = _client(admin).post(reverse('student-list'), payload, format='json')
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data['error']['code'] == 'LGPD_CONSENT_REQUIRED'
 
     def test_teacher_cannot_create_student(self):
         department = EducationDepartmentFactory()
@@ -148,6 +174,7 @@ class TestEnrollmentAPI:
     def test_create_enrollment_success(self):
         department = EducationDepartmentFactory()
         student = StudentFactory(education_department=department)
+        _grant_enrollment_consent(student)
         school_class = SchoolClassFactory(school__education_department=department, max_capacity=10)
         admin = SMEAdminFactory(education_department=department)
         payload = {
@@ -164,6 +191,7 @@ class TestEnrollmentAPI:
         department = EducationDepartmentFactory()
         first_enrollment = EnrollmentFactory(student__education_department=department)
         student = first_enrollment.student
+        _grant_enrollment_consent(student)
         other_class = SchoolClassFactory(
             school__education_department=department,
             academic_year=first_enrollment.school_class.academic_year,
@@ -184,6 +212,7 @@ class TestEnrollmentAPI:
         school_class = SchoolClassFactory(school__education_department=department, max_capacity=1)
         EnrollmentFactory(school_class=school_class, student__education_department=department)
         new_student = StudentFactory(education_department=department)
+        _grant_enrollment_consent(new_student)
         admin = SMEAdminFactory(education_department=department)
         payload = {
             'student': str(new_student.id),

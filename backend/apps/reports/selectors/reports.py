@@ -4,7 +4,7 @@ alimentam a geração de PDF/Excel/CSV/Educacenso."""
 from core.exceptions import BusinessLogicError
 from apps.class_diary.models import Attendance, Grade
 from apps.schools.models import School
-from apps.students.models import Student
+from apps.students.models import Enrollment, EnrollmentStatus, Student
 from apps.students.selectors.students import get_students_for_user
 
 
@@ -37,6 +37,25 @@ def resolve_report_student(*, user, student_id=None):
             status_code=403,
         )
     return student
+
+
+def get_active_enrollment(student):
+    """Matrícula ativa do aluno no ano letivo mais recente (para o histórico)."""
+    return (
+        Enrollment.objects.filter(
+            student=student,
+            status=EnrollmentStatus.ENROLLED,
+            deleted_at__isnull=True,
+        )
+        .select_related(
+            'school_class',
+            'school_class__school',
+            'school_class__school__education_department',
+            'academic_year',
+        )
+        .order_by('-academic_year__year')
+        .first()
+    )
 
 
 def get_student_grades(student):

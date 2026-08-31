@@ -4,11 +4,15 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.class_diary.models import Attendance, DescriptiveEvaluation, Grade
+from apps.governance.models import ConsentType
+from apps.governance.services.privacy_service import register_student_consent
 from apps.class_diary.api.serializers import (
     AttendanceListSerializer,
     DescriptiveEvaluationListSerializer,
     GradeListSerializer,
 )
+from core.exceptions import BusinessLogicError
+from core.middleware import AuditMiddleware
 from core.permissions import CanCreateStudent, IsSMEStaff, IsSchoolStaff
 
 from apps.students.filters import StudentFilterSet
@@ -35,6 +39,10 @@ from .serializers import (
     TransferRequestListSerializer,
     TransferRequestSerializer,
 )
+
+
+def _client_ip(request):
+    return AuditMiddleware.get_client_ip(request)
 
 
 # ---------------------------------------------------------------------------
@@ -74,6 +82,35 @@ class StudentViewSet(viewsets.ModelViewSet):
         if self.action == 'list':
             return StudentListSerializer
         return StudentSerializer
+
+    def create(self, request, *args, **kwargs):
+        """Cria o aluno exigindo o aceite LGPD (``lgpd_consent``) e registra o
+        ``ConsentRecord`` obrigatório de uso de dados para matrícula."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        lgpd_consent = request.data.get('lgpd_consent')
+        if lgpd_consent in (None, '', False, 'false', 'False', 0, '0'):
+            raise BusinessLogicError(
+                code='LGPD_CONSENT_REQUIRED',
+                message=(
+                    'O aceite dos termos de uso de dados pessoais (LGPD) é '
+                    'obrigatório para cadastrar o aluno.'
+                ),
+            )
+
+        student = serializer.save()
+
+        register_student_consent(
+            student=student,
+            consent_type=ConsentType.ENROLLMENT_DATA_USE,
+            granted=True,
+            user=request.user,
+            ip_address=_client_ip(request),
+        )
+
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()

@@ -299,19 +299,46 @@ export interface CreateStudentRequest {
 
 // ============ GUARDIANS ============
 
-export type KinshipType = 'MOTHER' | 'FATHER' | 'LEGAL_GUARDIAN' | 'GRANDPARENT'
+export type KinshipType =
+  | 'MOTHER'
+  | 'FATHER'
+  | 'LEGAL_GUARDIAN'
+  | 'GRANDPARENT'
+  | 'OTHER'
+
+export const KINSHIP_TYPE_LABELS: Record<KinshipType, string> = {
+  MOTHER: 'Mãe',
+  FATHER: 'Pai',
+  LEGAL_GUARDIAN: 'Responsável legal',
+  GRANDPARENT: 'Avô / Avó',
+  OTHER: 'Outro',
+}
 
 export interface Guardian {
   id: string
   user?: string | null
+  user_name?: string | null
+  user_email?: string | null
   full_name: string
   cpf: string
   phone: string
   email?: string
   address?: string
+  occupation?: string
+  students_count?: number
   is_active?: boolean
   created_at?: string
   updated_at?: string
+}
+
+export interface StudentGuardianLink {
+  id: string
+  student: string
+  student_name?: string
+  guardian: string
+  guardian_name?: string
+  kinship_type: KinshipType
+  is_emergency_contact: boolean
 }
 
 // ============ TEACHERS ============

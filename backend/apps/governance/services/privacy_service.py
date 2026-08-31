@@ -74,6 +74,54 @@ def record_consent(
     return record
 
 
+def register_student_consent(
+    *,
+    student,
+    consent_type: str,
+    granted: bool,
+    user,
+    ip_address: str | None = None,
+) -> ConsentRecord:
+    """Registra consentimento para um aluno **já resolvido** — sem checagem de escopo.
+
+    Usado no fluxo de cadastro de aluno (``POST /students/``), onde o titular
+    acabou de ser criado pelo próprio solicitante e ainda não tem matrícula que
+    o torne visível ao escopo RBAC da escola.
+    """
+    if consent_type not in ConsentType.values:
+        raise BusinessLogicError(
+            code='INVALID_FILTER',
+            message='Tipo de consentimento desconhecido.',
+        )
+    record = ConsentRecord.objects.create(
+        student=student,
+        user=user if getattr(user, 'is_authenticated', False) else None,
+        consent_type=consent_type,
+        granted=granted,
+        term_version=CURRENT_TERM_VERSION,
+        ip_address=ip_address or None,
+    )
+    log_action(
+        user=user,
+        action='CONSENT_GRANTED' if granted else 'CONSENT_REVOKED',
+        resource='privacy',
+        resource_id=str(student.id),
+        details={'consent_type': consent_type, 'term_version': CURRENT_TERM_VERSION},
+        ip_address=ip_address,
+    )
+    return record
+
+
+def has_active_consent(*, student, consent_type: str) -> bool:
+    """True se o registro mais recente do tipo informado está **concedido**."""
+    rec = (
+        student.consent_records.filter(consent_type=consent_type)
+        .order_by('-granted_at')
+        .first()
+    )
+    return bool(rec and rec.granted)
+
+
 def get_consent_status(*, student) -> list[dict]:
     """Último registro por tipo — a base do que o titular autorizou hoje."""
     latest: dict[str, ConsentRecord] = {}
