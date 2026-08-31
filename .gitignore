@@ -103,3 +103,9 @@ db.sqlite3
 
 # Microdados INEP (dados brutos volumosos — os filtrados de Igarassu ficam em backend/apps/governance/data/)
 /censo_2025/
+
+# Comercial & Planos de execução locais
+/comercial/
+comercial/
+.docs/PLANO_DE_EXECUCAO*
+
