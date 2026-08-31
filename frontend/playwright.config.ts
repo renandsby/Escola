@@ -1,5 +1,10 @@
 import { defineConfig, devices } from '@playwright/test'
 
+// Em CI apontamos para o container `escola_frontend` já no ar (E2E_BASE_URL);
+// localmente, o Playwright sobe o dev server.
+const baseURL = process.env.E2E_BASE_URL || 'http://localhost:3000'
+const useExternalServer = !!process.env.E2E_BASE_URL
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -8,7 +13,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL,
     trace: 'on-first-retry',
   },
 
@@ -27,9 +32,11 @@ export default defineConfig({
     },
   ],
 
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: useExternalServer
+    ? undefined
+    : {
+        command: 'npm run dev',
+        url: 'http://localhost:3000',
+        reuseExistingServer: !process.env.CI,
+      },
 })

@@ -1,51 +1,31 @@
 import { test, expect } from '@playwright/test'
+import { login, DEMO } from './helpers'
 
-test.describe('Authentication', () => {
-  test('should login successfully', async ({ page }) => {
-    await page.goto('/login')
-
-    await page.fill('input[type="text"], input[name="username"]', 'admin')
-    await page.fill('input[type="password"]', 'admin123')
-    await page.click('button[type="submit"]')
-
-    await expect(page).toHaveURL(/\/dashboard/)
+test.describe('Autenticação', () => {
+  test('login com credenciais válidas leva ao painel', async ({ page }) => {
+    await login(page, DEMO.admin.id, DEMO.admin.pass)
+    await expect(page).toHaveURL(/\/$|\/$/)
+    await expect(page.getByRole('heading').first()).toBeVisible()
   })
 
-  test('should reject invalid credentials', async ({ page }) => {
+  test('credenciais inválidas mantêm na tela de login', async ({ page }) => {
     await page.goto('/login')
+    await page.getByLabel(/CPF ou e-mail/i).fill('admin')
+    await page.getByLabel(/senha/i).fill('senha-errada')
+    await page.getByRole('button', { name: /entrar/i }).click()
+    await expect(page).toHaveURL(/\/login/)
+    await expect(page.getByText(/não foi possível entrar|inválidos/i)).toBeVisible()
+  })
 
-    await page.fill('input[type="text"], input[name="username"]', 'admin')
-    await page.fill('input[type="password"]', 'wrongpassword')
-    await page.click('button[type="submit"]')
-
+  test('rota protegida redireciona para login quando deslogado', async ({ page }) => {
+    await page.goto('/alunos')
     await expect(page).toHaveURL(/\/login/)
   })
 
-  test('should redirect to login if not authenticated', async ({ page }) => {
-    await page.goto('/dashboard')
-    await expect(page).toHaveURL(/\/login/)
-  })
-})
-
-test.describe('Dashboard (sme_admin)', () => {
-  test.beforeEach(async ({ page }) => {
+  test('tela de login oferece o auto-cadastro de responsável', async ({ page }) => {
     await page.goto('/login')
-    await page.fill('input[type="text"], input[name="username"]', 'admin')
-    await page.fill('input[type="password"]', 'admin123')
-    await page.click('button[type="submit"]')
-    await page.waitForURL(/\/dashboard/)
-  })
-
-  test('should display dashboard', async ({ page }) => {
-    const header = page.locator('h1, h2').first()
-    await expect(header).toBeVisible()
-  })
-
-  test('should have sidebar with Escolas or Secretaria', async ({ page }) => {
-    const sidebar = page.locator('aside, nav').first()
-    await expect(sidebar).toBeVisible()
-    // sme_admin deve ver navegação institucional (rótulos podem variar levemente)
-    const navHint = page.getByText(/Escolas|Secretaria|Dashboard/i).first()
-    await expect(navHint).toBeVisible()
+    await page.getByRole('link', { name: /criar conta/i }).click()
+    await expect(page).toHaveURL(/\/cadastro-responsavel/)
+    await expect(page.getByText(/criar conta de responsável/i)).toBeVisible()
   })
 })

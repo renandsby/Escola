@@ -1,0 +1,18 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "_comment": "Teste de mutação focado na lógica de risco (RBAC no cliente, mapeamento de erro, estado de sessão, schemas). Rodar sob demanda: npm run test:mutation",
+  "packageManager": "npm",
+  "testRunner": "vitest",
+  "reporters": ["html", "clear-text", "progress"],
+  "coverageAnalysis": "perTest",
+  "mutate": [
+    "src/services/errorMessages.ts",
+    "src/stores/authStore.ts",
+    "src/utils/validation.ts",
+    "src/utils/api-helpers.ts",
+    "src/features/**/schemas/*.ts",
+    "src/app/routes/ProtectedRoute.tsx"
+  ],
+  "thresholds": { "high": 80, "low": 60, "break": null },
+  "timeoutMS": 20000
+}

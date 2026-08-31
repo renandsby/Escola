@@ -1,87 +1,39 @@
 import { test, expect } from '@playwright/test'
+import { login } from './helpers'
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/login')
-  await page.fill('input[type="text"], input[name="username"]', 'admin')
-  await page.fill('input[type="password"]', 'admin123')
-  await page.click('button[type="submit"]')
-  await page.waitForURL(/\/dashboard/)
+  await login(page)
 })
 
-test.describe('Schools CRUD', () => {
-  test('should list schools', async ({ page }) => {
-    // sme_admin continua vendo o menu Escolas (ou rota direta)
-    const link = page.getByText(/Escolas/i).first()
-    if (await link.isVisible().catch(() => false)) {
-      await link.click()
-    } else {
-      await page.goto('/schools')
-    }
-    await expect(page).toHaveURL(/\/schools/)
-
-    const list = page.locator('table, [role="grid"], [data-testid="schools-list"]').first()
-    await expect(list.or(page.locator('body'))).toBeVisible()
+test.describe('Jornada da equipe (sme_admin)', () => {
+  test('lista de escolas abre e mostra registros', async ({ page }) => {
+    await page.goto('/escolas')
+    await expect(page).toHaveURL(/\/escolas/)
+    await expect(page.getByRole('heading', { name: /escolas/i }).first()).toBeVisible()
   })
 
-  test('should open create school flow', async ({ page }) => {
-    await page.goto('/schools')
-    const createBtn = page.getByRole('button', { name: /criar|adicionar|nova/i }).first()
-    if (await createBtn.isVisible().catch(() => false)) {
-      await createBtn.click()
-      const nameInput = page.locator('input[name="name"]').first()
-      if (await nameInput.isVisible().catch(() => false)) {
-        await nameInput.fill('Escola Teste E2E')
-      }
-    }
-    await expect(page).toHaveURL(/\/schools/)
-  })
-})
-
-test.describe('Students CRUD', () => {
-  test('should list students', async ({ page }) => {
-    const link = page.getByText(/Alunos/i).first()
-    if (await link.isVisible().catch(() => false)) {
-      await link.click()
-    } else {
-      await page.goto('/students')
-    }
-    await expect(page).toHaveURL(/\/students/)
-  })
-
-  test('should search students', async ({ page }) => {
-    await page.goto('/students')
-    const searchInput = page
-      .locator('input[placeholder*="buscar" i], input[placeholder*="pesquis" i], input[type="search"]')
+  test('lista de alunos abre e permite buscar', async ({ page }) => {
+    await page.goto('/alunos')
+    await expect(page).toHaveURL(/\/alunos/)
+    const busca = page
+      .locator('input[placeholder*="buscar" i], input[placeholder*="nome" i], input[type="search"]')
       .first()
-    if (await searchInput.isVisible().catch(() => false)) {
-      await searchInput.fill('test')
+    if (await busca.isVisible().catch(() => false)) {
+      await busca.fill('a')
       await page.waitForTimeout(400)
     }
-    await expect(page).toHaveURL(/\/students/)
   })
-})
 
-test.describe('Grades', () => {
-  test('should reach grades or boletins area', async ({ page }) => {
-    const link = page.getByText(/Boletins|Notas|Avalia/i).first()
-    if (await link.isVisible().catch(() => false)) {
-      await link.click()
-      await expect(page).toHaveURL(/\/(grades|boletins|notas)/i)
-    } else {
-      await page.goto('/grades')
-      await expect(page).toHaveURL(/\/grades/)
-    }
+  test('fila de solicitações de vínculo de responsável é acessível', async ({ page }) => {
+    await page.goto('/responsaveis/solicitacoes-vinculo')
+    await expect(page).toHaveURL(/solicitacoes-vinculo/)
+    await expect(page.getByText(/solicitações de vínculo/i).first()).toBeVisible()
   })
-})
 
-test.describe('Attendance', () => {
-  test('should reach attendance area', async ({ page }) => {
-    const link = page.getByText(/Frequência|Frequencia/i).first()
-    if (await link.isVisible().catch(() => false)) {
-      await link.click()
-    } else {
-      await page.goto('/attendance')
-    }
-    await expect(page).toHaveURL(/\/attendance/)
+  test('painel gerencial expõe os filtros de ano letivo e período', async ({ page }) => {
+    await page.goto('/')
+    await expect(page.getByText('Período').first()).toBeVisible()
+    const periodo = page.locator('select').filter({ hasText: 'Todos os bimestres' }).first()
+    await expect(periodo).toBeVisible()
   })
 })

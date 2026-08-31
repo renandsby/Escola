@@ -12,7 +12,8 @@
     "test": "vitest",
     "test:coverage": "vitest --coverage",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "test:mutation": "stryker run"
   },
   "dependencies": {
     "@hookform/resolvers": "3.3.4",
@@ -36,8 +37,11 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.40.0",
+    "@stryker-mutator/core": "^8.2.6",
+    "@stryker-mutator/vitest-runner": "^8.2.6",
     "@testing-library/jest-dom": "^6.1.5",
     "@testing-library/react": "^14.1.2",
+    "@testing-library/user-event": "^14.5.2",
     "@types/js-cookie": "^3.0.6",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
