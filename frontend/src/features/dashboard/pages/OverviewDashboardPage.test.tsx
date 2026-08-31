@@ -15,9 +15,17 @@ const overview: DashboardOverview = {
   period: {
     academic_year: 2025,
     term: 3,
+    is_all_terms: false,
     term_label: '3º bimestre',
     grade_deadline: '2025-09-12',
     days_to_deadline: 6,
+    available_years: [2025, 2024],
+    available_terms: [
+      { value: 1, label: '1º Bimestre' },
+      { value: 2, label: '2º Bimestre' },
+      { value: 3, label: '3º Bimestre' },
+      { value: 4, label: '4º Bimestre' },
+    ],
   },
   filters: { stage: null, shift: null },
   kpis: {

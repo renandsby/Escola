@@ -28,6 +28,8 @@ export default function OverviewDashboardPage() {
       school_id: sp.get('school_id') ?? undefined,
       stage: sp.get('stage') ?? undefined,
       shift: sp.get('shift') ?? undefined,
+      term: sp.get('term') ?? undefined,
+      year: sp.get('year') ?? undefined,
     }),
     [sp]
   )
@@ -173,9 +175,12 @@ export default function OverviewDashboardPage() {
       <DashboardFilters
         stage={params.stage ?? ''}
         shift={params.shift ?? ''}
-        termLabel={period.term_label}
+        term={params.term ?? ''}
+        year={params.year ?? (period.academic_year ? String(period.academic_year) : '')}
+        years={period.available_years ?? []}
+        terms={period.available_terms ?? []}
         onChange={patch}
-        onClear={() => patch({ stage: undefined, shift: undefined })}
+        onClear={() => patch({ stage: undefined, shift: undefined, term: undefined })}
       />
 
       <KpiStrip kpis={kpis} deadlineHint={deadlineHint} />

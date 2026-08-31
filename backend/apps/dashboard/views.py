@@ -62,5 +62,6 @@ class DashboardOverviewView(APIView):
                 stage=q.get('stage'),
                 shift=q.get('shift'),
                 term=q.get('term'),
+                year=q.get('year'),
             )
         )

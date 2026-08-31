@@ -20,19 +20,65 @@ const SHIFTS = [
 export function DashboardFilters({
   stage,
   shift,
-  termLabel,
+  term,
+  year,
+  years,
+  terms,
   onChange,
   onClear,
 }: {
   stage: string
   shift: string
-  termLabel: string | null
-  onChange: (patch: { stage?: string; shift?: string }) => void
+  term: string
+  year: string
+  years: number[]
+  terms: { value: number; label: string }[]
+  onChange: (patch: {
+    stage?: string
+    shift?: string
+    term?: string
+    year?: string
+  }) => void
   onClear: () => void
 }) {
-  const dirty = !!stage || !!shift
+  const dirty = !!stage || !!shift || !!term
+  const selectClass =
+    'h-control min-w-[150px] rounded border border-line-strong bg-white px-3 text-base'
   return (
     <div className="flex flex-wrap items-end gap-4 rounded-lg border border-line bg-white px-[18px] py-4">
+      {years.length > 0 && (
+        <label className="grid gap-1.5">
+          <span className="text-label text-ink-700">Ano letivo</span>
+          <select
+            value={year || String(years[0] ?? '')}
+            onChange={(e) => onChange({ year: e.target.value })}
+            className={selectClass}
+          >
+            {years.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
+      <label className="grid gap-1.5">
+        <span className="text-label text-ink-700">Período</span>
+        <select
+          value={term}
+          onChange={(e) => onChange({ term: e.target.value })}
+          className={selectClass}
+        >
+          <option value="">Todos os bimestres</option>
+          {terms.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
       <label className="grid gap-1.5">
         <span className="text-label text-ink-700">Etapa de ensino</span>
         <select
@@ -47,13 +93,6 @@ export function DashboardFilters({
           ))}
         </select>
       </label>
-
-      <div className="grid gap-1.5">
-        <span className="text-label text-ink-700">Período</span>
-        <span className="flex h-control items-center rounded border border-line-strong bg-surface-subtle px-3 text-base text-ink-500">
-          {termLabel ?? 'Sem período ativo'}
-        </span>
-      </div>
 
       <div className="grid gap-1.5">
         <span className="text-label text-ink-700">Turno</span>

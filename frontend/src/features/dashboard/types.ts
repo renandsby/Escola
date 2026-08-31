@@ -12,9 +12,12 @@ export interface DashboardScope {
 export interface DashboardPeriod {
   academic_year: number | null
   term: number | null
+  is_all_terms?: boolean
   term_label: string | null
   grade_deadline: string | null
   days_to_deadline: number | null
+  available_years?: number[]
+  available_terms?: { value: number; label: string }[]
 }
 
 export interface Kpi {
@@ -135,4 +138,5 @@ export interface OverviewParams {
   stage?: string
   shift?: string
   term?: string
+  year?: string
 }

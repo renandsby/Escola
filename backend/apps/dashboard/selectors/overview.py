@@ -83,6 +83,33 @@ def _current_period(year, term):
     )
 
 
+def _parse_term(value):
+    """`term` da query string → 1..4, ou None (= todos os bimestres / ano completo)."""
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return None
+    return n if 1 <= n <= 4 else None
+
+
+def _resolve_year(dept_id, year_param):
+    """Ano letivo pedido (por número) dentro da rede; senão o ativo; senão o mais recente."""
+    if not dept_id:
+        return None
+    qs = AcademicYear.objects.filter(education_department_id=dept_id)
+    if year_param:
+        try:
+            picked = qs.filter(year=int(year_param)).first()
+        except (TypeError, ValueError):
+            picked = None
+        if picked:
+            return picked
+    return (
+        qs.filter(status=AcademicYearStatus.ACTIVE).order_by('-year').first()
+        or qs.order_by('-year').first()
+    )
+
+
 # --------------------------------------------------------------------------- #
 #  Escopo efetivo                                                              #
 # --------------------------------------------------------------------------- #
@@ -130,7 +157,7 @@ def _scoped_querysets(user, *, level, school, year, stage, shift):
 # --------------------------------------------------------------------------- #
 
 
-def _kpis(user, classes, enrollments, *, level, school, year, period):
+def _kpis(user, classes, enrollments, *, level, school, year, period_ids, attendance_window):
     active = enrollments.count()
     has_enrollments = active > 0
 
@@ -138,9 +165,13 @@ def _kpis(user, classes, enrollments, *, level, school, year, period):
     attendance_avg = None
     below_minimum = None
     if has_enrollments:
+        att_qs = Attendance.objects.filter(enrollment__in=enrollments)
+        if attendance_window:
+            att_qs = att_qs.filter(
+                date__gte=attendance_window[0], date__lte=attendance_window[1]
+            )
         per_enrollment = list(
-            Attendance.objects.filter(enrollment__in=enrollments)
-            .values('enrollment_id')
+            att_qs.values('enrollment_id')
             .annotate(total=Count('id'), present=Count('id', filter=Q(status='PRESENT')))
         )
         rates = [row['present'] / row['total'] for row in per_enrollment if row['total']]
@@ -148,7 +179,7 @@ def _kpis(user, classes, enrollments, *, level, school, year, period):
             attendance_avg = round(sum(rates) / len(rates) * 100, 1)
             below_minimum = sum(1 for r in rates if r < 0.75)
 
-    diary_completeness = _diary_completeness_pct(enrollments, period)
+    diary_completeness = _diary_completeness_pct(enrollments, period_ids)
 
     transfers = get_transfer_requests_for_user(user=user)
     if level == 'school' and school is not None:
@@ -214,20 +245,20 @@ def _completeness_tone(value):
     return 'ok'
 
 
-def _diary_completeness_pct(enrollments, period):
-    """células lançadas / esperadas no período. Sem matrícula/notas → None."""
-    if period is None or not enrollments.exists():
+def _diary_completeness_pct(enrollments, period_ids):
+    """células lançadas / esperadas nos períodos selecionados. Sem base → None."""
+    if not period_ids or not enrollments.exists():
         return None
     launched = Grade.objects.filter(
-        enrollment__in=enrollments, academic_period=period
+        enrollment__in=enrollments, academic_period_id__in=period_ids
     ).count()
-    # células esperadas = matrícula × disciplinas da matriz da turma
+    # células esperadas = matrícula × disciplinas da matriz × nº de bimestres selecionados
     expected = (
         enrollments.aggregate(
             n=Count('school_class__curriculum_matrix__items', distinct=False)
         )['n']
         or 0
-    )
+    ) * len(period_ids)
     if not expected:
         return None
     return round(launched / expected * 100, 1)
@@ -310,7 +341,7 @@ def _attendance_trend(enrollments, year, *, prev_enrollments=None, prev_year=Non
     return data
 
 
-def _performance(enrollments, year):
+def _performance(enrollments, year, period_ids=None):
     if year is None or not enrollments.exists():
         return None
     dept = year.education_department
@@ -318,6 +349,8 @@ def _performance(enrollments, year):
     grades = Grade.objects.filter(enrollment__in=enrollments).select_related(
         'enrollment__school_class__curriculum_matrix__education_stage'
     )
+    if period_ids:
+        grades = grades.filter(academic_period_id__in=period_ids)
     if not grades.exists():
         return None
     buckets: dict[str, dict] = {}
@@ -494,21 +527,22 @@ def _expected_cells_by(enrollments, group_field):
     }
 
 
-def _launched_grades_by(enrollment_ids, period, group_field):
-    if period is None or not enrollment_ids:
+def _launched_grades_by(enrollment_ids, period_ids, group_field):
+    if not period_ids or not enrollment_ids:
         return {}
     return {
         r[group_field]: r['n']
         for r in Grade.objects.filter(
-            enrollment_id__in=enrollment_ids, academic_period=period
+            enrollment_id__in=enrollment_ids, academic_period_id__in=period_ids
         )
         .values(group_field)
         .annotate(n=Count('id'))
     }
 
 
-def _diary_completeness(user, classes, enrollments, *, level, period, schools):
+def _diary_completeness(user, classes, enrollments, *, level, period, period_ids, schools):
     deadline = period.grade_deadline.isoformat() if period else None
+    term_count = max(len(period_ids), 1)
     regent_class_ids = set(
         TeacherAllocation.objects.filter(school_class__in=classes, is_regent=True)
         .values_list('school_class_id', flat=True)
@@ -540,7 +574,7 @@ def _diary_completeness(user, classes, enrollments, *, level, period, schools):
 
         expected = _expected_cells_by(enrollments, 'school_class__school_id')
         launched = _launched_grades_by(
-            enrollment_ids, period, 'enrollment__school_class__school_id'
+            enrollment_ids, period_ids, 'enrollment__school_class__school_id'
         )
         attendance = _attendance_pct_by(
             enrollment_ids, 'enrollment__school_class__school_id'
@@ -549,7 +583,7 @@ def _diary_completeness(user, classes, enrollments, *, level, period, schools):
         for sid, info in by_school.items():
             if not info['classes']:
                 continue
-            exp = expected.get(sid, 0)
+            exp = expected.get(sid, 0) * term_count
             pct = round(launched.get(sid, 0) / exp * 100, 1) if exp else None
             is_qual = info['infantil'] == info['classes']
             st = _status_for_completeness(
@@ -584,12 +618,12 @@ def _diary_completeness(user, classes, enrollments, *, level, period, schools):
         for x in enrollments.values('school_class_id').annotate(n=Count('id'))
     }
     expected = _expected_cells_by(enrollments, 'school_class_id')
-    launched = _launched_grades_by(enrollment_ids, period, 'enrollment__school_class_id')
+    launched = _launched_grades_by(enrollment_ids, period_ids, 'enrollment__school_class_id')
     attendance = _attendance_pct_by(enrollment_ids, 'enrollment__school_class_id')
 
     for c in classes.select_related('curriculum_matrix__education_stage').order_by('name'):
         is_qual = c.id in infantil_class_ids
-        exp = expected.get(c.id, 0)
+        exp = expected.get(c.id, 0) * term_count
         pct = round(launched.get(c.id, 0) / exp * 100, 1) if exp else None
         st = _status_for_completeness(
             pct, has_regent=c.id in regent_class_ids, is_qualitative=is_qual
@@ -697,20 +731,35 @@ def _needs_you(user, classes, enrollments, *, level, school, kpis):
 # --------------------------------------------------------------------------- #
 
 
-def get_dashboard_overview(*, user, scope=None, school_id=None, stage=None, shift=None, term=None):
+def get_dashboard_overview(
+    *, user, scope=None, school_id=None, stage=None, shift=None, term=None, year=None
+):
     dept_id = _department_id(user)
-    year = _current_year(dept_id)
-    try:
-        term_int = int(term) if term else None
-    except (TypeError, ValueError):
-        term_int = None
-    period = _current_period(year, term_int)
+    academic_year = _resolve_year(dept_id, year)
+    term_int = _parse_term(term)
+
+    all_periods = (
+        list(
+            AcademicPeriod.objects.filter(academic_year=academic_year).order_by('period_number')
+        )
+        if academic_year
+        else []
+    )
+    selected_periods = (
+        [p for p in all_periods if p.period_number == term_int] if term_int else all_periods
+    )
+    selected_period_ids = [p.id for p in selected_periods]
+    # período único (deadline/label) só quando um bimestre específico foi escolhido
+    period = selected_periods[0] if term_int and selected_periods else None
+    attendance_window = (
+        (period.start_date, period.end_date) if period else None
+    )
 
     level, school, can_switch, schools_qs = _resolve_scope(
         user, scope=scope, school_id=school_id
     )
     classes, enrollments = _scoped_querysets(
-        user, level=level, school=school, year=year, stage=stage, shift=shift
+        user, level=level, school=school, year=academic_year, stage=stage, shift=shift
     )
 
     if level == 'network':
@@ -728,14 +777,15 @@ def get_dashboard_overview(*, user, scope=None, school_id=None, stage=None, shif
         )
 
     kpis = _kpis(
-        user, classes, enrollments, level=level, school=school, year=year, period=period
+        user, classes, enrollments, level=level, school=school, year=academic_year,
+        period_ids=selected_period_ids, attendance_window=attendance_window,
     )
 
     prev_year = (
         AcademicYear.objects.filter(
-            education_department_id=dept_id, year=year.year - 1
+            education_department_id=dept_id, year=academic_year.year - 1
         ).first()
-        if year
+        if academic_year
         else None
     )
     prev_enrollments = None
@@ -754,25 +804,38 @@ def get_dashboard_overview(*, user, scope=None, school_id=None, stage=None, shif
             'schools': [{'id': str(s.id), 'name': s.name} for s in schools_qs],
         },
         'period': {
-            'academic_year': year.year if year else None,
-            'term': period.period_number if period else None,
-            'term_label': period.name if period else None,
+            'academic_year': academic_year.year if academic_year else None,
+            'term': term_int,
+            'is_all_terms': term_int is None,
+            'term_label': (
+                period.name if period else ('Ano completo' if all_periods else None)
+            ),
             'grade_deadline': period.grade_deadline.isoformat() if period else None,
             'days_to_deadline': (
                 (period.grade_deadline - date.today()).days if period else None
             ),
+            'available_years': list(
+                AcademicYear.objects.filter(education_department_id=dept_id)
+                .order_by('-year')
+                .values_list('year', flat=True)
+            ),
+            'available_terms': [
+                {'value': p.period_number, 'label': p.name} for p in all_periods
+            ],
         },
         'filters': {'stage': stage, 'shift': shift},
         'kpis': kpis,
         'attendance_trend': _attendance_trend(
-            enrollments, year,
+            enrollments, academic_year,
             prev_enrollments=prev_enrollments, prev_year=prev_year, schools=trend_schools,
         ),
-        'performance': _performance(enrollments, year),
+        'performance': _performance(enrollments, academic_year, selected_period_ids),
         'enrollment_by_stage': _enrollment_by_stage(classes, enrollments),
-        'movement': _movement(user, year, level, school),
+        'movement': _movement(user, academic_year, level, school),
         'diary_completeness': _diary_completeness(
-            user, classes, enrollments, level=level, period=period, schools=schools_qs or get_schools_for_user(user=user)
+            user, classes, enrollments, level=level, period=period,
+            period_ids=selected_period_ids,
+            schools=schools_qs or get_schools_for_user(user=user),
         ),
         'needs_you': _needs_you(
             user, classes, enrollments, level=level, school=school, kpis=kpis

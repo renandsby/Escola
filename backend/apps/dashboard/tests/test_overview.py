@@ -205,3 +205,70 @@ class TestDiaryCompleteness:
         assert data["group_by"] == "class"
         assert data["rows"][0]["grades_launched_pct"] == 50.0
         assert data["rows"][0]["average_attendance"] == 80.0
+
+
+@pytest.mark.django_db
+class TestYearAndTermSelectors:
+    def _fixture(self):
+        from datetime import date
+
+        from apps.class_diary.tests.factories import (
+            AcademicPeriodFactory,
+            GradeFactory,
+        )
+        from apps.curriculum.tests.factories import CurriculumMatrixItemFactory
+
+        dept = EducationDepartmentFactory()
+        year = AcademicYearFactory(education_department=dept, status="ACTIVE", year=2025)
+        AcademicYearFactory(education_department=dept, status="CLOSED", year=2024)
+        periods = [
+            AcademicPeriodFactory(
+                academic_year=year,
+                period_number=n,
+                start_date=date(2025, 1 + (n - 1) * 3, 1),
+                end_date=date(2025, 3 + (n - 1) * 3, 20),
+            )
+            for n in range(1, 5)
+        ]
+        school = SchoolFactory(education_department=dept)
+        klass = SchoolClassFactory(school=school, academic_year=year)
+        item = CurriculumMatrixItemFactory(curriculum_matrix=klass.curriculum_matrix)
+        TeacherAllocationFactory(school_class=klass, is_regent=True)
+        enr = EnrollmentFactory(
+            student=StudentFactory(education_department=dept), school_class=klass
+        )
+        # nota lançada só no 1º bimestre
+        GradeFactory(
+            enrollment=enr, subject=item.subject, academic_period=periods[0], score="9.0"
+        )
+        return dept, year
+
+    def test_payload_exposes_years_and_terms(self):
+        dept, year = self._fixture()
+        res = _client(SMEAdminFactory(education_department=dept)).get(URL)
+
+        period = res.data["period"]
+        assert period["academic_year"] == 2025
+        assert period["available_years"] == [2025, 2024]
+        assert [t["value"] for t in period["available_terms"]] == [1, 2, 3, 4]
+        assert period["is_all_terms"] is True
+        assert period["term"] is None
+
+    def test_term_filter_scopes_performance_to_the_bimester(self):
+        dept, year = self._fixture()
+        client = _client(SMEAdminFactory(education_department=dept))
+
+        # 1º bimestre → há nota
+        r1 = client.get(URL, {"term": "1"})
+        assert r1.data["period"]["term"] == 1
+        assert r1.data["period"]["is_all_terms"] is False
+        assert r1.data["performance"] is not None
+
+        # 2º bimestre → sem nota lançada
+        r2 = client.get(URL, {"term": "2"})
+        assert r2.data["performance"] is None
+
+    def test_year_filter_switches_the_academic_year(self):
+        dept, year = self._fixture()
+        res = _client(SMEAdminFactory(education_department=dept)).get(URL, {"year": "2024"})
+        assert res.data["period"]["academic_year"] == 2024
