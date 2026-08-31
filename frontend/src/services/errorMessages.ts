@@ -190,6 +190,77 @@ export const ERROR_MESSAGES: Record<string, ErrorDef> = {
       'Este período já tem notas ou pareceres lançados e não pode ser excluído.',
   },
 
+  // --- Portal do responsável / vinculação (DX-SGE-006) ---
+  CPF_ALREADY_REGISTERED: {
+    title: 'CPF já cadastrado',
+    message: () =>
+      'Já existe uma conta com este CPF. Use "Já tenho conta" para entrar ou recupere a senha.',
+  },
+  EMAIL_ALREADY_REGISTERED: {
+    title: 'E-mail já cadastrado',
+    message: () => 'Já existe uma conta com este e-mail. Entre ou recupere a senha.',
+  },
+  GUARDIAN_ALREADY_LINKED: {
+    title: 'Responsável já vinculado a uma conta',
+    message: () => 'Este CPF de responsável já está associado a outro acesso. Procure a escola.',
+  },
+  EMAIL_NOT_VERIFIED: {
+    title: 'Confirme o seu e-mail',
+    message: () =>
+      'Enviamos um link de confirmação para o seu e-mail. Confirme para acessar a vida escolar.',
+  },
+  EMAIL_ALREADY_VERIFIED: {
+    title: 'E-mail já confirmado',
+    message: () => 'Este e-mail já foi verificado. Você já pode acessar normalmente.',
+  },
+  INVALID_VERIFICATION_TOKEN: {
+    title: 'Link inválido',
+    message: () => 'Este link de verificação é inválido ou já foi utilizado.',
+  },
+  EXPIRED_VERIFICATION_TOKEN: {
+    title: 'Link expirado',
+    message: () => 'O link de verificação expirou. Solicite um novo e-mail de confirmação.',
+  },
+  STUDENT_MATCH_FAILED: {
+    title: 'Não foi possível confirmar o vínculo',
+    message: () =>
+      'Os dados informados não conferem com o cadastro do estudante. ' +
+      'Confira CPF, data de nascimento e nome da mãe, ou peça um código à escola.',
+  },
+  REQUEST_PENDING: {
+    title: 'Solicitação já enviada',
+    message: () => 'Você já tem uma solicitação de vínculo aguardando a análise da escola.',
+  },
+  ALREADY_LINKED: {
+    title: 'Estudante já vinculado',
+    message: () => 'Este estudante já está vinculado à sua conta.',
+  },
+  INVALID_LINK_CODE: {
+    title: 'Código inválido',
+    message: () =>
+      'O código de vinculação é inválido, expirou ou já foi utilizado. Peça um novo à escola.',
+  },
+  REJECTION_NOTE_REQUIRED: {
+    title: 'Justificativa obrigatória',
+    message: () => 'Informe o motivo da recusa para o responsável.',
+  },
+  LINK_ALREADY_REVIEWED: {
+    title: 'Solicitação já analisada',
+    message: () => 'Esta solicitação de vínculo já foi aprovada ou recusada.',
+  },
+  CAPTCHA_REQUIRED: {
+    title: 'Confirmação anti-robô',
+    message: () => 'Confirme que você não é um robô e tente novamente.',
+  },
+  CAPTCHA_INVALID: {
+    title: 'Falha na verificação anti-robô',
+    message: () => 'Não foi possível validar a confirmação anti-robô. Tente novamente.',
+  },
+  CAPTCHA_UNAVAILABLE: {
+    title: 'Verificação indisponível',
+    message: () => 'O serviço anti-robô está indisponível no momento. Tente novamente em instantes.',
+  },
+
   // --- Genéricos do envelope ---
   VALIDATION_ERROR: {
     title: 'Dados inválidos',

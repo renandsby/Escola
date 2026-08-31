@@ -1,0 +1,13 @@
+Olá, {{ user_name }}!
+
+Recebemos o seu cadastro no portal da Rede Municipal de Educação.
+
+Para acessar as informações escolares dos seus dependentes, confirme o seu
+e-mail clicando no link abaixo:
+
+{{ link }}
+
+Este link é válido por 3 dias. Se você não fez este cadastro, ignore esta
+mensagem.
+
+Rede Municipal de Educação

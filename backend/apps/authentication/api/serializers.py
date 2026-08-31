@@ -9,6 +9,8 @@ from apps.authentication.models import Permission, Profile, LoginLog
 
 def build_jwt_payload(user, refresh) -> dict:
     """Corpo padrão de resposta de login (``access`` + ``refresh`` + ``user``)."""
+    from apps.authentication.services.email_verification_service import is_verified
+
     return {
         'refresh': str(refresh),
         'access': str(refresh.access_token),
@@ -20,6 +22,7 @@ def build_jwt_payload(user, refresh) -> dict:
             'last_name': user.last_name,
             'role': user.role,
             'cpf': user.cpf,
+            'email_verified': is_verified(user),
             'school': str(user.school_id) if user.school_id else None,
             'education_department': (
                 str(user.education_department_id) if user.education_department_id else None
@@ -303,6 +306,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'last_name',
             'phone',
             'cpf',
+            'email_verified',
             'avatar',
             'bio',
             'role',
@@ -313,7 +317,16 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['id', 'username', 'cpf', 'created_at', 'updated_at', 'role']
+        read_only_fields = [
+            'id', 'username', 'cpf', 'email_verified', 'created_at', 'updated_at', 'role',
+        ]
+
+    email_verified = serializers.SerializerMethodField()
+
+    def get_email_verified(self, obj):
+        from apps.authentication.services.email_verification_service import is_verified
+
+        return is_verified(obj)
 
     school_name = serializers.CharField(source='school.name', read_only=True, allow_null=True)
 

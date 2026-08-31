@@ -5,6 +5,9 @@
  */
 export const ROUTES = {
   login: '/login',
+  guardianSelfRegister: '/cadastro-responsavel',
+  verifyEmail: (token: string) => `/verificar-email/${token}`,
+  verifyEmailPending: '/verificar-email/pendente',
   forgotPassword: '/esqueci-senha',
   resetPassword: (token: string) => `/redefinir-senha/${token}`,
   home: '/', // Painel do dia
@@ -31,6 +34,7 @@ export const ROUTES = {
   student: (id: string) => `/alunos/${id}`,
   studentEdit: (id: string) => `/alunos/${id}/editar`,
   guardians: '/responsaveis',
+  guardianLinkRequests: '/responsaveis/solicitacoes-vinculo',
   guardianNew: '/responsaveis/novo',
   guardian: (id: string) => `/responsaveis/${id}`,
   guardianEdit: (id: string) => `/responsaveis/${id}/editar`,

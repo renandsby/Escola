@@ -109,6 +109,13 @@ export default function LoginPage() {
             </Link>
           </form>
         </FormProvider>
+
+        <div className="mt-6 border-t border-line pt-4 text-center text-help text-ink-500">
+          É responsável e ainda não tem acesso?{' '}
+          <Link to={ROUTES.guardianSelfRegister} className="text-brand-700 hover:underline">
+            Criar conta
+          </Link>
+        </div>
       </div>
 
       {challengeToken && (

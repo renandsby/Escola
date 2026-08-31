@@ -6,18 +6,34 @@ from apps.students.models import Enrollment, EnrollmentStatus, Guardian, Student
 
 
 def get_dependents_for_user(*, user):
-    """Alunos vinculados ao usuário logado (perfil próprio + vínculos de responsável)."""
+    """Alunos com vínculo **CONFIRMED** para o usuário (perfil próprio + vínculos
+    de responsável). Vínculo pendente não conta (DX-SGE-006)."""
     ids: set = set()
     student_profile = getattr(user, 'student_profile', None)
     if student_profile is not None:
         ids.add(student_profile.pk)
     guardian = getattr(user, 'guardian_profile', None)
     if guardian is not None:
-        ids.update(guardian.student_links.values_list('student_id', flat=True))
+        ids.update(
+            guardian.student_links.filter(status='CONFIRMED').values_list('student_id', flat=True)
+        )
     return (
         Student.objects.filter(id__in=ids, deleted_at__isnull=True)
         .select_related('education_department')
         .order_by('full_name')
+    )
+
+
+def get_pending_links_for_user(*, user):
+    """Vínculos ainda não confirmados do responsável — para o portal mostrar
+    'aguardando a escola'."""
+    guardian = getattr(user, 'guardian_profile', None)
+    if guardian is None:
+        return StudentGuardian.objects.none()
+    return (
+        guardian.student_links.exclude(status='CONFIRMED')
+        .select_related('student')
+        .order_by('-confirmed_at', 'student__full_name')
     )
 
 
@@ -68,6 +84,25 @@ def get_dependents_summary(*, user):
                 'grade_average': round(float(grade_avg), 1) if grade_avg is not None else None,
                 'attendance_pct': attendance_pct,
                 'has_active_enrollment': enrollment is not None,
+                'link_status': 'CONFIRMED',
+            }
+        )
+
+    for link in get_pending_links_for_user(user=user):
+        out.append(
+            {
+                'student_id': str(link.student_id),
+                'full_name': link.student.social_name or link.student.full_name,
+                'unique_municipal_id': link.student.unique_municipal_id,
+                'school': None,
+                'school_class': None,
+                'shift': None,
+                'academic_year': None,
+                'grade_average': None,
+                'attendance_pct': None,
+                'has_active_enrollment': False,
+                'link_status': link.status,
+                'rejection_note': link.rejection_note or None,
             }
         )
     return out

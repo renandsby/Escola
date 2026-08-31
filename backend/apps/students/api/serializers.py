@@ -132,9 +132,32 @@ class GuardianListSerializer(serializers.ModelSerializer):
         fields = ['id', 'full_name', 'cpf', 'phone', 'email', 'is_active']
 
 
+class GuardianSelfRegisterSerializer(serializers.Serializer):
+    """Auto-cadastro público de responsável (DX-SGE-006)."""
+
+    full_name = serializers.CharField(max_length=200)
+    cpf = CPFSerializerField(required=True)
+    email = serializers.EmailField(required=True)
+    phone = serializers.CharField(max_length=20)
+    password = serializers.CharField(write_only=True, min_length=8)
+    password_confirm = serializers.CharField(write_only=True, min_length=8)
+    address = serializers.CharField(max_length=255, required=False, allow_blank=True, default='')
+    occupation = serializers.CharField(max_length=100, required=False, allow_blank=True, default='')
+    captcha_token = serializers.CharField(write_only=True, required=False, allow_blank=True, default='')
+
+    def validate(self, data):
+        if data['password'] != data['password_confirm']:
+            raise serializers.ValidationError({'password_confirm': 'As senhas não coincidem.'})
+        data.pop('password_confirm')
+        return data
+
+
 class StudentGuardianSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.full_name', read_only=True)
     guardian_name = serializers.CharField(source='guardian.full_name', read_only=True)
+    requested_by_name = serializers.CharField(
+        source='requested_by.get_full_name', read_only=True, allow_null=True
+    )
 
     class Meta:
         model = StudentGuardian
@@ -146,7 +169,46 @@ class StudentGuardianSerializer(serializers.ModelSerializer):
             'guardian_name',
             'kinship_type',
             'is_emergency_contact',
+            'status',
+            'verification_method',
+            'requested_by',
+            'requested_by_name',
+            'confirmed_at',
+            'rejection_note',
         ]
+        read_only_fields = [
+            'status', 'verification_method', 'requested_by', 'confirmed_at', 'rejection_note',
+        ]
+
+
+class LinkRequestInputSerializer(serializers.Serializer):
+    student_cpf = CPFSerializerField(required=True)
+    birth_date = serializers.DateField(required=True)
+    mother_name = serializers.CharField(max_length=200, required=True)
+    kinship_type = serializers.ChoiceField(
+        choices=['MOTHER', 'FATHER', 'LEGAL_GUARDIAN', 'GRANDPARENT', 'OTHER']
+    )
+    is_emergency_contact = serializers.BooleanField(required=False, default=False)
+
+
+class LinkReviewInputSerializer(serializers.Serializer):
+    decision = serializers.ChoiceField(choices=['approve', 'reject'])
+    note = serializers.CharField(required=False, allow_blank=True, default='')
+
+
+class LinkByCodeInputSerializer(serializers.Serializer):
+    student_cpf = CPFSerializerField(required=True)
+    code = serializers.CharField(max_length=20, required=True)
+
+
+class LinkCodeInputSerializer(serializers.Serializer):
+    kinship_hint = serializers.ChoiceField(
+        choices=['MOTHER', 'FATHER', 'LEGAL_GUARDIAN', 'GRANDPARENT', 'OTHER'],
+        required=False,
+        allow_blank=True,
+        default='',
+    )
+    ttl_hours = serializers.IntegerField(required=False, min_value=1, max_value=336, default=72)
 
 
 # ---------------------------------------------------------------------------

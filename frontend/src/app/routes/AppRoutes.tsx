@@ -10,6 +10,9 @@ import { PlaceholderPage } from '@/components/feedback/PlaceholderPage'
 import LoginPage from '@/features/authentication/pages/LoginPage'
 import ForgotPasswordPage from '@/features/authentication/pages/ForgotPasswordPage'
 import ResetPasswordPage from '@/features/authentication/pages/ResetPasswordPage'
+import EmailVerificationPage from '@/features/authentication/pages/EmailVerificationPage'
+import GuardianSelfRegisterPage from '@/features/guardians/pages/GuardianSelfRegisterPage'
+import LinkRequestsQueuePage from '@/features/guardians/pages/LinkRequestsQueuePage'
 import UsersListPage from '@/features/authentication/pages/UsersListPage'
 import UserFormPage from '@/features/authentication/pages/UserFormPage'
 import DashboardPage from '@/pages/dashboard/DashboardPage'
@@ -84,6 +87,9 @@ export function AppRoutes() {
       <Route path="/login" element={<LoginRoute />} />
       <Route path={ROUTES.forgotPassword} element={<ForgotPasswordPage />} />
       <Route path="/redefinir-senha/:token" element={<ResetPasswordPage />} />
+      <Route path={ROUTES.guardianSelfRegister} element={<GuardianSelfRegisterPage />} />
+      <Route path={ROUTES.verifyEmailPending} element={<EmailVerificationPage />} />
+      <Route path="/verificar-email/:token" element={<EmailVerificationPage />} />
 
       {/* Redirects das rotas antigas (inglês) */}
       {Object.entries(LEGACY_REDIRECTS).map(([from, to]) => (
@@ -127,6 +133,10 @@ export function AppRoutes() {
             element={guard([...SME, ...SCHOOL_MGMT, 'teacher', 'student_guardian'], <StudentDetailPage />)}
           />
           <Route path={ROUTES.guardians} element={guard([...SME, ...SCHOOL_MGMT], <GuardiansListPage />)} />
+          <Route
+            path={ROUTES.guardianLinkRequests}
+            element={guard([...SME, ...SCHOOL_MGMT], <LinkRequestsQueuePage />)}
+          />
           <Route path={ROUTES.guardianNew} element={guard([...SME, ...SCHOOL_MGMT], <GuardianFormPage />)} />
           <Route path="/responsaveis/:id/editar" element={guard([...SME, ...SCHOOL_MGMT], <GuardianFormPage />)} />
           <Route path="/responsaveis/:id" element={guard([...SME, ...SCHOOL_MGMT], <GuardianDetailPage />)} />

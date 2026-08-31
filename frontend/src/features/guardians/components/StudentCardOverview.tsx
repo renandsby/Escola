@@ -1,24 +1,14 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileDown, MessageSquare } from 'lucide-react'
+import { Clock, FileDown, MessageSquare, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/utils/cn'
 import { downloadBoletimPdf } from '@/features/reports/api/officialDocs'
 import { ROUTES } from '@/app/routes/paths'
+import type { Dependent } from '@/types/api'
 
-export type Dependent = {
-  student_id: string
-  full_name: string
-  unique_municipal_id: string
-  school: string | null
-  school_class: string | null
-  shift: string | null
-  academic_year: number | null
-  grade_average: number | null
-  attendance_pct: number | null
-  has_active_enrollment: boolean
-}
+export type { Dependent }
 
 const SHIFT: Record<string, string> = {
   MORNING: 'Manhã',
@@ -60,6 +50,40 @@ export function StudentCardOverview({ dependent }: { dependent: Dependent }) {
 
   const avg = dependent.grade_average
   const att = dependent.attendance_pct
+
+  // Vínculo ainda não confirmado pela escola — nenhum dado da vida escolar.
+  if (dependent.link_status === 'PENDING' || dependent.link_status === 'REJECTED') {
+    const rejected = dependent.link_status === 'REJECTED'
+    return (
+      <section className="grid gap-3 rounded-lg border border-line bg-white p-5">
+        <div>
+          <h2 className="text-section text-ink-900">{dependent.full_name}</h2>
+          <p className="mt-0.5 text-help text-ink-500">
+            Matrícula: {dependent.unique_municipal_id || '—'}
+          </p>
+        </div>
+        <div
+          className={cn(
+            'flex items-start gap-2 rounded-md p-3 text-help',
+            rejected ? 'bg-danger-bg text-danger-fg' : 'bg-surface-canvas text-ink-600'
+          )}
+        >
+          {rejected ? (
+            <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          ) : (
+            <Clock className="mt-0.5 h-4 w-4 shrink-0" />
+          )}
+          <span>
+            {rejected
+              ? `Solicitação de vínculo recusada pela escola.${
+                  dependent.rejection_note ? ` Motivo: ${dependent.rejection_note}` : ''
+                }`
+              : 'Solicitação de vínculo enviada. Aguardando a confirmação da escola.'}
+          </span>
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section className="grid gap-4 rounded-lg border border-line bg-white p-5">

@@ -146,6 +146,27 @@ class IsSchoolOwner(permissions.BasePermission):
         return False
 
 
+class IsEmailVerified(permissions.BasePermission):
+    """Exige autenticação e, para ``student_guardian``, e-mail verificado.
+
+    Papéis de equipe (criados pela SME) passam direto — não têm fluxo de
+    autoverificação.
+    """
+
+    message = 'Confirme o seu e-mail para acessar as informações escolares.'
+    code = 'EMAIL_NOT_VERIFIED'
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not (user and user.is_authenticated):
+            return False
+        if getattr(user, 'role', None) != UserRole.STUDENT_GUARDIAN:
+            return True
+        from apps.authentication.services.email_verification_service import is_verified
+
+        return is_verified(user)
+
+
 # Aliases de compatibilidade com imports legados
 IsAdmin = IsSMEAdmin
 IsDirector = IsSchoolDirector

@@ -1,5 +1,12 @@
 from .student import Student
-from .guardian import Guardian, StudentGuardian, KinshipType
+from .guardian import (
+    Guardian,
+    GuardianLinkCode,
+    GuardianLinkMethod,
+    GuardianLinkStatus,
+    KinshipType,
+    StudentGuardian,
+)
 from .enrollment import (
     Enrollment,
     EnrollmentStatus,
@@ -11,6 +18,9 @@ __all__ = [
     'Student',
     'Guardian',
     'StudentGuardian',
+    'GuardianLinkCode',
+    'GuardianLinkMethod',
+    'GuardianLinkStatus',
     'KinshipType',
     'Enrollment',
     'EnrollmentStatus',

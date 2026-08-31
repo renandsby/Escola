@@ -166,6 +166,12 @@ export const authService = {
     new_password_confirm: string
   }) => apiClient.post('/accounts/password-reset/confirm/', data),
 
+  // --- Verificação de e-mail (DX-SGE-006) ---
+  verifyEmail: (token: string) =>
+    apiClient.post('/accounts/verify-email/', { token }),
+
+  resendVerification: () => apiClient.post('/accounts/resend-verification/', {}),
+
   // --- 2FA / TOTP ---
   getTOTPStatus: () => apiClient.get<TOTPStatus>('/accounts/totp/status/'),
 

@@ -9,6 +9,8 @@ from .views import (
     LoginLogViewSet,
     PasswordResetRequestView,
     PasswordResetConfirmView,
+    EmailVerificationConfirmView,
+    EmailVerificationResendView,
     TOTPViewSet,
 )
 
@@ -24,5 +26,7 @@ urlpatterns = [
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('password-reset/request/', PasswordResetRequestView.as_view(), name='password-reset-request'),
     path('password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
+    path('verify-email/', EmailVerificationConfirmView.as_view(), name='verify-email'),
+    path('resend-verification/', EmailVerificationResendView.as_view(), name='resend-verification'),
     path('', include(router.urls)),
 ]

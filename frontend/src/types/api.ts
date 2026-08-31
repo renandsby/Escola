@@ -20,6 +20,7 @@ export interface User {
   last_name: string
   phone?: string
   cpf: string
+  email_verified?: boolean
   avatar?: string
   bio?: string
   role: UserRole
@@ -331,6 +332,9 @@ export interface Guardian {
   updated_at?: string
 }
 
+export type GuardianLinkStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED'
+export type GuardianLinkMethod = 'STAFF_CREATED' | 'SCHOOL_APPROVAL' | 'LINK_CODE'
+
 export interface StudentGuardianLink {
   id: string
   student: string
@@ -339,6 +343,28 @@ export interface StudentGuardianLink {
   guardian_name?: string
   kinship_type: KinshipType
   is_emergency_contact: boolean
+  status?: GuardianLinkStatus
+  verification_method?: GuardianLinkMethod
+  requested_by?: string | null
+  requested_by_name?: string | null
+  confirmed_at?: string | null
+  rejection_note?: string
+}
+
+/** Dependente no portal do responsável (`guardians/my-dependents/`). */
+export interface Dependent {
+  student_id: string
+  full_name: string
+  unique_municipal_id: string
+  school: string | null
+  school_class: string | null
+  shift: string | null
+  academic_year: number | null
+  grade_average: number | null
+  attendance_pct: number | null
+  has_active_enrollment: boolean
+  link_status: GuardianLinkStatus
+  rejection_note?: string | null
 }
 
 // ============ TEACHERS ============

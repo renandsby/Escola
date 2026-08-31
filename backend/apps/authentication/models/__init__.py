@@ -104,6 +104,8 @@ class EmailVerification(BaseModel):
     token = models.CharField(max_length=255, unique=True, verbose_name=_('Token'))
     verified = models.BooleanField(default=False, verbose_name=_('Verificado'))
     verified_at = models.DateTimeField(null=True, blank=True, verbose_name=_('Verificado em'))
+    expires_at = models.DateTimeField(null=True, blank=True, verbose_name=_('Expira em'))
+    sent_at = models.DateTimeField(null=True, blank=True, verbose_name=_('Enviado em'))
 
     class Meta:
         verbose_name = _('Verificação de Email')

@@ -193,7 +193,9 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_THROTTLE_RATES': {
         'anon': '100/hour',
-        'user': '1000/hour'
+        'user': '1000/hour',
+        'guardian_register': '5/hour',
+        'find_student': '15/hour',
     },
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'EXCEPTION_HANDLER': 'core.exceptions.custom_exception_handler',
@@ -359,6 +361,17 @@ AUTHENTICATION_BACKENDS = [
     'core.auth_backends.CPFOrEmailBackend',
     'django.contrib.auth.backends.ModelBackend',
 ]
+
+# ---------------------------------------------------------------------------
+# CAPTCHA (DX-SGE-006) — auto-cadastro público de responsável.
+# Provedores compatíveis: Cloudflare Turnstile / hCaptcha / reCAPTCHA.
+# ---------------------------------------------------------------------------
+CAPTCHA_ENABLED = decouple_config('CAPTCHA_ENABLED', default=False, cast=bool)
+CAPTCHA_SECRET = decouple_config('CAPTCHA_SECRET', default='')
+CAPTCHA_VERIFY_URL = decouple_config(
+    'CAPTCHA_VERIFY_URL',
+    default='https://challenges.cloudflare.com/turnstile/v0/siteverify',
+)
 
 # Base pública do frontend — usada em links de e-mail (reset de senha etc.).
 FRONTEND_BASE_URL = decouple_config(

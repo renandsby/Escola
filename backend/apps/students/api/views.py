@@ -1,6 +1,9 @@
 from rest_framework import filters, permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.class_diary.models import Attendance, DescriptiveEvaluation, Grade
@@ -14,6 +17,7 @@ from apps.class_diary.api.serializers import (
 from core.exceptions import BusinessLogicError
 from core.middleware import AuditMiddleware
 from core.permissions import CanCreateStudent, IsSMEStaff, IsSchoolStaff
+from core.throttling import FindStudentThrottle, GuardianRegisterThrottle
 
 from apps.students.filters import StudentFilterSet
 from apps.students.models import Enrollment, Guardian, Student, StudentGuardian, TransferRequest
@@ -32,7 +36,12 @@ from .serializers import (
     EnrollmentListSerializer,
     EnrollmentSerializer,
     GuardianListSerializer,
+    GuardianSelfRegisterSerializer,
     GuardianSerializer,
+    LinkByCodeInputSerializer,
+    LinkCodeInputSerializer,
+    LinkRequestInputSerializer,
+    LinkReviewInputSerializer,
     StudentGuardianSerializer,
     StudentListSerializer,
     StudentSerializer,
@@ -119,6 +128,72 @@ class StudentViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_204_NO_CONTENT)
         return super().destroy(request, *args, **kwargs)
 
+    @action(
+        detail=False,
+        methods=['get'],
+        url_path='find-by-cpf',
+        throttle_classes=[FindStudentThrottle],
+    )
+    def find_by_cpf(self, request):
+        """Diz **apenas** se existe um aluno com o CPF informado.
+
+        Não devolve nenhum dado do aluno — a vinculação usa
+        ``guardians/link-requests/`` (prova de parentesco) ou
+        ``guardians/link-by-code/``.
+        """
+        from core.validators import normalize_cpf
+
+        cpf = normalize_cpf(request.query_params.get('cpf', '')) or ''
+        if len(cpf) != 11 or not cpf.isdigit():
+            return Response(
+                {'error': 'Informe um CPF válido.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        exists = Student.objects.filter(cpf=cpf, deleted_at__isnull=True).exists()
+        return Response({'found': exists})
+
+    @action(
+        detail=True,
+        methods=['get', 'post'],
+        url_path='link-codes',
+        permission_classes=[permissions.IsAuthenticated, IsSMEStaff | IsSchoolStaff],
+    )
+    def link_codes(self, request, pk=None):
+        """GET: histórico de códigos do aluno. POST: gera um novo código
+        (exibido apenas nesta resposta)."""
+        from apps.students.models import GuardianLinkCode
+        from apps.students.services.guardian_link_service import generate_link_code
+
+        student = self.get_object()  # já passa pelo escopo RBAC
+        if request.method == 'POST':
+            payload = LinkCodeInputSerializer(data=request.data)
+            payload.is_valid(raise_exception=True)
+            raw = generate_link_code(
+                student_id=student.id,
+                created_by=request.user,
+                kinship_hint=payload.validated_data.get('kinship_hint', ''),
+                ttl_hours=payload.validated_data.get('ttl_hours', 72),
+            )
+            code = GuardianLinkCode.objects.filter(student=student).order_by('-created_at').first()
+            return Response(
+                {'code': raw, 'expires_at': code.expires_at},
+                status=status.HTTP_201_CREATED,
+            )
+
+        codes = GuardianLinkCode.objects.filter(
+            student=student, deleted_at__isnull=True
+        ).order_by('-created_at')
+        return Response([
+            {
+                'id': str(c.id),
+                'created_at': c.created_at,
+                'expires_at': c.expires_at,
+                'used': c.used,
+                'used_at': c.used_at,
+            }
+            for c in codes
+        ])
+
     @action(detail=True, methods=['get'], url_path='academic-history')
     def academic_history(self, request, pk=None):
         student = self.get_object()
@@ -184,19 +259,139 @@ class GuardianViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_204_NO_CONTENT)
         return super().destroy(request, *args, **kwargs)
 
+    @action(
+        detail=False,
+        methods=['post'],
+        url_path='self-register',
+        url_name='self-register',
+        permission_classes=[AllowAny],
+        authentication_classes=[],
+        throttle_classes=[GuardianRegisterThrottle],
+    )
+    def self_register(self, request):
+        """Auto-cadastro público de responsável (DX-SGE-006)."""
+        from apps.authentication.api.serializers import build_jwt_payload
+        from apps.students.services.guardian_service import self_register_guardian
+        from core.captcha import verify_captcha
+
+        serializer = GuardianSelfRegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = dict(serializer.validated_data)
+        verify_captcha(data.pop('captcha_token', ''), _client_ip(request))
+
+        result = self_register_guardian(**data)
+        user, guardian = result['user'], result['guardian']
+
+        refresh = RefreshToken.for_user(user)
+        return Response(
+            {
+                **build_jwt_payload(user, refresh),
+                'guardian': GuardianSerializer(guardian).data,
+                'email_verification_required': True,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
 
 class StudentGuardianViewSet(viewsets.ModelViewSet):
     queryset = StudentGuardian.objects.select_related('student', 'guardian')
     serializer_class = StudentGuardianSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['student', 'guardian', 'kinship_type', 'is_emergency_contact']
+    filterset_fields = ['student', 'guardian', 'kinship_type', 'is_emergency_contact', 'status']
     search_fields = ['student__full_name', 'guardian__full_name', 'guardian__cpf']
     ordering_fields = ['kinship_type']
     ordering = ['student__full_name']
 
     def get_queryset(self):
         return get_student_guardian_links_for_user(user=self.request.user)
+
+    def get_permissions(self):
+        if self.action in ('create', 'update', 'partial_update', 'destroy'):
+            return [permissions.IsAuthenticated(), (IsSMEStaff | IsSchoolStaff)()]
+        return [permissions.IsAuthenticated()]
+
+    def perform_create(self, serializer):
+        from django.utils import timezone
+
+        serializer.save(
+            status='CONFIRMED',
+            verification_method='STAFF_CREATED',
+            confirmed_by=self.request.user,
+            confirmed_at=timezone.now(),
+        )
+
+
+class GuardianLinkRequestViewSet(viewsets.ReadOnlyModelViewSet):
+    """Solicitações de vínculo (DX-SGE-006, caminho A).
+
+    - Responsável: cria via ``request`` e lista as próprias.
+    - Equipe: vê a fila da própria escola/SME e aprova/recusa via ``review``.
+    """
+
+    serializer_class = StudentGuardianSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['status']
+    ordering = ['-confirmed_at', 'student__full_name']
+
+    def get_queryset(self):
+        user = self.request.user
+        base = StudentGuardian.objects.select_related(
+            'student', 'guardian', 'requested_by'
+        ).filter(verification_method__in=['SCHOOL_APPROVAL', 'LINK_CODE'])
+        if getattr(user, 'role', None) == 'student_guardian':
+            return base.filter(guardian__user=user)
+        from apps.students.services.guardian_link_service import _scoped_students
+
+        return base.filter(student__in=_scoped_students(user))
+
+    @action(
+        detail=False,
+        methods=['post'],
+        url_path='request',
+        throttle_classes=[FindStudentThrottle],
+    )
+    def request_link(self, request):
+        from apps.students.services.guardian_link_service import request_link
+
+        payload = LinkRequestInputSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+        link = request_link(user=request.user, **payload.validated_data)
+        return Response(StudentGuardianSerializer(link).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'])
+    def review(self, request, pk=None):
+        from apps.students.services.guardian_link_service import review_link
+
+        payload = LinkReviewInputSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+        link = review_link(
+            link_id=pk,
+            decision=payload.validated_data['decision'],
+            actor_user=request.user,
+            note=payload.validated_data.get('note', ''),
+        )
+        return Response(StudentGuardianSerializer(link).data)
+
+
+class GuardianLinkByCodeView(APIView):
+    """POST /api/v1/guardians/link-by-code/ (DX-SGE-006, caminho B)."""
+
+    permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [FindStudentThrottle]
+
+    def post(self, request):
+        from apps.students.services.guardian_link_service import redeem_link_code
+
+        payload = LinkByCodeInputSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+        link = redeem_link_code(
+            user=request.user,
+            student_cpf=payload.validated_data['student_cpf'],
+            code=payload.validated_data['code'],
+        )
+        return Response(StudentGuardianSerializer(link).data, status=status.HTTP_201_CREATED)
 
 
 # ---------------------------------------------------------------------------

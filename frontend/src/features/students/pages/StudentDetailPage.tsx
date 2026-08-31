@@ -29,6 +29,7 @@ import { DOCUMENT_TYPE, GENDER, RACE_COLOR, labelOf } from '@/components/ui/stat
 import { ROUTES } from '@/app/routes/paths'
 import { useAuthStore } from '@/stores/authStore'
 import { DocumentUploadModal } from '@/features/documents/pages/DocumentUploadModal'
+import { LinkCodeModal } from '@/features/guardians/components/LinkCodeModal'
 import { PrivacyConsentSection } from '../components/PrivacyConsentSection'
 import {
   BarChart,
@@ -76,6 +77,7 @@ export default function StudentDetailPage() {
   const scope = useScope()
   const role = useAuthStore((s) => s.user?.role) ?? ''
   const [uploadingDoc, setUploadingDoc] = useState(false)
+  const [linkCodeOpen, setLinkCodeOpen] = useState(false)
   const [emitting, setEmitting] = useState<'boletim' | 'carteirinha' | 'historico' | null>(null)
 
   const DOC_DOWNLOADERS = {
@@ -249,6 +251,15 @@ export default function StudentDetailPage() {
             >
               Emitir Histórico
             </Button>
+            {DOC_UPLOAD_ROLES.includes(role) && (
+              <Button
+                variant="secondary"
+                iconLeft={<QrCode className="h-4 w-4" />}
+                onClick={() => setLinkCodeOpen(true)}
+              >
+                Código de vínculo
+              </Button>
+            )}
             <Button
               variant="primary"
               iconLeft={<Pencil className="h-4 w-4" />}
@@ -379,6 +390,14 @@ export default function StudentDetailPage() {
           studentId={data.id}
           studentName={data.full_name}
           onClose={() => setUploadingDoc(false)}
+        />
+      )}
+
+      {linkCodeOpen && (
+        <LinkCodeModal
+          studentId={data.id}
+          studentName={data.social_name || data.full_name}
+          onClose={() => setLinkCodeOpen(false)}
         />
       )}
     </>

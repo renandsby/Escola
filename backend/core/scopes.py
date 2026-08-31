@@ -32,7 +32,8 @@ def _accessible_student_ids(user) -> set:
     """
     Alunos visíveis para student_guardian:
     - o próprio Student (student_profile), e/ou
-    - alunos vinculados via Guardian.student_links (StudentGuardian).
+    - alunos vinculados via Guardian.student_links com vínculo **CONFIRMED**
+      (DX-SGE-006 — vínculo pendente não dá acesso à vida escolar).
     """
     ids: set = set()
     try:
@@ -41,7 +42,9 @@ def _accessible_student_ids(user) -> set:
         pass
     try:
         guardian = user.guardian_profile
-        ids.update(guardian.student_links.values_list('student_id', flat=True))
+        ids.update(
+            guardian.student_links.filter(status='CONFIRMED').values_list('student_id', flat=True)
+        )
     except ObjectDoesNotExist:
         pass
     return ids

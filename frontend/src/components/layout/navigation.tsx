@@ -13,6 +13,7 @@ import {
   LayoutGrid,
   MessagesSquare,
   PencilLine,
+  UserPlus,
   Users,
   UsersRound,
 } from 'lucide-react'
@@ -107,6 +108,12 @@ export const NAV: NavGroup[] = [
         to: ROUTES.guardians,
         roles: [...SME, ...SCHOOL],
         icon: <Users className={ICON} />,
+      },
+      {
+        label: 'Solicitações de vínculo',
+        to: ROUTES.guardianLinkRequests,
+        roles: [...SME, ...SCHOOL],
+        icon: <UserPlus className={ICON} />,
       },
       {
         label: 'Professores e alocações',

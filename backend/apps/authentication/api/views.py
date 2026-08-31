@@ -82,6 +82,35 @@ class PasswordResetConfirmView(APIView):
         return Response({'detail': 'Senha redefinida com sucesso. Faça login.'})
 
 
+class EmailVerificationConfirmView(APIView):
+    """POST /api/v1/accounts/verify-email/ — confirma o e-mail do responsável."""
+
+    permission_classes = [permissions.AllowAny]
+    authentication_classes: list = []
+
+    def post(self, request):
+        from apps.authentication.services import email_verification_service
+
+        token = str(request.data.get('token', '')).strip()
+        user = email_verification_service.confirm(raw_token=token)
+        return Response({'detail': 'E-mail confirmado com sucesso.', 'email': user.email})
+
+
+class EmailVerificationResendView(APIView):
+    """POST /api/v1/accounts/resend-verification/ — reenvia o link (autenticado)."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from apps.authentication.services import email_verification_service
+
+        email_verification_service.resend(user=request.user)
+        return Response(
+            {'detail': 'Enviamos um novo link de verificação para o seu e-mail.'},
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+
 class UserViewSet(viewsets.ModelViewSet):
     """ViewSet para gerenciar usuários."""
 
