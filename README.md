@@ -271,10 +271,20 @@ Principais variáveis do `.env` (ver `.env.example` para a lista completa — e-
 
 ## 🧪 Testes e Qualidade
 
-**Backend** (dentro do container):
+[![Backend Coverage](https://img.shields.io/badge/coverage-backend%2050%2B%25-brightgreen)](TESTING.md)
+[![Frontend Coverage](https://img.shields.io/badge/coverage-frontend%2050%2B%25-brightgreen)](TESTING.md)
+
+**Verificação Rápida de Cobertura (Backend + Frontend):**
 
 ```bash
-docker compose exec backend python -m pytest -q --no-cov     # suíte completa (186 testes)
+./scripts/check_coverage.sh
+```
+
+**Backend** (dentro do container ou via script):
+
+```bash
+./backend/run_tests.sh                                       # executa e gera relatório de cobertura
+docker compose exec backend python -m pytest -q --no-cov     # suíte completa
 docker compose exec backend python -m pytest --cov=apps      # com cobertura
 docker compose exec backend python manage.py check           # checagem do projeto
 ```

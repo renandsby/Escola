@@ -23,7 +23,21 @@ pip install -e ".[dev]"
 pytest
 ```
 
-### Executar Testes
+### Executar Testes via Docker (Recomendado)
+
+```bash
+# Opção 1: Script automatizado
+chmod +x backend/run_tests.sh
+./backend/run_tests.sh
+
+# Opção 2: Profile docker-compose de teste
+docker-compose run --rm backend-test
+
+# Opção 3: Execução direta no container backend em execução
+docker-compose exec backend pytest --cov=apps --cov-report=html --cov-report=term-missing
+```
+
+### Executar Testes Localmente
 
 ```bash
 # Todos os testes
@@ -262,6 +276,19 @@ page.click('[class*="button"]')
 
 ## 📊 Cobertura
 
+### Verificação Rápida
+
+```bash
+# Ambos (backend + frontend)
+./scripts/check_coverage.sh
+
+# Backend apenas (via Docker)
+./backend/run_tests.sh
+
+# Frontend apenas
+cd frontend && npm run test:coverage
+```
+
 ### Backend
 
 ```bash
@@ -269,27 +296,21 @@ pytest --cov=apps --cov-report=html
 # Relatório em: htmlcov/index.html
 ```
 
-Cobertura atual por app:
-- schools: 85%
-- students: 82%
-- grades: 88%
-- attendance: 80%
-
-Meta: 80%+ em todos
-
 ### Frontend
 
 ```bash
+cd frontend
 npm run test:coverage
-# Relatório em: coverage/index.html
+# Relatório em: frontend/coverage/index.html
 ```
 
 Cobertura atual:
-- Components: 75%
-- Hooks: 70%
-- Utils: 85%
+- Utils: 99.7%
+- Components UI: 80.9%
+- Services/Stores: 80%+
 
-Meta: 70%+ em componentes, 80%+ em utils
+Meta Fase 1: 50%+ geral
+Meta Final (Fase 2): 80%+ backend, 70%+ frontend
 
 ---
 

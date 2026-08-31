@@ -26,6 +26,8 @@ MANIFEST
 .pytest_cache/
 .coverage
 htmlcov/
+coverage/
+frontend/coverage/
 .mypy_cache/
 .ruff_cache/
 

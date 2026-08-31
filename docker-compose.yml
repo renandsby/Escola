@@ -138,6 +138,39 @@ services:
     healthcheck:
       disable: true
 
+  backend-test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: escola_backend_test
+    command: pytest --cov=apps --cov-report=html --cov-report=term-missing --cov-branch -v
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=${SECRET_KEY:-test-secret-key-1234567890}
+      - ALLOWED_HOSTS=*
+      - DB_ENGINE=${DB_ENGINE}
+      - DB_NAME=${DB_NAME:-escola_db}
+      - DB_USER=${DB_USER:-escola_user}
+      - DB_PASSWORD=${DB_PASSWORD:-escola_password}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-test-jwt-secret-key-1234567890}
+      - ENVIRONMENT=test
+    volumes:
+      - ./backend:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - escola_network
+    profiles:
+      - test
+
   frontend:
     build:
       context: ./frontend
