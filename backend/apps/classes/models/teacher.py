@@ -3,6 +3,7 @@ import uuid
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+from core.fields import CPFField
 from core.models import SoftDeleteModel
 
 
@@ -26,7 +27,7 @@ class TeacherProfile(SoftDeleteModel):
         unique=True,
         verbose_name=_('Matrícula funcional'),
     )
-    cpf = models.CharField(max_length=11, unique=True, verbose_name=_('CPF'))
+    cpf = CPFField(unique=True, verbose_name=_('CPF'))
     formation_area = models.CharField(max_length=150, blank=True, verbose_name=_('Área de formação'))
     birth_date = models.DateField(null=True, blank=True, verbose_name=_('Data de Nascimento'))
     hiring_date = models.DateField(null=True, blank=True, verbose_name=_('Data de Contratação'))

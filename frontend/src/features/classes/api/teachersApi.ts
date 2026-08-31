@@ -1,4 +1,5 @@
 import { apiGet, apiPost, apiPut, apiDelete } from '@/utils/api-helpers'
+import { normalizeCPF } from '@/utils/validation'
 import type {
   EducationDepartment,
   PaginatedResponse,
@@ -19,7 +20,7 @@ export function fetchTeacher(id: string) {
 }
 
 type TeacherUserPayload = {
-  username: string
+  cpf: string
   email: string
   password: string
   password_confirm: string
@@ -36,6 +37,7 @@ type CreatedUser = {
 export function createTeacherUser(payload: TeacherUserPayload) {
   return apiPost<CreatedUser>('accounts/users/create_user/', {
     ...payload,
+    cpf: normalizeCPF(payload.cpf),
     role: 'teacher',
   })
 }

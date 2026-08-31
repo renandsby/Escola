@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/authStore'
 import { apiClient, authService } from '@/services/api'
 import { apiGet, getErrorCode } from '@/utils/api-helpers'
+import { formatCPF } from '@/utils/formatting'
 import { resolveError } from '@/services/errorMessages'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -305,7 +306,7 @@ export default function SettingsPage() {
       <Card title="Perfil">
         <div className="grid gap-4 sm:grid-cols-2">
           <Row label="Nome" value={`${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim()} />
-          <Row label="Usuário" value={user?.username} />
+          <Row label="CPF" value={user?.cpf ? formatCPF(user.cpf) : '—'} />
           <Row label="E-mail" value={user?.email} />
           <Row label="Função" value={user?.role ? USER_ROLE[user.role] : '—'} />
         </div>

@@ -1,5 +1,33 @@
 from rest_framework import serializers
+
 from core.models import User
+from core.validators import is_valid_cpf, normalize_cpf
+
+
+class CPFSerializerField(serializers.CharField):
+    """Campo de CPF para a API: aceita com/sem máscara, normaliza para 11
+    dígitos e valida os dígitos verificadores. Serializa sempre os 11 dígitos
+    (a máscara é responsabilidade do frontend)."""
+
+    default_error_messages = {
+        'invalid_cpf': 'CPF inválido. Informe um CPF válido (11 dígitos).',
+    }
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault('max_length', 20)  # tolera entrada mascarada / com espaços
+        kwargs.setdefault('trim_whitespace', True)
+        super().__init__(**kwargs)
+
+    def to_internal_value(self, data):
+        value = super().to_internal_value(data)
+        digits = normalize_cpf(value)
+        if not digits:
+            if self.required:
+                self.fail('blank')
+            return digits
+        if not is_valid_cpf(digits):
+            self.fail('invalid_cpf')
+        return digits
 
 
 class BaseSerializer(serializers.ModelSerializer):
@@ -23,7 +51,7 @@ class UserSerializer(BaseSerializer):
             'first_name',
             'last_name',
             'phone',
-            'document',
+            'cpf',
             'avatar',
             'bio',
             'role',

@@ -2,6 +2,8 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import authenticate
 from core.models import User, UserRole
+from core.serializers import CPFSerializerField
+from core.validators import normalize_cpf
 from apps.authentication.models import Permission, Profile, LoginLog
 
 
@@ -17,6 +19,7 @@ def build_jwt_payload(user, refresh) -> dict:
             'first_name': user.first_name,
             'last_name': user.last_name,
             'role': user.role,
+            'cpf': user.cpf,
             'school': str(user.school_id) if user.school_id else None,
             'education_department': (
                 str(user.education_department_id) if user.education_department_id else None
@@ -47,23 +50,35 @@ class LoginLogSerializer(serializers.ModelSerializer):
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-    """Serializer customizado para obter JWT token."""
+    """Serializer customizado para obter JWT token.
 
-    username = serializers.CharField(write_only=True)
-    password = serializers.CharField(write_only=True)
+    O login aceita **CPF ou e-mail** no campo ``identifier`` (o antigo
+    ``username`` continua aceito como alias, para retrocompatibilidade).
+    """
 
-    class Meta:
-        model = User
-        fields = ['username', 'password']
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # SimpleJWT injeta `username` obrigatório no __init__ — aqui o login é
+        # por `identifier` (CPF ou e-mail); os demais viram aliases opcionais.
+        self.fields['identifier'] = serializers.CharField(write_only=True, required=False)
+        self.fields['email'] = serializers.CharField(write_only=True, required=False)
+        if self.username_field in self.fields:
+            self.fields[self.username_field].required = False
 
     def validate(self, attrs):
         from apps.authentication.services.challenge_token import generate_challenge_token
         from apps.authentication.services.totp_service import is_totp_enabled
 
-        username = attrs.get('username')
+        ident = attrs.get('identifier') or attrs.get('username') or attrs.get('email')
         password = attrs.get('password')
 
-        user = authenticate(username=username, password=password)
+        if not ident:
+            raise serializers.ValidationError(
+                {'identifier': 'Informe o CPF ou e-mail.'}
+            )
+
+        request = self.context.get('request')
+        user = authenticate(request, identifier=ident, password=password)
 
         if not user:
             raise serializers.ValidationError('Credenciais inválidas.')
@@ -92,16 +107,20 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
-    """Serializer para registro de novo usuário."""
+    """Serializer para registro de novo usuário.
+
+    O ``username`` é interno e derivado do CPF — não é pedido no cadastro.
+    """
 
     password = serializers.CharField(write_only=True, min_length=8)
     password_confirm = serializers.CharField(write_only=True, min_length=8)
     email = serializers.EmailField(required=True)
+    cpf = CPFSerializerField(required=True)
 
     class Meta:
         model = User
         fields = [
-            'username',
+            'cpf',
             'email',
             'password',
             'password_confirm',
@@ -111,14 +130,21 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             'education_department',
         ]
 
-    def validate_username(self, value):
-        if User.objects.filter(username=value).exists():
-            raise serializers.ValidationError('Nome de usuário já existe.')
+    def validate_cpf(self, value):
+        qs = User.objects.filter(cpf=value)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError('CPF já cadastrado para outro usuário.')
         return value
 
     def validate_email(self, value):
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError('Email já registrado.')
+        value = value.strip().lower()
+        qs = User.objects.filter(email__iexact=value)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError('E-mail já registrado.')
         return value
 
     def validate(self, data):
@@ -131,6 +157,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         # elevação de papel (ex.: sme_admin) só é permitida via IsAdmin
         # (ver UserViewSet.create_user / get_permissions).
         validated_data['role'] = UserRole.STUDENT_GUARDIAN
+        validated_data.setdefault('username', validated_data['cpf'])
         user = User.objects.create_user(**validated_data)
         return user
 
@@ -144,12 +171,7 @@ class AdminUserCreationSerializer(UserRegistrationSerializer):
     """
 
     class Meta(UserRegistrationSerializer.Meta):
-        fields = UserRegistrationSerializer.Meta.fields + ['role', 'phone', 'document']
-
-    def validate_document(self, value):
-        if value and User.objects.filter(document=value).exists():
-            raise serializers.ValidationError('CPF/CNPJ já cadastrado para outro usuário.')
-        return value
+        fields = UserRegistrationSerializer.Meta.fields + ['role', 'phone']
 
     def validate(self, data):
         data = super().validate(data)
@@ -162,6 +184,7 @@ class AdminUserCreationSerializer(UserRegistrationSerializer):
         return data
 
     def create(self, validated_data):
+        validated_data.setdefault('username', validated_data['cpf'])
         user = User.objects.create_user(**validated_data)
         return user
 
@@ -173,15 +196,16 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     ``sme_admin``; para os demais, uma tentativa de alterá-los é ignorada.
     """
 
+    cpf = CPFSerializerField(required=False)
+
     class Meta:
         model = User
         fields = [
-            'username',
             'email',
             'first_name',
             'last_name',
             'phone',
-            'document',
+            'cpf',
             'avatar',
             'bio',
             'role',
@@ -192,6 +216,23 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
     _ADMIN_ONLY = {'role', 'school', 'education_department', 'is_active'}
 
+    def validate_cpf(self, value):
+        qs = User.objects.filter(cpf=value)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError('CPF já cadastrado para outro usuário.')
+        return value
+
+    def validate_email(self, value):
+        value = value.strip().lower()
+        qs = User.objects.filter(email__iexact=value)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError('E-mail já registrado.')
+        return value
+
     def validate(self, data):
         request = self.context.get('request')
         actor = getattr(request, 'user', None)
@@ -199,6 +240,9 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         if not is_admin:
             for field in self._ADMIN_ONLY:
                 data.pop(field, None)
+        # `username` acompanha o CPF quando este muda.
+        if data.get('cpf'):
+            data['username'] = data['cpf']
         return data
 
 
@@ -258,7 +302,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'first_name',
             'last_name',
             'phone',
-            'document',
+            'cpf',
             'avatar',
             'bio',
             'role',
@@ -269,7 +313,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['id', 'username', 'created_at', 'updated_at', 'role']
+        read_only_fields = ['id', 'username', 'cpf', 'created_at', 'updated_at', 'role']
 
     school_name = serializers.CharField(source='school.name', read_only=True, allow_null=True)
 

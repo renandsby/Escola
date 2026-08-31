@@ -13,6 +13,7 @@ import io
 import qrcode
 
 from apps.class_diary.models import AttendanceStatus
+from core.validators import format_cpf
 
 
 def _student_display_name(student):
@@ -44,6 +45,7 @@ def generate_student_report_pdf(student, grades, attendance):
 
     info_data = [
         ['Nome:', _student_display_name(student)],
+        ['CPF:', format_cpf(student.cpf) if student.cpf else 'Não informado'],
         ['ID Municipal:', student.unique_municipal_id],
         ['Data de Nascimento:', str(student.birth_date)],
         ['Gênero:', student.gender or '-'],
@@ -238,7 +240,7 @@ def generate_school_history_pdf(student, *, enrollment, grades, attendance, hist
     info_data = [
         ['Nome do aluno:', _student_display_name(student)],
         ['Data de nascimento:', student.birth_date.strftime('%d/%m/%Y') if student.birth_date else '—'],
-        ['CPF:', student.cpf or 'Não informado'],
+        ['CPF:', format_cpf(student.cpf) if student.cpf else 'Não informado'],
         ['ID municipal:', student.unique_municipal_id],
         ['Matrícula:', enrollment.enrollment_number],
         ['Turma:', enrollment.school_class.name],
@@ -410,7 +412,9 @@ def generate_student_card_pdf(student):
         box_size=10,
         border=4,
     )
-    qr.add_data(f"MAT:{student.unique_municipal_id}|{display_name}")
+    qr.add_data(
+        f"CPF:{student.cpf or ''}|MAT:{student.unique_municipal_id}|{display_name}"
+    )
     qr.make(fit=True)
 
     qr_img = qr.make_image(fill_color="black", back_color="white")
@@ -433,6 +437,7 @@ def generate_student_card_pdf(student):
 
     info_text = f"""
     <b>Nome:</b> {display_name}<br/>
+    <b>CPF:</b> {format_cpf(student.cpf) if student.cpf else '—'}<br/>
     <b>ID Municipal:</b> {student.unique_municipal_id}<br/>
     <b>Data de Nascimento:</b> {student.birth_date.strftime('%d/%m/%Y')}<br/>
     """

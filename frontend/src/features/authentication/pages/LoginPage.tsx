@@ -16,7 +16,7 @@ import { TwoFactorChallengeDialog } from '../components/TwoFactorChallengeDialog
 import type { LoginResponse } from '@/types/api'
 
 const loginSchema = z.object({
-  username: z.string().min(1, 'Usuário é obrigatório'),
+  identifier: z.string().min(1, 'Informe o CPF ou e-mail'),
   password: z.string().min(1, 'Senha é obrigatória'),
 })
 
@@ -41,7 +41,7 @@ export default function LoginPage() {
     setIsLoading(true)
     setError(null)
     try {
-      const { data: res } = await authService.login(data.username, data.password)
+      const { data: res } = await authService.login(data.identifier.trim(), data.password)
       if (res.requires_2fa) {
         setChallengeToken(res.challenge_token!)
       } else {
@@ -87,8 +87,13 @@ export default function LoginPage() {
 
         <FormProvider {...methods}>
           <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
-            <Field label="Usuário" name="username" required>
-              <Input autoFocus placeholder="Digite seu usuário" {...register('username')} />
+            <Field label="CPF ou e-mail" name="identifier" required>
+              <Input
+                autoFocus
+                placeholder="Digite seu CPF ou e-mail"
+                autoComplete="username"
+                {...register('identifier')}
+              />
             </Field>
             <Field label="Senha" name="password" required>
               <Input type="password" placeholder="Digite sua senha" {...register('password')} />

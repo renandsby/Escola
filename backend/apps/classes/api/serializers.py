@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from core.models import UserRole
+from core.serializers import CPFSerializerField
 from apps.classes.models import Classroom, SchoolClass, TeacherAllocation, TeacherProfile
 
 _SCHOOL_ROLES = {UserRole.SCHOOL_DIRECTOR, UserRole.SCHOOL_SECRETARY}
@@ -132,6 +133,15 @@ class ClassroomSerializer(SchoolScopedWriteMixin, serializers.ModelSerializer):
 class TeacherProfileSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.get_full_name', read_only=True)
     user_email = serializers.EmailField(source='user.email', read_only=True)
+    cpf = CPFSerializerField(required=True)
+
+    def validate_cpf(self, value):
+        qs = TeacherProfile.objects.filter(cpf=value, deleted_at__isnull=True)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError('CPF já cadastrado para outro docente.')
+        return value
 
     class Meta:
         model = TeacherProfile

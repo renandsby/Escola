@@ -73,7 +73,7 @@ export default function TeacherFormPage() {
     setSubmitting(true)
     try {
       const createdUser = await createTeacherUser({
-        username: data.username,
+        cpf: data.cpf,
         email: data.email,
         password: data.password,
         password_confirm: data.password_confirm,
@@ -196,9 +196,6 @@ export default function TeacherFormPage() {
                 <Field label="E-mail" name="email" required>
                   <Input type="email" {...createMethods.register('email')} />
                 </Field>
-                <Field label="Usuário de acesso" name="username" required mono>
-                  <Input {...createMethods.register('username')} />
-                </Field>
                 <Field label="Senha" name="password" required>
                   <Input type="password" {...createMethods.register('password')} />
                 </Field>
@@ -240,8 +237,8 @@ function ProfileSection({ register, first }: { register: any; first?: boolean })
       <Field label="Matrícula funcional" name="registration_number" required mono>
         <Input {...register('registration_number')} />
       </Field>
-      <Field label="CPF" name="cpf" required mono help="Somente números (11 dígitos)">
-        <Input {...register('cpf')} placeholder="00000000000" />
+      <Field label="CPF" name="cpf" required mono help="Também usado para login do professor">
+        <Input {...register('cpf')} placeholder="000.000.000-00" />
       </Field>
       <Field label="Área de formação" name="formation_area">
         <Input {...register('formation_area')} placeholder="Ex.: Pedagogia" />

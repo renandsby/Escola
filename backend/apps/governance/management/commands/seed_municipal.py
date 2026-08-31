@@ -33,6 +33,7 @@ from apps.governance.models import (
 from apps.classes.models import TeacherAllocation, TeacherProfile
 from apps.notifications.models import Notification
 from core.models import User, UserRole
+from core.validators import generate_cpf
 
 
 class Command(BaseCommand):
@@ -164,11 +165,15 @@ class Command(BaseCommand):
             },
         )
 
+        _user_seq = [500_000]
+
         def ensure_user(username, password, role, school=None, **extra):
+            _user_seq[0] += 1
             user, created = User.objects.get_or_create(
                 username=username,
                 defaults={
                     'email': f'{username}@escola.sp.gov.br',
+                    'cpf': generate_cpf(_user_seq[0]),
                     'role': role,
                     'education_department': dept,
                     'school': school,
@@ -242,7 +247,7 @@ class Command(BaseCommand):
                 defaults={
                     'education_department': dept,
                     'registration_number': f'PROF{i + 1:03d}',
-                    'cpf': f'1234567890{i}',
+                    'cpf': user.cpf,
                     'formation_area': 'Pedagogia',
                     'birth_date': date(1990, 1, 1),
                     'hiring_date': date(2020, 1, 1),
@@ -334,7 +339,7 @@ class Command(BaseCommand):
                     'gender': 'M' if i % 2 == 0 else 'F',
                     'mother_name': f'Mãe Silva {i + 1}',
                     'father_name': f'Pai Silva {i + 1}',
-                    'cpf': f'61111{i:06d}',
+                    'cpf': user.cpf,
                     'nis_code': f'21111{i:08d}',
                     'birth_certificate': f'1111{i:05d} 01 55 2015 1 00001 001 0000000-00',
                     'race_color': ('Branca', 'Parda', 'Preta', 'Amarela', 'Parda')[i],
@@ -364,7 +369,7 @@ class Command(BaseCommand):
         if anchor is None:
             anchor = Guardian.objects.create(
                 user=resp_user, full_name='Renata Responsável',
-                cpf='88899000001', phone='(11) 99999-0001',
+                cpf=resp_user.cpf, phone='(11) 99999-0001',
                 email='responsavel.sp@escola.sp.gov.br', occupation='Comerciante',
             )
         for student in students[:2]:
@@ -374,7 +379,7 @@ class Command(BaseCommand):
             )
         for i, student in enumerate(students[2:], start=3):
             guardian, _ = Guardian.objects.get_or_create(
-                cpf=f'8889900000{i}',
+                cpf=generate_cpf(600_000 + i),
                 defaults={
                     'full_name': student.mother_name,
                     'phone': f'(11) 98888-000{i}',

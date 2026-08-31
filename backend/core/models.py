@@ -3,6 +3,8 @@ from django.contrib.auth.models import AbstractUser
 from django.utils.translation import gettext_lazy as _
 import uuid
 
+from core.fields import CPFField
+
 
 class BaseModel(models.Model):
     """Modelo base para todas as entidades do sistema."""
@@ -77,13 +79,9 @@ class User(AbstractUser):
 
     email = models.EmailField(unique=True, verbose_name=_('Email'))
     phone = models.CharField(max_length=20, blank=True, verbose_name=_('Telefone'))
-    document = models.CharField(
-        max_length=20,
-        unique=True,
-        blank=True,
-        null=True,
-        verbose_name=_('CPF/CNPJ'),
-    )
+    # Identificador principal da pessoa física (DX-SGE-003/2026). CNPJ nunca é
+    # de usuário — só da escola (schools.School.cnpj).
+    cpf = CPFField(unique=True, verbose_name=_('CPF'))
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True, verbose_name=_('Avatar'))
     bio = models.TextField(blank=True, verbose_name=_('Biografia'))
     role = models.CharField(
@@ -119,11 +117,23 @@ class User(AbstractUser):
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['email']),
-            models.Index(fields=['document']),
+            models.Index(fields=['cpf'], name='core_user_cpf_idx'),
             models.Index(fields=['role']),
             models.Index(fields=['education_department', 'role']),
             models.Index(fields=['school', 'role']),
         ]
+
+    def save(self, *args, **kwargs):
+        if self.email:
+            self.email = self.email.strip().lower()
+        if self.cpf:
+            from core.validators import normalize_cpf
+
+            self.cpf = normalize_cpf(self.cpf)
+        # `username` é interno: espelha o CPF quando não informado explicitamente.
+        if not self.username and self.cpf:
+            self.username = self.cpf
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.get_full_name()} ({self.get_role_display()})"

@@ -32,8 +32,8 @@ function setup() {
 }
 
 async function fillAndSubmitLogin() {
-  fireEvent.change(screen.getByPlaceholderText('Digite seu usuário'), {
-    target: { value: 'diretor' },
+  fireEvent.change(screen.getByPlaceholderText('Digite seu CPF ou e-mail'), {
+    target: { value: 'diretor@rede.gov.br' },
   })
   fireEvent.change(screen.getByPlaceholderText('Digite sua senha'), {
     target: { value: 'segredo-123' },

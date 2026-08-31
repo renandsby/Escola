@@ -245,14 +245,18 @@ class Command(BaseCommand):
         return dept
 
     def _seed_users(self, dept):
+        from core.validators import generate_cpf
+
         specs = [
             ("admin", "admin123", UserRole.SME_ADMIN, "Administrador", "SME Igarassu", True),
             ("supervisor", "supervisor123", UserRole.SME_SUPERVISOR, "Supervisor", "Pedagógico", False),
         ]
-        for username, password, role, first, last, is_super in specs:
+        for idx, (username, password, role, first, last, is_super) in enumerate(specs):
+            cpf = generate_cpf(900_000 + idx)
             user, created = User.objects.get_or_create(
                 username=username,
                 defaults={
+                    "cpf": cpf,
                     "email": f"{username}@igarassu.pe.gov.br",
                     "first_name": first,
                     "last_name": last,

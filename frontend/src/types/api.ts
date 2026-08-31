@@ -19,7 +19,7 @@ export interface User {
   first_name: string
   last_name: string
   phone?: string
-  document?: string
+  cpf: string
   avatar?: string
   bio?: string
   role: UserRole
@@ -31,7 +31,7 @@ export interface User {
 }
 
 export interface LoginRequest {
-  username: string
+  identifier: string
   password: string
 }
 
@@ -263,7 +263,7 @@ export interface Student {
   inep_id?: string | null
   full_name: string
   social_name?: string
-  cpf?: string | null
+  cpf: string
   birth_certificate?: string
   nis_code?: string
   birth_date: string
@@ -286,8 +286,8 @@ export interface CreateStudentRequest {
   full_name: string
   mother_name: string
   birth_date: string
+  cpf: string
   social_name?: string
-  cpf?: string
   inep_id?: string
   gender?: string
   race_color?: string

@@ -58,6 +58,7 @@ from apps.students.models import (
     TransferRequestStatus,
 )
 from core.models import User, UserRole
+from core.validators import generate_cpf
 
 DEMO_ID_PREFIX = "DEMO"
 DEMO_TEACHER_REG = "DEMO-T-"
@@ -273,6 +274,7 @@ class Command(BaseCommand):
             user = User.objects.create(
                 username=f"{DEMO_TEACHER_USER}{i:03d}",
                 email=f"{DEMO_TEACHER_USER}{i:03d}@demo.local",
+                cpf=generate_cpf(700_000 + i),
                 first_name=self.rng.choice(FIRST_NAMES),
                 last_name=f"{self.rng.choice(LAST_NAMES)} {self.rng.choice(LAST_NAMES)}",
                 role=UserRole.TEACHER,
@@ -283,7 +285,7 @@ class Command(BaseCommand):
                     user=user,
                     education_department=dept,
                     registration_number=f"{DEMO_TEACHER_REG}{i:04d}",
-                    cpf=f"9{i:010d}"[:11],
+                    cpf=user.cpf,
                     formation_area=self.rng.choice(
                         ["Pedagogia", "Letras", "Matemática", "História", "Educação Física"]
                     ),
@@ -537,6 +539,7 @@ class Command(BaseCommand):
             username="responsavel",
             defaults={
                 "email": "responsavel@demo.local",
+                "cpf": generate_cpf(880_000),
                 "first_name": "Renata",
                 "last_name": "Responsável",
                 "role": UserRole.STUDENT_GUARDIAN,
@@ -577,6 +580,7 @@ class Command(BaseCommand):
                 user = User(
                     username=f"{DEMO_GUARDIAN_USER}{useq:04d}",
                     email=f"{DEMO_GUARDIAN_USER}{useq:04d}@demo.local",
+                    cpf=generate_cpf(882_000 + useq),
                     first_name=rng.choice(FIRST_NAMES),
                     last_name=rng.choice(LAST_NAMES),
                     role=UserRole.STUDENT_GUARDIAN,

@@ -2,6 +2,7 @@ import uuid
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from core.fields import CPFField
 from core.models import SoftDeleteModel
 
 
@@ -25,7 +26,7 @@ class Guardian(SoftDeleteModel):
         verbose_name=_('Usuário'),
     )
     full_name = models.CharField(max_length=200, verbose_name=_('Nome completo'))
-    cpf = models.CharField(max_length=11, unique=True, verbose_name=_('CPF'))
+    cpf = CPFField(unique=True, verbose_name=_('CPF'))
     phone = models.CharField(max_length=20, verbose_name=_('Telefone'))
     email = models.EmailField(blank=True, verbose_name=_('Email'))
     address = models.CharField(max_length=255, blank=True, verbose_name=_('Endereço'))

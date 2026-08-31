@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from core.serializers import CPFSerializerField
 from apps.students.models import Enrollment, Guardian, Student, StudentGuardian, TransferRequest
 
 
@@ -13,6 +14,15 @@ class StudentSerializer(serializers.ModelSerializer):
     user_email = serializers.EmailField(source='user.email', read_only=True, allow_null=True)
     age = serializers.SerializerMethodField()
     registration_number = serializers.CharField(read_only=True)
+    cpf = CPFSerializerField(required=True)
+
+    def validate_cpf(self, value):
+        qs = Student.objects.filter(cpf=value, deleted_at__isnull=True)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError('CPF já cadastrado para outro aluno.')
+        return value
 
     class Meta:
         model = Student
@@ -81,6 +91,15 @@ class GuardianSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.get_full_name', read_only=True, allow_null=True)
     user_email = serializers.EmailField(source='user.email', read_only=True, allow_null=True)
     students_count = serializers.SerializerMethodField()
+    cpf = CPFSerializerField(required=True)
+
+    def validate_cpf(self, value):
+        qs = Guardian.objects.filter(cpf=value, deleted_at__isnull=True)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError('CPF já cadastrado para outro responsável.')
+        return value
 
     class Meta:
         model = Guardian

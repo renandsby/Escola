@@ -33,7 +33,8 @@ class StudentCard(BaseModel):
     def generate_qr_code(self):
         """Gera QR code para a carteirinha."""
         qr_data = (
-            f"CARD:{self.card_number}|STUDENT:{self.student.unique_municipal_id}"
+            f"CARD:{self.card_number}|CPF:{self.student.cpf or ''}"
+            f"|STUDENT:{self.student.unique_municipal_id}"
             f"|INEP:{self.student.inep_id or ''}"
         )
         qr = qrcode.QRCode(version=1, box_size=10, border=5)

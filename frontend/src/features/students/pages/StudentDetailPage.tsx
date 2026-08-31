@@ -9,6 +9,7 @@ import {
   downloadHistoricoPdf,
 } from '@/features/reports/api/officialDocs'
 import { apiGet } from '@/utils/api-helpers'
+import { formatCPF } from '@/utils/formatting'
 import type {
   Student,
   Grade,
@@ -183,8 +184,8 @@ export default function StudentDetailPage() {
   ]
 
   const fichaRows: [string, React.ReactNode][] = [
+    ['CPF', data.cpf ? <span className="font-mono tabular-nums">{formatCPF(data.cpf)}</span> : '—'],
     ['ID municipal', <span className="font-mono tabular-nums">{data.unique_municipal_id}</span>],
-    ['CPF', data.cpf ? <span className="font-mono tabular-nums">{data.cpf}</span> : '—'],
     ['Código INEP', data.inep_id ? <span className="font-mono tabular-nums">{data.inep_id}</span> : '—'],
     ['Data de nascimento', data.birth_date + (data.age ? ` · ${data.age} anos` : '')],
     ['Gênero', labelOf(GENDER, data.gender)],
@@ -210,7 +211,9 @@ export default function StudentDetailPage() {
         title={data.social_name || data.full_name}
         meta={
           <>
-            <span className="font-mono tabular-nums">{data.unique_municipal_id}</span>
+            <span className="font-mono tabular-nums">
+              {data.cpf ? formatCPF(data.cpf) : data.unique_municipal_id}
+            </span>
             {data.is_active ? (
               <Badge tone="ok">Ativo</Badge>
             ) : (

@@ -5,11 +5,15 @@ from rest_framework.test import APIClient
 
 from apps.governance.tests.factories import EducationDepartmentFactory
 from core.models import User, UserRole
+from core.validators import generate_cpf
 from .factories import SMEAdminFactory, TeacherUserFactory, UserFactory
 
 pytestmark = pytest.mark.django_db
 
 CREATE = '/api/v1/accounts/users/create_user/'
+
+CPF_A = generate_cpf(1_001)
+CPF_B = generate_cpf(1_002)
 
 
 def _admin_client():
@@ -22,7 +26,7 @@ def _admin_client():
 
 def _payload(dept, **over):
     base = {
-        'username': 'diretor.novo',
+        'cpf': CPF_A,
         'email': 'diretor.novo@rede.gov.br',
         'first_name': 'Ana',
         'last_name': 'Gestora',
@@ -39,7 +43,18 @@ def test_admin_creates_network_user():
     client, dept = _admin_client()
     resp = client.post(CREATE, _payload(dept), format='json')
     assert resp.status_code == 201, resp.data
-    assert User.objects.filter(username='diretor.novo', role=UserRole.SME_SUPERVISOR).exists()
+    user = User.objects.get(cpf=CPF_A)
+    assert user.role == UserRole.SME_SUPERVISOR
+    # o username interno espelha o CPF
+    assert user.username == CPF_A
+
+
+def test_create_user_requires_cpf():
+    client, dept = _admin_client()
+    payload = _payload(dept)
+    payload.pop('cpf')
+    resp = client.post(CREATE, payload, format='json')
+    assert resp.status_code == 400
 
 
 def test_duplicate_email_returns_friendly_error():
@@ -52,19 +67,19 @@ def test_duplicate_email_returns_friendly_error():
     assert 'email' in detail
 
 
-def test_duplicate_document_returns_friendly_error():
+def test_duplicate_cpf_returns_friendly_error():
     client, dept = _admin_client()
-    UserFactory(document='12345678901')
-    resp = client.post(CREATE, _payload(dept, document='12345678901'), format='json')
+    UserFactory(cpf=CPF_B)
+    resp = client.post(CREATE, _payload(dept, cpf=CPF_B), format='json')
     assert resp.status_code == 400
     detail = resp.data['error']['details'] if 'error' in resp.data else resp.data
-    assert 'document' in detail
+    assert 'cpf' in detail
 
 
 def test_non_admin_cannot_create_user():
     client = APIClient()
     client.force_authenticate(TeacherUserFactory())
-    resp = client.post(CREATE, {'username': 'x', 'email': 'x@x.com'}, format='json')
+    resp = client.post(CREATE, {'cpf': generate_cpf(9), 'email': 'x@x.com'}, format='json')
     assert resp.status_code == 403
 
 
@@ -77,7 +92,6 @@ def test_deactivation_blocks_authenticated_requests():
     target.refresh_from_db()
     assert target.is_active is False
 
-    # o alvo agora não consegue mais autenticar via JWT
     from rest_framework_simplejwt.tokens import AccessToken
 
     token = AccessToken.for_user(target)
@@ -88,7 +102,7 @@ def test_deactivation_blocks_authenticated_requests():
 
 def test_admin_list_includes_inactive_users():
     client, dept = _admin_client()
-    UserFactory(education_department=dept, is_active=False, username='inativo')
+    inactive = UserFactory(education_department=dept, is_active=False)
     resp = client.get('/api/v1/accounts/users/', {'page_size': 200})
-    usernames = {u['username'] for u in resp.data['results']}
-    assert 'inativo' in usernames
+    ids = {str(u['id']) for u in resp.data['results']}
+    assert str(inactive.id) in ids

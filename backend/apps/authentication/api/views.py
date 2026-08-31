@@ -89,8 +89,8 @@ class UserViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['role', 'school', 'education_department', 'is_active']
-    search_fields = ['username', 'email', 'first_name', 'last_name']
-    ordering_fields = ['username', 'email', 'created_at']
+    search_fields = ['cpf', 'email', 'first_name', 'last_name', 'username']
+    ordering_fields = ['username', 'email', 'created_at', 'cpf']
     ordering = ['-created_at']
 
     def get_permissions(self):

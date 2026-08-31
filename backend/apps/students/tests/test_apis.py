@@ -6,6 +6,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.governance.models import ConsentRecord, ConsentType
+from core.validators import generate_cpf
 from apps.students.models import EnrollmentStatus, TransferRequestStatus
 from apps.students.tests.factories import (
     EducationDepartmentFactory,
@@ -59,6 +60,7 @@ class TestStudentAPI:
         payload = {
             'education_department': str(department.id),
             'unique_municipal_id': 'MUN99999999',
+            'cpf': generate_cpf(30001),
             'full_name': 'Novo Aluno',
             'mother_name': 'Mãe do Aluno',
             'birth_date': '2016-05-10',
@@ -75,6 +77,7 @@ class TestStudentAPI:
         payload = {
             'education_department': str(department.id),
             'unique_municipal_id': 'MUN77777777',
+            'cpf': generate_cpf(30002),
             'full_name': 'Aluno Sem LGPD',
             'mother_name': 'Mãe',
             'birth_date': '2016-05-10',

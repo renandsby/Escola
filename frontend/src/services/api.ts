@@ -131,11 +131,11 @@ export const createApiClient = (): AxiosInstance => {
 export const apiClient = createApiClient()
 
 export const authService = {
-  login: (username: string, password: string) =>
-    apiClient.post('/accounts/login/', { username, password }),
+  login: (identifier: string, password: string) =>
+    apiClient.post('/accounts/login/', { identifier, password }),
 
   register: (data: {
-    username: string
+    cpf: string
     email: string
     password: string
     password_confirm: string

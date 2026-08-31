@@ -13,6 +13,7 @@ from apps.curriculum.tests.factories import (  # noqa: F401
 )
 from apps.governance.tests.factories import AcademicYearFactory
 from core.models import UserRole
+from core.validators import next_generated_cpf
 
 User = get_user_model()
 
@@ -73,8 +74,9 @@ class UserFactory(DjangoModelFactory):
     class Meta:
         model = User
 
-    username = factory.Sequence(lambda n: f'classes_user_{n}')
-    email = factory.LazyAttribute(lambda o: f'{o.username}@example.com')
+    cpf = factory.LazyFunction(next_generated_cpf)
+    username = factory.LazyAttribute(lambda o: o.cpf)
+    email = factory.LazyAttribute(lambda o: f'u{o.cpf}@example.com')
     password = 'testpass123'
     role = UserRole.SME_ADMIN
     is_active = True
@@ -112,7 +114,7 @@ class TeacherProfileFactory(DjangoModelFactory):
     user = factory.SubFactory(TeacherUserFactory)
     education_department = factory.SelfAttribute('user.education_department')
     registration_number = factory.Sequence(lambda n: f'PROF{n:05d}')
-    cpf = factory.Sequence(lambda n: f'{10000000000 + n:011d}')
+    cpf = factory.LazyFunction(next_generated_cpf)
     formation_area = 'Pedagogia'
     birth_date = date(1990, 1, 15)
     hiring_date = date(2020, 2, 1)

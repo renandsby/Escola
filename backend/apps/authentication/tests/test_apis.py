@@ -18,19 +18,32 @@ def _client(user=None):
 
 @pytest.mark.django_db
 class TestLogin:
-    def test_login_returns_tokens(self):
-        user = UserFactory(username='login_test')
+    def test_login_with_cpf(self):
+        user = UserFactory(email='cpf.login@example.com')
         user.set_password('secret123')
         user.save()
 
         response = APIClient().post(
             '/api/v1/accounts/login/',
-            {'username': 'login_test', 'password': 'secret123'},
+            {'identifier': user.cpf, 'password': 'secret123'},
         )
 
         assert response.status_code == status.HTTP_200_OK
         assert 'access' in response.data
-        assert 'refresh' in response.data
+        assert response.data['user']['cpf'] == user.cpf
+
+    def test_login_with_email_case_insensitive(self):
+        user = UserFactory(email='Person.Login@Example.com')
+        user.set_password('secret123')
+        user.save()
+
+        response = APIClient().post(
+            '/api/v1/accounts/login/',
+            {'identifier': 'PERSON.login@example.COM', 'password': 'secret123'},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert 'access' in response.data
 
     def test_login_rejects_bad_credentials(self):
         response = APIClient().post(

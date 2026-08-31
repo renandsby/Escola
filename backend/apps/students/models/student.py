@@ -1,6 +1,9 @@
 from django.db import models
+from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
+from core.fields import CPFField
 from core.models import SoftDeleteModel
+from core.validators import format_cpf
 
 
 class Student(SoftDeleteModel):
@@ -40,7 +43,8 @@ class Student(SoftDeleteModel):
     )
     full_name = models.CharField(max_length=200, verbose_name=_('Nome completo'))
     social_name = models.CharField(max_length=200, blank=True, verbose_name=_('Nome social'))
-    cpf = models.CharField(max_length=11, unique=True, null=True, blank=True, verbose_name=_('CPF'))
+    # Identificador principal do aluno (DX-SGE-003/2026).
+    cpf = CPFField(verbose_name=_('CPF'))
     birth_certificate = models.CharField(max_length=50, blank=True, verbose_name=_('Certidão de Nascimento'))
     nis_code = models.CharField(max_length=15, blank=True, verbose_name=_('NIS'))
     birth_date = models.DateField(verbose_name=_('Data de Nascimento'))
@@ -63,9 +67,17 @@ class Student(SoftDeleteModel):
             models.Index(fields=['full_name']),
             models.Index(fields=['mother_name']),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['cpf'],
+                condition=Q(deleted_at__isnull=True),
+                name='uq_student_cpf_active',
+            ),
+        ]
 
     def __str__(self):
-        return f"{self.full_name} ({self.unique_municipal_id})"
+        ident = format_cpf(self.cpf) if self.cpf else self.unique_municipal_id
+        return f"{self.full_name} ({ident})"
 
     def get_age(self):
         from datetime import date

@@ -8,6 +8,7 @@ from django.contrib.auth import get_user_model
 from factory.django import DjangoModelFactory
 
 from core.models import UserRole
+from core.validators import next_generated_cpf
 
 User = get_user_model()
 
@@ -60,8 +61,9 @@ class UserFactory(DjangoModelFactory):
     class Meta:
         model = User
 
-    username = factory.Sequence(lambda n: f'gov_user_{n}')
-    email = factory.LazyAttribute(lambda o: f'{o.username}@example.com')
+    cpf = factory.LazyFunction(next_generated_cpf)
+    username = factory.LazyAttribute(lambda o: o.cpf)
+    email = factory.LazyAttribute(lambda o: f'u{o.cpf}@example.com')
     password = 'testpass123'
     role = UserRole.SME_ADMIN
     is_active = True

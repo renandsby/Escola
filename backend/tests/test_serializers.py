@@ -10,6 +10,7 @@ from apps.classes.api.serializers import SchoolClassSerializer
 from apps.curriculum.api.serializers import SubjectSerializer
 from apps.governance.api.serializers import EducationDepartmentSerializer
 from apps.schools.api.serializers import SchoolSerializer
+from core.validators import generate_cpf
 from apps.students.api.serializers import StudentSerializer
 
 
@@ -65,6 +66,7 @@ class TestStudentSerializer:
         payload = {
             'education_department': str(department.pk),
             'unique_municipal_id': 'MUN99990001',
+            'cpf': generate_cpf(50_001),
             'full_name': 'João da Silva',
             'mother_name': 'Maria da Silva',
             'birth_date': '2014-05-20',

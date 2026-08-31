@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 from apps.governance.tests.factories import EducationDepartmentFactory
 from apps.classes.tests.factories import SchoolFactory
 from core.models import UserRole
+from core.validators import next_generated_cpf
 
 User = get_user_model()
 
@@ -14,8 +15,9 @@ class UserFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = User
 
-    username = factory.Sequence(lambda n: f'auth_user_{n}')
-    email = factory.LazyAttribute(lambda o: f'{o.username}@example.com')
+    cpf = factory.LazyFunction(next_generated_cpf)
+    username = factory.LazyAttribute(lambda o: o.cpf)
+    email = factory.LazyAttribute(lambda o: f'u{o.cpf}@example.com')
     password = 'testpass123'
     role = UserRole.STUDENT_GUARDIAN
     is_active = True

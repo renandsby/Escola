@@ -5,6 +5,7 @@ from rest_framework.test import APIClient
 
 from apps.audit.models import AuditLog
 from apps.audit.services.audit_service import log_action, sanitize
+from core.validators import generate_cpf
 from apps.students.tests.factories import (
     EducationDepartmentFactory,
     SchoolDirectorFactory,
@@ -23,6 +24,7 @@ class TestAuditMiddleware:
 
         payload = {
             'unique_municipal_id': 'AUD0001',
+            'cpf': generate_cpf(30010),
             'full_name': 'Aluno Auditoria',
             'mother_name': 'Mãe Teste',
             'birth_date': '2015-05-05',

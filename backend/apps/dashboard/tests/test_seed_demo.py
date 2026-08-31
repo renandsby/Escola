@@ -19,8 +19,11 @@ def test_seed_dashboard_demo_lights_up_every_panel():
     assert Grade.objects.exists()
     assert TransferRequest.objects.filter(status="PENDING_SME").exists()
 
+    from core.validators import generate_cpf
+
     admin = User.objects.create_superuser(
-        username="demo_admin", email="d@d.com", password="x", role="sme_admin"
+        username="demo_admin", cpf=generate_cpf(123_456), email="d@d.com",
+        password="x", role="sme_admin",
     )
     from apps.governance.models import EducationDepartment
 

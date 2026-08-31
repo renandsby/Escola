@@ -102,7 +102,8 @@ def test_anonymize_scrubs_pii_but_keeps_grades():
     anonymize_inactive_student(student_id=student.id, actor_user=admin)
 
     student.refresh_from_db()
-    assert student.cpf is None
+    # CPF real removido (substituído por marcador sintético, campo é obrigatório)
+    assert student.cpf not in (None, '12345678901')
     assert 'ANONIMIZADO' in student.full_name
     assert student.mother_name == 'ANONIMIZADO'
     assert student.deleted_at is not None

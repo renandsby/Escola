@@ -354,6 +354,11 @@ if IS_PRODUCTION:
 
 AUTH_USER_MODEL = 'core.User'
 
+AUTHENTICATION_BACKENDS = [
+    'core.auth_backends.CPFOrEmailBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
 # Base pública do frontend — usada em links de e-mail (reset de senha etc.).
 FRONTEND_BASE_URL = decouple_config(
     'FRONTEND_BASE_URL', default='http://localhost:3000'

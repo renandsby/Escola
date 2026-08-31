@@ -11,6 +11,18 @@ export function isValidEmail(email: string): boolean {
 }
 
 /**
+ * Remove máscara do CPF e devolve apenas dígitos (com zero à esquerda quando
+ * o valor vier "curto"). O backend também persiste 11 dígitos.
+ */
+export function normalizeCPF(cpf: string): string {
+  const digits = (cpf ?? '').replace(/\D/g, '')
+  if (!digits) {
+    return ''
+  }
+  return digits.length < 11 ? digits.padStart(11, '0') : digits
+}
+
+/**
  * Valida CPF
  */
 export function isValidCPF(cpf: string): boolean {

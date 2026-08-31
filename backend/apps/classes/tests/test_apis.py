@@ -83,10 +83,14 @@ class TestTeacherAPI:
     def test_sme_admin_creates_teacher_profile(self):
         from django.contrib.auth import get_user_model
 
+        from core.validators import generate_cpf
+
         dept = EducationDepartmentFactory()
         admin = SMEAdminFactory(education_department=dept)
+        teacher_cpf = generate_cpf(4_242)
         teacher_user = get_user_model().objects.create_user(
-            username='prof_novo',
+            username=teacher_cpf,
+            cpf=teacher_cpf,
             email='prof@rede.gov.br',
             password='x',
             role='teacher',
@@ -99,7 +103,7 @@ class TestTeacherAPI:
                 'user': str(teacher_user.id),
                 'education_department': str(dept.id),
                 'registration_number': 'MF-001',
-                'cpf': '12345678901',
+                'cpf': teacher_cpf,
                 'formation_area': 'Pedagogia',
             },
         )

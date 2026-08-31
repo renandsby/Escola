@@ -19,6 +19,7 @@ from django.utils import timezone
 
 from core.exceptions import BusinessLogicError
 from core.models import User
+from core.validators import normalize_cpf
 from apps.authentication.models import PasswordReset
 
 logger = logging.getLogger(__name__)
@@ -34,11 +35,11 @@ def _find_user(email_or_username: str) -> User | None:
     ident = (email_or_username or '').strip()
     if not ident:
         return None
-    return (
-        User.objects.filter(is_active=True)
-        .filter(Q(email__iexact=ident) | Q(username__iexact=ident))
-        .first()
-    )
+    lookup = Q(email__iexact=ident) | Q(username__iexact=ident)
+    digits = normalize_cpf(ident) or ''
+    if len(digits) == 11 and digits.isdigit():
+        lookup |= Q(cpf=digits)
+    return User.objects.filter(is_active=True).filter(lookup).first()
 
 
 @transaction.atomic

@@ -10,6 +10,7 @@ from factory.django import DjangoModelFactory
 from faker import Faker
 
 from core.models import UserRole
+from core.validators import next_generated_cpf
 from apps.class_diary.models import Attendance, DescriptiveEvaluation, DiaryEntry, Grade, SchoolHistory
 
 fake = Faker('pt_BR')
@@ -106,8 +107,9 @@ class UserFactory(DjangoModelFactory):
     class Meta:
         model = User
 
-    username = factory.Sequence(lambda n: f'cd_user_{n}')
-    email = factory.LazyAttribute(lambda o: f'{o.username}@example.com')
+    cpf = factory.LazyFunction(next_generated_cpf)
+    username = factory.LazyAttribute(lambda o: o.cpf)
+    email = factory.LazyAttribute(lambda o: f'u{o.cpf}@example.com')
     first_name = factory.Faker('first_name', locale='pt_BR')
     last_name = factory.Faker('last_name', locale='pt_BR')
     password = 'testpass123'
@@ -165,7 +167,7 @@ class TeacherProfileFactory(DjangoModelFactory):
     user = factory.SubFactory(TeacherUserFactory)
     education_department = factory.SelfAttribute('user.education_department')
     registration_number = factory.Sequence(lambda n: f'PROF{n:05d}')
-    cpf = factory.LazyFunction(lambda: _digits(11))
+    cpf = factory.LazyFunction(next_generated_cpf)
     formation_area = 'Pedagogia'
     birth_date = date(1990, 1, 15)
     hiring_date = date(2020, 2, 1)
@@ -225,7 +227,7 @@ class StudentFactory(DjangoModelFactory):
     mother_name = factory.Faker('name', locale='pt_BR')
     birth_date = date(2015, 3, 10)
     gender = 'M'
-    cpf = factory.LazyFunction(lambda: _digits(11))
+    cpf = factory.LazyFunction(next_generated_cpf)
 
 
 class EnrollmentFactory(DjangoModelFactory):

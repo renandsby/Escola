@@ -11,6 +11,7 @@ import { FormSection, StickyActions } from '@/components/ui/FormSection'
 import { Button } from '@/components/ui/Button'
 import { FormError } from '@/components/feedback/FormError'
 import { LGPDTermsModal, LGPD_TERM_VERSION } from '@/components/lgpd/LGPDTermsModal'
+import { isValidCPF, normalizeCPF } from '@/utils/validation'
 import { PersonLookupStep } from '@/components/feedback/PersonLookupStep'
 import { TableSkeleton } from '@/components/ui/TableSkeleton'
 import { apiGet, apiPost, apiPut } from '@/utils/api-helpers'
@@ -27,7 +28,7 @@ const studentSchema = z.object({
   mother_name: z.string().min(1, 'Nome da mãe é obrigatório'),
   birth_date: z.string().min(1, 'Data de nascimento é obrigatória'),
   social_name: z.string().optional(),
-  cpf: z.string().optional(),
+  cpf: z.string().min(1, 'CPF é obrigatório').refine(isValidCPF, 'CPF inválido'),
   gender: z.string().optional(),
   father_name: z.string().optional(),
   has_special_needs: z.boolean().optional(),
@@ -111,13 +112,19 @@ export default function StudentFormPage() {
 
     setSubmitting(true)
     try {
+      const cpf = normalizeCPF(data.cpf)
       if (id) {
-        const payload = { ...data }
+        const payload = { ...data, cpf }
         delete payload.lgpd_consent
         await apiPut(`students/${id}/`, payload)
         toast.success('Aluno atualizado.')
       } else {
-        await apiPost('students/', { ...data, lgpd_consent: true, term_version: LGPD_TERM_VERSION })
+        await apiPost('students/', {
+          ...data,
+          cpf,
+          lgpd_consent: true,
+          term_version: LGPD_TERM_VERSION,
+        })
         toast.success('Aluno criado.')
       }
       navigate(ROUTES.students)
@@ -176,6 +183,9 @@ export default function StudentFormPage() {
                 <Field label="Nome completo" name="full_name" required className="sm:col-span-2">
                   <Input {...register('full_name')} />
                 </Field>
+                <Field label="CPF" name="cpf" required mono help="Identificador principal do aluno">
+                  <Input {...register('cpf')} placeholder="000.000.000-00" />
+                </Field>
                 <Field label="Nome social" name="social_name">
                   <Input {...register('social_name')} />
                 </Field>
@@ -216,9 +226,6 @@ export default function StudentFormPage() {
               <FormSection title="Documentos" description="Códigos oficiais e programas sociais.">
                 <Field label="ID municipal" name="unique_municipal_id" required mono>
                   <Input {...register('unique_municipal_id')} placeholder="Ex.: MUN20260001" />
-                </Field>
-                <Field label="CPF" name="cpf" mono>
-                  <Input {...register('cpf')} placeholder="00000000000" />
                 </Field>
                 <Field label="Código INEP" name="inep_id" mono>
                   <Input {...register('inep_id')} />

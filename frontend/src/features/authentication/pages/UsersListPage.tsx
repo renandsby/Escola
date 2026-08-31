@@ -8,6 +8,7 @@ import { DataTable, type Column } from '@/components/ui/DataTable'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
+import { formatCPF } from '@/utils/formatting'
 import { Select } from '@/components/ui/Field'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
 import { USER_ROLE, labelOf } from '@/components/ui/statusMaps'
@@ -34,7 +35,7 @@ export default function UsersListPage() {
         !q ||
         `${u.first_name} ${u.last_name}`.toLowerCase().includes(q) ||
         u.email.toLowerCase().includes(q) ||
-        (u.document ?? '').includes(q)
+        (u.cpf ?? '').replace(/\D/g, '').includes(q.replace(/\D/g, ''))
       const matchesRole = !roleFilter || u.role === roleFilter
       return matchesText && matchesRole
     })
@@ -46,6 +47,7 @@ export default function UsersListPage() {
       header: 'Nome',
       render: (u) => `${u.first_name} ${u.last_name}`.trim() || u.username,
     },
+    { key: 'cpf', header: 'CPF', mono: true, align: 'right', render: (u) => formatCPF(u.cpf ?? '') || '—' },
     { key: 'email', header: 'E-mail', render: (u) => u.email },
     { key: 'role', header: 'Papel', render: (u) => labelOf(USER_ROLE, u.role) },
     { key: 'school', header: 'Escola', render: (u) => u.school_name || '—' },

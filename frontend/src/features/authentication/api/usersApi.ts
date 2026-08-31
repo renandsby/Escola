@@ -1,5 +1,6 @@
 import { apiClient } from '@/services/api'
 import { apiGet } from '@/utils/api-helpers'
+import { normalizeCPF } from '@/utils/validation'
 import type { PaginatedResponse } from '@/types/api'
 import type { UserFormData } from '../schemas/userSchema'
 
@@ -10,7 +11,7 @@ export interface NetworkUser {
   first_name: string
   last_name: string
   phone?: string
-  document?: string | null
+  cpf: string
   role: string
   school: string | null
   school_name?: string | null
@@ -33,11 +34,10 @@ function genProvisionalPassword() {
 export async function createUser(data: UserFormData) {
   const password = data.password || genProvisionalPassword()
   const res = await apiClient.post('/accounts/users/create_user/', {
-    username: data.username,
+    cpf: normalizeCPF(data.cpf),
     email: data.email,
     first_name: data.first_name,
     last_name: data.last_name,
-    document: data.document || undefined,
     role: data.role,
     school: data.school || null,
     password,
@@ -51,7 +51,7 @@ export async function updateUser(id: string, data: Partial<UserFormData>) {
     first_name: data.first_name,
     last_name: data.last_name,
     email: data.email,
-    document: data.document || undefined,
+    cpf: data.cpf ? normalizeCPF(data.cpf) : undefined,
     role: data.role,
     school: data.school || null,
   })

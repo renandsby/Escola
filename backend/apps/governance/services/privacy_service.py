@@ -23,6 +23,12 @@ from apps.students.selectors.students import get_students_for_user
 _ANON_SALT = 'lgpd-anon-v1'
 
 
+def _anon_cpf(token: str) -> str:
+    """CPF sintético (11 dígitos) derivado do token de anonimização."""
+    digits = ''.join(c for c in str(int(token, 16)) if c.isdigit())
+    return (digits * 2)[:11].zfill(11)
+
+
 def _resolve_student_in_scope(*, requesting_user, student_id) -> Student:
     """Aluno pedido, desde que visível ao papel do solicitante (RBAC estrito)."""
     student = (
@@ -285,7 +291,9 @@ def anonymize_inactive_student(*, student_id, actor_user) -> Student:
 
     student.full_name = f'ALUNO ANONIMIZADO {token}'
     student.social_name = ''
-    student.cpf = None
+    # CPF é obrigatório: substitui o real por um marcador sintético não
+    # rastreável (o registro fica soft-deleted, fora da constraint de unicidade).
+    student.cpf = _anon_cpf(token)
     student.birth_certificate = ''
     student.nis_code = ''
     student.mother_name = 'ANONIMIZADO'

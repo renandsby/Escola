@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
 import { getErrorMessage } from '@/utils/api-helpers'
+import { formatCPF } from '@/utils/formatting'
 import { ROUTES } from '@/app/routes/paths'
 
 export default function StudentsListPage() {
@@ -23,9 +24,11 @@ export default function StudentsListPage() {
   const [toDelete, setToDelete] = useState<Student | null>(null)
 
   const q = term.toLowerCase()
+  const qDigits = q.replace(/\D/g, '')
   const rows = (list.data?.results ?? []).filter(
     (s: Student) =>
       s.full_name?.toLowerCase().includes(q) ||
+      (!!qDigits && (s.cpf ?? '').replace(/\D/g, '').includes(qDigits)) ||
       s.unique_municipal_id?.toLowerCase().includes(q) ||
       s.mother_name?.toLowerCase().includes(q)
   )
@@ -46,14 +49,20 @@ export default function StudentsListPage() {
 
   const columns: Column<Student>[] = [
     {
+      key: 'cpf',
+      header: 'CPF',
+      mono: true,
+      align: 'right',
+      width: '150px',
+      render: (s) => (s.cpf ? formatCPF(s.cpf) : '—'),
+    },
+    { key: 'name', header: 'Nome', render: (s) => <span title={s.full_name}>{s.full_name}</span> },
+    {
       key: 'id',
       header: 'ID municipal',
       mono: true,
-      align: 'right',
-      width: '140px',
       render: (s) => s.unique_municipal_id,
     },
-    { key: 'name', header: 'Nome', render: (s) => <span title={s.full_name}>{s.full_name}</span> },
     { key: 'mother', header: 'Nome da mãe', render: (s) => s.mother_name },
     {
       key: 'status',
@@ -104,7 +113,7 @@ export default function StudentsListPage() {
         <input
           value={term}
           onChange={(e) => setTerm(e.target.value)}
-          placeholder="Buscar por nome, ID municipal ou nome da mãe…"
+          placeholder="Buscar por nome, CPF, ID municipal ou nome da mãe…"
           className="h-control w-full rounded border border-line-strong bg-white pl-9 pr-3 text-base"
         />
       </div>

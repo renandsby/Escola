@@ -1,10 +1,14 @@
 import django_filters
 
+from core.validators import normalize_cpf
 from .models import Student
 
 
 class StudentFilterSet(django_filters.FilterSet):
-    cpf = django_filters.CharFilter(field_name='cpf', lookup_expr='exact')
+    cpf = django_filters.CharFilter(method='filter_cpf')
+
+    def filter_cpf(self, queryset, name, value):
+        return queryset.filter(cpf=normalize_cpf(value) or value)
     unique_municipal_id = django_filters.CharFilter(field_name='unique_municipal_id', lookup_expr='exact')
     inep_id = django_filters.CharFilter(field_name='inep_id', lookup_expr='exact')
     mother_name = django_filters.CharFilter(field_name='mother_name', lookup_expr='icontains')

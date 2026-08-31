@@ -38,9 +38,8 @@ export default function UserFormPage() {
     defaultValues: {
       first_name: '',
       last_name: '',
-      username: '',
+      cpf: '',
       email: '',
-      document: '',
       role: 'school_director',
       school: '',
       password: '',
@@ -55,9 +54,8 @@ export default function UserFormPage() {
       reset({
         first_name: d.first_name,
         last_name: d.last_name,
-        username: d.username,
+        cpf: d.cpf ?? '',
         email: d.email,
-        document: d.document ?? '',
         role: d.role as UserFormData['role'],
         school: d.school ?? '',
         password: '',
@@ -117,14 +115,11 @@ export default function UserFormPage() {
             <Field label="Sobrenome" name="last_name" required>
               <Input {...register('last_name')} />
             </Field>
-            <Field label="Usuário de acesso" name="username" required>
-              <Input {...register('username')} disabled={isEditing} />
+            <Field label="CPF" name="cpf" required mono help="Login do usuário (com ou sem máscara)">
+              <Input {...register('cpf')} placeholder="000.000.000-00" />
             </Field>
-            <Field label="E-mail institucional" name="email" required>
+            <Field label="E-mail institucional" name="email" required help="Também serve para login">
               <Input type="email" {...register('email')} />
-            </Field>
-            <Field label="CPF" name="document" mono help="Somente números">
-              <Input {...register('document')} />
             </Field>
           </FormSection>
 

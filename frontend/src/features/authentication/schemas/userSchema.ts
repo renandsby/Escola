@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { isValidCPF } from '@/utils/validation'
 
 export const USER_ROLE_OPTIONS = [
   { value: 'sme_admin', label: 'Administrador da SME' },
@@ -14,9 +15,8 @@ export const userSchema = z
   .object({
     first_name: z.string().min(1, 'Informe o nome'),
     last_name: z.string().min(1, 'Informe o sobrenome'),
-    username: z.string().min(3, 'Usuário deve ter ao menos 3 caracteres'),
+    cpf: z.string().min(1, 'Informe o CPF').refine(isValidCPF, 'CPF inválido'),
     email: z.string().email('E-mail inválido'),
-    document: z.string().optional().or(z.literal('')),
     role: z.enum(['sme_admin', 'sme_supervisor', 'school_director', 'school_secretary', 'teacher']),
     school: z.string().optional().or(z.literal('')),
     password: z.string().optional().or(z.literal('')),

@@ -59,7 +59,9 @@ class AuditMiddleware(MiddlewareMixin):
 
         ok = response.status_code < 400
         body = request._audit_body if isinstance(request._audit_body, dict) else {}
-        username = str(body.get('username', ''))[:150]
+        username = str(
+            body.get('identifier') or body.get('username') or body.get('email') or ''
+        )[:150]
 
         # dados do corpo da resposta (para a etapa 2FA e o /totp/verify/)
         requires_2fa = False
@@ -83,9 +85,9 @@ class AuditMiddleware(MiddlewareMixin):
 
         user = None
         if username:
-            from core.models import User
+            from core.auth_backends import CPFOrEmailBackend
 
-            user = User.objects.filter(username=username).first()
+            user = CPFOrEmailBackend._lookup(username)
 
         if completed and user is not None:
             try:
