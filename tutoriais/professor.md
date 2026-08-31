@@ -26,8 +26,9 @@ sob sua responsabilidade.
 
 ## 1. Primeiro acesso
 
-1. Sua conta é criada pela Secretaria (SME). Você recebe **usuário e senha**.
-2. Abra `http://localhost:3000`, informe usuário e senha e clique em **Entrar**.
+1. Sua conta é criada pela Secretaria (SME). Você recebe **CPF/e-mail e senha**.
+2. Abra `http://localhost:3000`, informe **CPF ou e-mail** e a senha e clique em
+   **Entrar**.
    Você cai na tela **Turmas**.
 3. Troque a senha em **Configurações → Segurança → Alterar senha**. Esqueceu?
    **"Esqueci minha senha"** na tela de login.

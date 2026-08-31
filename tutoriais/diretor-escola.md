@@ -19,6 +19,7 @@ cadastro de escolas, professores e disciplinas é feito pela Secretaria (SME).
 4. [Dados da escola](#4-dados-da-escola)
 5. [Turmas e salas](#5-turmas-e-salas)
 6. [Alunos, documentos e privacidade](#6-alunos-documentos-e-privacidade)
+   · [6.1 Solicitações de vínculo de responsável](#61-solicitações-de-vínculo-de-responsável)
 7. [Matrículas](#7-matrículas)
 8. [Transferências recebidas](#8-transferências-recebidas)
 9. [Acompanhamento pedagógico](#9-acompanhamento-pedagógico)
@@ -31,9 +32,9 @@ cadastro de escolas, professores e disciplinas é feito pela Secretaria (SME).
 
 ## 1. Primeiro acesso
 
-1. Abra `http://localhost:3000`, informe o **usuário e senha** fornecidos pela
-   Secretaria e clique em **Entrar**. Você cai no **Dashboard**, com os dados
-   **da sua escola**.
+1. Abra `http://localhost:3000`, informe **CPF ou e-mail** e a senha fornecidos
+   pela Secretaria e clique em **Entrar**. Você cai no **Dashboard**, com os
+   dados **da sua escola**.
 2. Troque a senha em **Configurações → Segurança → Alterar senha**. Esqueceu?
    Use **"Esqueci minha senha"** na tela de login.
 3. O menu lateral mostra apenas as áreas do seu papel.
@@ -93,7 +94,23 @@ Menu **Alunos** (`/alunos`) — **restrito à sua escola**.
     DOCX até 15 MB);
   - **Privacidade e dados (LGPD)** — registrar consentimentos e **baixar os
     dados cadastrais** do aluno;
+  - **Código de vínculo** — gera um código de uso único (validade 72 h) para o
+    responsável vincular esse aluno à conta dele no auto-cadastro (ver §6.1);
   - **Emitir Boletim** e **Emitir Carteirinha** (PDF oficial).
+
+### 6.1. Solicitações de vínculo de responsável
+
+Menu **Solicitações de vínculo** (`/responsaveis/solicitacoes-vinculo`).
+
+Quando um responsável se auto-cadastra e pede acesso a um aluno **sem** ter um
+código, ele informa CPF + data de nascimento + nome da mãe do estudante e a
+solicitação cai nesta fila. Confira se a pessoa é mesmo responsável pelo aluno e
+clique em **✓ aprovar** ou **✗ recusar** (a recusa exige um motivo, que o
+responsável vê). Só depois de aprovada é que o responsável enxerga notas,
+frequência e documentos daquele aluno.
+
+> Alternativa mais rápida: gerar um **Código de vínculo** na ficha do aluno e
+> entregar ao responsável — o vínculo é confirmado na hora, sem passar pela fila.
 
 ---
 

@@ -11,30 +11,85 @@ para celular.
 ## Índice
 
 1. [Primeiro acesso](#1-primeiro-acesso)
-2. [Meus filhos (painel da família)](#2-meus-filhos-painel-da-família)
-3. [Boletim do aluno](#3-boletim-do-aluno)
-4. [Documentos](#4-documentos)
-5. [Mensagens da escola](#5-mensagens-da-escola)
-6. [Notificações](#6-notificações)
-7. [Configurações e privacidade](#7-configurações-e-privacidade)
-8. [Limitações conhecidas](#8-limitações-conhecidas)
+2. [Vincular um estudante à sua conta](#2-vincular-um-estudante-à-sua-conta)
+3. [Meus filhos (painel da família)](#3-meus-filhos-painel-da-família)
+4. [Boletim do aluno](#4-boletim-do-aluno)
+5. [Documentos](#5-documentos)
+6. [Mensagens da escola](#6-mensagens-da-escola)
+7. [Notificações](#7-notificações)
+8. [Configurações e privacidade](#8-configurações-e-privacidade)
+9. [Limitações conhecidas](#9-limitações-conhecidas)
 
 ---
 
 ## 1. Primeiro acesso
 
-1. A conta é criada pela **escola** ou pela **Secretaria** e já vem **vinculada
-   ao(s) aluno(s)** correspondente(s). Você recebe **usuário e senha**.
-2. Abra `http://localhost:3000`, informe usuário e senha e clique em **Entrar**.
-3. Você cai em **Meus filhos**. O menu lateral mostra: **Meus filhos**,
-   **Boletins e carteirinhas**, **Arquivos dos alunos** e **Mensagens e avisos**.
+Há **dois caminhos** para ter acesso:
 
+### A. A escola criou a sua conta
+
+A escola ou a Secretaria cria a conta já **vinculada ao(s) aluno(s)** e informa
+o **CPF** (ou e-mail) e a senha. Abra `http://localhost:3000`, digite **CPF ou
+e-mail** e a senha e clique em **Entrar**.
+
+### B. Você mesmo cria a conta (auto-cadastro)
+
+1. Na tela de login, clique em **"É responsável e ainda não tem acesso? Criar
+   conta"** (`/cadastro-responsavel`).
+2. Preencha **nome completo, CPF, telefone, e-mail e senha**. Se o site pedir,
+   confirme a verificação **anti-robô**.
+3. Ao concluir, você já entra no sistema, mas com **acesso restrito**: antes de
+   ver notas, frequência e documentos é preciso **confirmar o e-mail**.
+4. Abra o e-mail que enviamos e clique no **link de confirmação** (vale 3 dias).
+   Não chegou? Na tela "Confirmação de e-mail" use **"Reenviar link"**.
+5. Depois de confirmar, falta **vincular o estudante** à sua conta — veja a
+   seção 2.
+
+> **Login:** funciona tanto com **CPF** quanto com **e-mail** — os dois são
+> únicos por pessoa.
+>
 > Esqueceu a senha? Use **"Esqueci minha senha"** na tela de login — chega um
 > link de redefinição no e-mail cadastrado (válido por 2 horas).
 
+O menu lateral do responsável mostra: **Meus filhos**, **Boletins e
+carteirinhas**, **Arquivos dos alunos** e **Mensagens e avisos**.
+
 ---
 
-## 2. Meus filhos (painel da família)
+## 2. Vincular um estudante à sua conta
+
+Se a sua conta ainda não tem nenhum aluno (ou você precisa adicionar outro
+filho), abra **Meus filhos** e clique em **Vincular estudante**. Há duas formas —
+ambas exigem provar o parentesco, para proteger os dados do menor:
+
+### Opção 1 — Tenho um código (mais rápido)
+
+Peça à **secretaria da escola** um **código de vinculação**. Na janela, aba
+**"Tenho um código"**, informe o **CPF do estudante** e o **código**
+(formato `XXXX-XXXX`). O vínculo é confirmado **na hora**.
+
+> O código vale por **72 horas** e só pode ser usado **uma vez**.
+
+### Opção 2 — Solicitar à escola
+
+Na aba **"Solicitar à escola"**, informe o **CPF do estudante**, a **data de
+nascimento** e o **nome completo da mãe**, exatamente como constam no cadastro
+do aluno. Escolha o parentesco e envie.
+
+- Se os dados conferem, a solicitação fica **aguardando a escola**. O estudante
+  aparece em "Meus filhos" com o aviso *"aguardando confirmação da escola"* e
+  **sem** dados escolares.
+- A escola aprova ou recusa. Se recusar, o motivo aparece no cartão.
+
+### O estudante não está na rede
+
+Se a escola informar que não há cadastro do aluno, o caminho é **solicitar uma
+vaga** (matrícula nova) — não é possível criar a ficha do aluno pelo portal. Use
+**Matrícula e rematrícula** no topo de "Meus filhos".
+
+---
+
+## 3. Meus filhos (painel da família)
 
 Menu **Meus filhos** (`/`).
 
@@ -51,7 +106,7 @@ celular). Cada um só mostra os **seus próprios** dados.
 
 ---
 
-## 3. Boletim do aluno
+## 4. Boletim do aluno
 
 Além do botão **Baixar boletim** no cartão, a ficha completa fica em
 **Boletins e carteirinhas** (`/documentos/boletins`) ou no link direto
@@ -62,7 +117,7 @@ A ficha traz **notas por disciplina**, **resumo de frequência** e o botão de
 
 ---
 
-## 4. Documentos
+## 5. Documentos
 
 Menu **Arquivos dos alunos** (`/documentos/arquivos`).
 
@@ -72,7 +127,7 @@ vê documentos de alunos de outras famílias.
 
 ---
 
-## 5. Mensagens da escola
+## 6. Mensagens da escola
 
 Menu **Mensagens e avisos** (`/mensagens`).
 
@@ -82,18 +137,19 @@ Menu **Mensagens e avisos** (`/mensagens`).
 
 ---
 
-## 6. Notificações
+## 7. Notificações
 
 O **sino** no cabeçalho mostra avisos do sistema (nova mensagem, por exemplo),
 com contador de não lidas e a opção **"Marcar todas como lidas"**.
 
 ---
 
-## 7. Configurações e privacidade
+## 8. Configurações e privacidade
 
 Menu **Configurações** (`/configuracoes`):
 
-- **Editar perfil** — telefone e e-mail.
+- **Editar perfil** — telefone e e-mail. (Trocar o e-mail pode exigir nova
+  confirmação.)
 - **Alterar senha** — exige a senha atual.
 - **Autenticação em dois fatores (2FA)** — ative o TOTP com um app autenticador
   (Google Authenticator, Authy) para exigir um código de 6 dígitos no login,
@@ -106,10 +162,11 @@ Menu **Configurações** (`/configuracoes`):
 
 ---
 
-## 8. Limitações conhecidas
+## 9. Limitações conhecidas
 
 | Área | Situação atual |
 | :--- | :--- |
 | **Lançamento de notas/frequência** | Somente leitura para o responsável — o lançamento é do professor. |
 | **Registro de consentimentos** | Hoje é feito pela escola/Secretaria na ficha do aluno; pelo portal, o responsável consegue **baixar** os dados, mas não editar os consentimentos. |
-| **Notificações por e-mail/WhatsApp** | Apenas avisos in-app (sino). O e-mail é usado só na redefinição de senha. |
+| **Verificação anti-robô (CAPTCHA)** | Aparece no auto-cadastro só quando a rede tem a chave configurada; em ambiente de demonstração fica desligada. |
+| **Notificações por e-mail/WhatsApp** | Avisos do dia a dia são só in-app (sino). O e-mail é usado na redefinição de senha e na **confirmação de conta** do auto-cadastro. |

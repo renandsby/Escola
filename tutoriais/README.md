@@ -18,10 +18,19 @@ limitações conhecidas** ainda existem.
 
 ## Como o acesso funciona
 
-- **Não há autocadastro.** As contas são criadas pelo administrador da SME
-  (ou, para alunos/responsáveis, pela escola). Cada pessoa recebe um
-  **usuário e senha** — e pode trocar a senha pela tela de **Configurações**
-  ou pelo link **"Esqueci minha senha"** na tela de login.
+- **Login por CPF ou e-mail.** O identificador principal de toda pessoa é o
+  **CPF** (11 dígitos); o e-mail também é único e serve para entrar. A tela de
+  login aceita qualquer um dos dois.
+- **Contas da equipe** (SME, direção, secretaria, professores) são criadas pelo
+  administrador da SME. Cada pessoa recebe CPF/e-mail e senha e pode trocá-la em
+  **Configurações** ou pelo link **"Esqueci minha senha"**.
+- **Responsáveis** podem ter a conta criada pela escola **ou** fazer
+  **auto-cadastro** em **"Criar conta"** na tela de login
+  (`/cadastro-responsavel`). O auto-cadastro exige **confirmar o e-mail** antes
+  de liberar a vida escolar e depois **vincular o estudante** — por um
+  **código** fornecido pela secretaria ou por uma **solicitação** com prova de
+  parentesco (CPF + data de nascimento + nome da mãe do aluno), que a escola
+  aprova. Detalhes em [responsavel-aluno.md](responsavel-aluno.md).
 - Qualquer usuário pode ativar a **autenticação em dois fatores (2FA)** em
   **Configurações → Segurança** — TOTP com Google Authenticator, Authy ou
   similar, mais 8 códigos de backup de uso único. Com o 2FA ativo, o login

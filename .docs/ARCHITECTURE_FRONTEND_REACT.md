@@ -45,15 +45,16 @@ frontend/src/
 │   └── layout/                   # Header, Sidebar, MunicipalBrand, UserMenu
 │
 ├── features/                     # MÓDULOS DE NEGÓCIO (Bounded Contexts)
-│   ├── authentication/           # Login (com desafio 2FA), 2FA/TOTP (setup + status), "esqueci minha senha", perfil, Usuários da Rede
-│   ├── governance/               # Secretaria, matrizes, fechamento de ano letivo
+│   ├── authentication/           # Login por CPF ou e-mail (com desafio 2FA), 2FA/TOTP, "esqueci minha senha", verificação de e-mail, perfil, Usuários da Rede
+│   ├── governance/               # Secretaria, matrizes, anos letivos e bimestres, fechamento de ano letivo
 │   ├── schools/                  # Gestão de Escolas
 │   ├── classes/                  # CRUD de Turmas e Salas, Alocação de Professores
-│   ├── students/                 # Cadastro único, Matrículas, Transferências, LGPD na ficha
-│   ├── guardians/                # Portal "Meus filhos" (student_guardian)
+│   ├── students/                 # Cadastro único, Matrículas, Transferências, LGPD na ficha, código de vínculo de responsável
+│   ├── guardians/                # Portal "Meus filhos" + auto-cadastro público + vinculação de estudante (código / solicitação); fila "Solicitações de vínculo" (equipe)
+│   ├── admissions/               # Matrícula/rematrícula online: ciclos, rematrículas, solicitação de vaga, comprovantes de prioridade
 │   ├── class-diary/              # Lançamento em lote de Notas, Frequência e Pareceres
 │   ├── reports/                  # Boletim/carteirinha PDF, Exportações, Educacenso
-│   ├── dashboard/                # Painel gerencial (KPIs, gráficos, completude, auditoria)
+│   ├── dashboard/                # Painel gerencial (KPIs, gráficos, completude, auditoria; filtro de ano letivo e bimestre)
 │   └── notifications/            # NotificationPopover (sino do cabeçalho)
 │
 ├── hooks/                        # Custom Hooks Genéricos (useDebounce, useMediaQuery)
@@ -304,6 +305,13 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) 
   return <Outlet />;
 };
 ```
+
+**Rotas públicas** (fora do `<ProtectedRoute>`): `/login`, `/esqueci-senha`,
+`/redefinir-senha/:token`, `/cadastro-responsavel` (auto-cadastro do responsável)
+e `/verificar-email/:token` · `/verificar-email/pendente` (confirmação de e-mail).
+O acesso à vida escolar do responsável só é liberado após a verificação de e-mail
+(`user.email_verified`); enquanto pendente, o portal exibe um aviso com "reenviar
+link".
 
 ---
 

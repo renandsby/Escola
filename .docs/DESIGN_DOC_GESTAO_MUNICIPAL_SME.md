@@ -4,7 +4,7 @@
 | :--- | :--- |
 | **Status** | **Implementado** — em uso pela rede municipal de Igarassu/PE |
 | **Autor** | Equipe de Arquitetura & Engenharia de Software |
-| **Versão** | 3.1.0 — inclui o plano de produção mínima (LGPD, backup, auditoria, portal da família, Educacenso, fechamento de ano) |
+| **Versão** | 3.2.0 — CPF como identificador, admissões online, auto-cadastro e vinculação de responsável (verificação de e-mail), seletor de ano/bimestre no painel |
 | **Data** | Agosto de 2026 |
 | **Domínio** | Gestão Pública Municipal / Educação Básica |
 | **Documentos correlatos** | [`ARCHITECTURE_BACKEND_DJANGO.md`](ARCHITECTURE_BACKEND_DJANGO.md) · [`ARCHITECTURE_FRONTEND_REACT.md`](ARCHITECTURE_FRONTEND_REACT.md) · [`../README.md`](../README.md) · [`../tutoriais/`](../tutoriais/) |
@@ -24,11 +24,11 @@ Ao expandir a atuação para atender a **Secretaria Municipal de Educação (SME
 * **Falta de Suporte a Diferentes Modalidades:** A Educação Infantil e o Atendimento Educacional Especializado (AEE) exigem avaliação por **Pareceres Descritivos** e relatórios de desenvolvimento, incompatíveis com o modelo puramente quantitativo de notas (`Grade`).
 * **Conformidade Legal:** Dificuldade na geração padronizada de arquivos do **Educacenso (INEP/MEC)**.
 
-### 1.3. Estado da Implementação (v3.0)
+### 1.3. Estado da Implementação (v3.2)
 
 A arquitetura-alvo descrita neste documento foi **implementada**. Situação atual:
 
-* **Backend consolidado em 8 domínios** (padrão *Services & Selectors*): `authentication`, `governance`, `schools`, `curriculum`, `classes`, `students`, `class_diary`, `reports` — mais apps de infraestrutura (`health`, `audit`, `backups`, `integrations`, `notifications`, `communications`, `dashboard`, `documents`, `student_cards`).
+* **Backend consolidado em 8 domínios** (padrão *Services & Selectors*): `authentication`, `governance`, `schools`, `curriculum`, `classes`, `students`, `class_diary`, `reports` — mais `admissions` (matrícula/rematrícula online) e apps de infraestrutura (`health`, `audit`, `backups`, `integrations`, `notifications`, `communications`, `dashboard`, `documents`, `student_cards`).
 * **Frontend reestruturado** em arquitetura *Feature-Sliced* (`src/features/<domínio>/`, `src/app/`).
 * **Regras de negócio implementadas e testadas:** cadastro único, matrícula ativa duplicada, capacidade de turma, conflito de agenda docente, fluxo de transferência, lançamento em lote de notas/frequência (ver §7).
 * **Carga inicial** da rede a partir dos dados públicos do **Censo Escolar 2025 do INEP** (ver §9).
@@ -45,6 +45,22 @@ A arquitetura-alvo descrita neste documento foi **implementada**. Situação atu
 > **2FA/MFA (TOTP)** — inicialmente um *non-goal* do plano de produção mínima,
 > foi implementado depois: login em dois passos com Google Authenticator,
 > *backup codes* e gestão pela tela de Configurações (§7.12).
+
+**Evoluções posteriores à v3.0 (v3.1):**
+
+* **CPF como identificador principal** de usuários e alunos — `cpf` obrigatório e
+  único, `User.username == User.cpf`; login aceita **CPF ou e-mail** (o e-mail
+  também passou a ser único). Ver §7.13.
+* **Matrícula e rematrícula online** (app `admissions`): ciclos de admissão,
+  rematrícula com confirmação do responsável e solicitação de vaga com
+  comprovantes de prioridade. Ver §7.15.
+* **Portal do responsável — auto-cadastro e vinculação** (`DX-SGE-006`):
+  auto-cadastro público com CAPTCHA e *rate limit*, **verificação de e-mail
+  obrigatória** antes do acesso à vida escolar, e vinculação de estudante com
+  **prova de parentesco** (código de uso único emitido pela escola **ou**
+  solicitação aprovada pela escola). Ver §7.14.
+* **Painel gerencial** ganhou seletor de **ano letivo** e **bimestre**
+  (`?year=`/`?term=`); "Todos os bimestres" agrega o ano inteiro. Ver §7.16.
 
 ---
 
@@ -134,8 +150,11 @@ frontend/src/
 ┌────────────────────────────────────────────────────────────────────────┐
 │                   Contexto Escolar & Operacional (students / classes)   │
 │ - SchoolClass (Turma)  ·  TeacherAllocation (Alocação Docente)          │
-│ - Student (Cadastro Único) · Guardian · StudentGuardian                 │
+│ - Student (Cadastro Único) · Guardian · StudentGuardian (status/método) │
+│ - GuardianLinkCode (vínculo por código — §7.14)                        │
 │ - Enrollment (Matrícula Anual na Turma)                                 │
+│ Admissões (admissions): AdmissionCycle · RenewalRequest ·              │
+│   EnrollmentRequest · PriorityEvidence (§7.15)                         │
 └─────────────────────────────────┬──────────────────────────────────────┘
                                   ▼
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -174,12 +193,12 @@ Modelo de autenticação (permanece em `core/`; `AUTH_USER_MODEL`).
 ```sql
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    username VARCHAR(150) NOT NULL UNIQUE,
-    email VARCHAR(254) NOT NULL UNIQUE,
+    username VARCHAR(150) NOT NULL UNIQUE,   -- == cpf
+    cpf VARCHAR(11) NOT NULL UNIQUE,         -- identificador principal (11 dígitos)
+    email VARCHAR(254) NOT NULL UNIQUE,      -- também único; login aceita CPF OU e-mail
     password VARCHAR(128) NOT NULL,
     first_name VARCHAR(150), last_name VARCHAR(150),
     phone VARCHAR(20),
-    document VARCHAR(20) UNIQUE,            -- CPF/CNPJ
     role VARCHAR(30) NOT NULL DEFAULT 'student_guardian',
     -- 'sme_admin','sme_supervisor','school_director','school_secretary','teacher','student_guardian'
     education_department_id UUID REFERENCES education_departments(id) ON DELETE RESTRICT,
@@ -188,8 +207,23 @@ CREATE TABLE users (
     is_active BOOLEAN DEFAULT TRUE,          -- desativar corta o acesso na próxima requisição
     created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- verificação de e-mail (contas de responsável nascem não verificadas — §7.14)
+CREATE TABLE email_verifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    token VARCHAR(64) NOT NULL,              -- sha256 do token opaco
+    verified BOOLEAN DEFAULT FALSE, verified_at TIMESTAMPTZ,
+    expires_at TIMESTAMPTZ, sent_at TIMESTAMPTZ
+);
 ```
 
+> **Identificador principal:** `cpf` (validado, 11 dígitos) é a chave de negócio
+> de `User` e de `Student`; não é FK entre tabelas. O login (`POST
+> /accounts/login/`, campo `identifier`) resolve CPF **ou** e-mail via
+> `core.auth_backends.CPFOrEmailBackend`. O CNPJ pertence apenas ao cadastro da
+> escola (§5.2.2). Ver §7.13.
+>
 > O histórico de acesso (IP, *user-agent*, login falho) fica em `audit_logs`
 > (§5.7), gravado pelo `AuditMiddleware`, não em colunas de `users`.
 
@@ -408,9 +442,34 @@ CREATE TABLE student_guardians (
     guardian_id UUID NOT NULL REFERENCES guardians(id) ON DELETE CASCADE,
     kinship_type VARCHAR(50) NOT NULL,     -- 'MOTHER','FATHER','LEGAL_GUARDIAN','GRANDPARENT','OTHER'
     is_emergency_contact BOOLEAN DEFAULT TRUE,
+    -- vínculo com prova de parentesco (§7.14) — só 'CONFIRMED' libera a vida escolar
+    status VARCHAR(20) NOT NULL DEFAULT 'CONFIRMED',        -- 'PENDING','CONFIRMED','REJECTED'
+    verification_method VARCHAR(20) NOT NULL DEFAULT 'STAFF_CREATED',
+    -- 'STAFF_CREATED','SCHOOL_APPROVAL','LINK_CODE'
+    requested_by_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    confirmed_by_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    confirmed_at TIMESTAMPTZ, rejection_note TEXT,
     CONSTRAINT uq_student_guardian UNIQUE (student_id, guardian_id)
 );
+
+-- código de vinculação de uso único emitido pela escola (§7.14, caminho B)
+CREATE TABLE guardian_link_codes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    code_hash VARCHAR(64) NOT NULL,        -- sha256; o código só aparece na resposta de criação
+    kinship_hint VARCHAR(50),
+    created_by_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    expires_at TIMESTAMPTZ NOT NULL,       -- TTL 72 h
+    used BOOLEAN DEFAULT FALSE, used_by_id UUID REFERENCES users(id), used_at TIMESTAMPTZ,
+    deleted_at TIMESTAMPTZ
+);
 ```
+
+> **Migração de dados:** `status` nasce com `DEFAULT 'CONFIRMED'`, então todos os
+> vínculos pré-existentes continuam válidos. `apply_scope()` e os *selectors* do
+> portal (`get_dependents_for_user`) filtram `status='CONFIRMED'` — vínculo
+> `PENDING`/`REJECTED` não vaza nenhum dado escolar. A escrita direta em
+> `POST /guardians/links/` passou a exigir `IsSMEStaff | IsSchoolStaff`.
 
 #### 5.5.3. `Enrollment` (Matrícula) — (soft-delete)
 
@@ -600,10 +659,10 @@ O escopo é aplicado por `core/scopes.py::apply_scope()`, chamado pelos
 | :--- | :--- | :--- |
 | **`sme_admin`** | Toda a rede municipal | CRUD de escolas, salas, disciplinas, turmas, **professores** e **usuários da rede** (`create_user`, ativar/desativar); criação de alocações; supervisão de matrículas, transferências e diário; **anonimização** de aluno (LGPD); **validação/exportação do Educacenso**; **fechamento do ano letivo**; disparo de **backup manual**; leitura da **trilha de auditoria**. |
 | **`sme_supervisor`** | Toda a rede municipal | Leitura de toda a rede; criação de alocações; **autorização** de transferências; **validação/exportação do Educacenso**. Não cadastra escolas/professores/usuários. |
-| **`school_director`** | Apenas sua `School` | Edição dos dados da própria escola; **CRUD de turmas e salas da unidade**; CRUD de alunos e matrículas; **upload de documentos**; **aceite/recusa** de transferência recebida (escola de destino); leitura do diário e dos boletins consolidados. |
-| **`school_secretary`** | Apenas sua `School` | Mesmo escopo do diretor para alunos, matrículas, turmas e documentos. |
+| **`school_director`** | Apenas sua `School` | Edição dos dados da própria escola; **CRUD de turmas e salas da unidade**; CRUD de alunos e matrículas; **upload de documentos**; **aceite/recusa** de transferência recebida (escola de destino); **aprovação/recusa de solicitações de vínculo de responsável** e **emissão de código de vínculo**; validação de rematrículas e solicitações de vaga; leitura do diário e dos boletins consolidados. |
+| **`school_secretary`** | Apenas sua `School` | Mesmo escopo do diretor para alunos, matrículas, turmas, documentos, vínculos de responsável e admissões. |
 | **`teacher`** | Apenas turmas em `TeacherAllocation` | Lançamento **em lote** de notas e frequência, pareceres descritivos e diário das turmas alocadas (`CanEditGrades`) — **bloqueado se o ano letivo estiver `CLOSED`**. |
-| **`student_guardian`** | Apenas o(s) `Student` vinculado(s) | Portal **"Meus filhos"** (média, frequência, boletim de cada dependente); leitura de notas e avisos; **exportação dos próprios dados (LGPD)**. |
+| **`student_guardian`** | Apenas o(s) `Student` com vínculo **`CONFIRMED`** | **Auto-cadastro público** (§7.14) + **verificação de e-mail obrigatória** antes do acesso; **vinculação de estudante** por código da escola ou solicitação com prova de parentesco; solicitação de matrícula/rematrícula online (§7.15); portal **"Meus filhos"** (média, frequência, boletim de cada dependente); leitura de notas e avisos; **exportação dos próprios dados (LGPD)**. |
 
 > **Nota de implementação.** A tela de Transferências passou a expor as ações
 > por papel: SME faz **solicitação + autorização**; a escola de **destino**
@@ -719,6 +778,74 @@ Detalhes em [`../backend/apps/authentication/README_2FA.md`](../backend/apps/aut
 * **Operação:** `totp_service.disable_totp(user)` (shell ou Django Admin)
   remove o 2FA de quem perdeu o dispositivo.
 
+### 7.13. CPF como identificador principal (`core/validators.py` · `core/auth_backends.py`)
+`cpf` é obrigatório e único em `User` (`== username`) e em `Student`.
+`core.validators` centraliza `normalize_cpf` / `is_valid_cpf` / `validate_cpf`
+(dígitos verificadores) / `format_cpf` / `generate_cpf` (CPF fictício para cargas
+de demonstração). O login (`POST /accounts/login/`, campo **`identifier`**)
+aceita **CPF ou e-mail** — `CPFOrEmailBackend` normaliza e resolve o usuário; o
+e-mail passou a ser único. A anonimização LGPD substitui o CPF do aluno por um
+marcador sintético (não pode ficar nulo). O CNPJ é exclusivo do cadastro da
+escola.
+
+### 7.14. Auto-cadastro e vinculação de responsável (`DX-SGE-006`)
+Serviços em `students/services/guardian_service.py` (auto-cadastro) e
+`students/services/guardian_link_service.py` (vinculação);
+`authentication/services/email_verification_service.py` (verificação de e-mail).
+
+* **Auto-cadastro** — `POST /guardians/self-register/` (`AllowAny`) com **CAPTCHA**
+  (`core/captcha.py`; *no-op* quando `CAPTCHA_ENABLED=False`) e **rate limit
+  dedicado** (`ScopedRateThrottle` `guardian_register` 5/h). Reaproveita um
+  `Guardian` pré-existente pelo CPF (preenche `guardian.user`); `username == cpf`;
+  papel `student_guardian`. Devolve o par JWT + `email_verification_required`.
+* **Verificação de e-mail obrigatória** — a conta nasce **não verificada**.
+  A permission `core.permissions.IsEmailVerified` (`code=EMAIL_NOT_VERIFIED`)
+  bloqueia o portal/vida escolar até a confirmação. Token opaco de 3 dias,
+  `sha256` no banco (`email_verifications`). `POST /accounts/verify-email/`
+  (`AllowAny`) e `POST /accounts/resend-verification/`. Contas **sem** registro de
+  verificação (equipe / anteriores ao recurso) são *grandfathered*.
+* **Vinculação com prova de parentesco** — dois caminhos, ambos gerando um
+  `StudentGuardian` só válido quando `status='CONFIRMED'`:
+  * **Caminho A (aprovação da escola)** — `POST /guardians/link-requests/request/`
+    com CPF + data de nascimento + nome da mãe do estudante. Se os três conferem,
+    cria vínculo `PENDING`/`SCHOOL_APPROVAL`; a escola aprova/recusa em
+    `POST /guardians/link-requests/{id}/review/` (recusa exige justificativa). A
+    resposta ao responsável é **genérica** (mesma mensagem `STUDENT_MATCH_FAILED`
+    para "não confere" e "não existe").
+  * **Caminho B (código)** — a equipe gera um código de uso único em
+    `POST /students/{id}/link-codes/` (`code_hash` sha256, TTL 72 h, preso ao
+    aluno; o código só aparece nessa resposta); o responsável resgata em
+    `POST /guardians/link-by-code/` (CPF + código) e o vínculo vira `CONFIRMED`
+    na hora.
+* **`GET /students/find-by-cpf/?cpf=`** — devolve **apenas** `{ found: bool }`
+  (nenhum dado do aluno), com *rate limit* `find_student` 15/h.
+* **Aluno fora da rede** → o responsável abre uma **solicitação de vaga**
+  (`admissions.EnrollmentRequest`, §7.15); o cidadão **nunca** cria `Student`
+  diretamente.
+
+### 7.15. Matrícula e rematrícula online (`apps/admissions`)
+* **`AdmissionCycle`** — janela de rematrícula/inscrição por rede e ano letivo
+  (aberta/fechada), configurada pela SME.
+* **`RenewalRequest`** — rematrícula: a escola *materializa* a lista de alunos
+  ativos do ciclo; o responsável **confirma** (permanência ou saída) e a escola
+  efetiva a matrícula do ano seguinte.
+* **`EnrollmentRequest`** — solicitação de vaga para aluno novo, com dados do
+  candidato e do responsável.
+* **`PriorityEvidence`** — comprovantes anexados à solicitação (irmão na escola,
+  proximidade, vulnerabilidade); a equipe verifica em fila
+  (`POST /admissions/evidence/{id}/verify/`). A distribuição automática de vagas
+  ("V2 — alocação") está planejada e ainda **não** implementada
+  (ver `.docs/PLANO_DE_EXECUCAO_ADMISSOES_V2_ALOCACAO.md`).
+
+### 7.16. Seletor de ano letivo e bimestre no painel gerencial (`dashboard/selectors/overview.py`)
+`GET /dashboard/overview/` aceita `?year=` (ano letivo da rede; padrão: o ativo,
+senão o mais recente) e `?term=` (1–4; ausência = **todos os bimestres / ano
+completo**). Com um bimestre específico, a frequência média, o indicador
+"abaixo de 75%", o rendimento por etapa e a completude do diário passam a
+considerar só aquele período (janela de datas + `academic_period` das notas). O
+payload expõe `period.available_years` e `period.available_terms` para alimentar
+os seletores; o gráfico "frequência por bimestre" sempre mostra os 4 pontos.
+
 ---
 
 ## 8. Endpoints REST (API v1)
@@ -727,7 +854,7 @@ Prefixo global `/api/v1/`. Documentação viva: `/api/docs/` (Swagger), `/api/re
 
 ```text
 # Autenticação
-POST   /api/v1/accounts/login/                     # -> { requires_2fa, access?, refresh?, challenge_token? }
+POST   /api/v1/accounts/login/                     # { identifier (CPF ou e-mail), password } -> { requires_2fa, access?, refresh?, challenge_token? }
 POST   /api/v1/accounts/token/refresh/
 GET    /api/v1/accounts/users/me/
 PATCH  /api/v1/accounts/users/update_profile/      # e-mail, telefone
@@ -736,6 +863,8 @@ POST   /api/v1/accounts/users/create_user/         # sme_admin: cria usuário co
 PATCH  /api/v1/accounts/users/{id}/                # sme_admin: role/escola/is_active
 POST   /api/v1/accounts/password-reset/request/    # AllowAny — sucesso genérico
 POST   /api/v1/accounts/password-reset/confirm/    # AllowAny — { token, new_password }
+POST   /api/v1/accounts/verify-email/              # AllowAny — { token } (§7.14)
+POST   /api/v1/accounts/resend-verification/       # autenticado — reenvia o link
 
 # 2FA / TOTP
 GET    /api/v1/accounts/totp/status/               # { enabled, confirmed_at, backup_codes_remaining }
@@ -761,13 +890,27 @@ GET    /api/v1/teachers/allocations/     POST /api/v1/teachers/allocations/   # 
 DELETE /api/v1/teachers/allocations/{id}/
 
 # Alunos, Responsáveis, Matrículas, Transferências
-GET    /api/v1/students/                 POST /api/v1/students/
+GET    /api/v1/students/                 POST /api/v1/students/          # POST: só equipe (RBAC)
 GET    /api/v1/students/{id}/academic-history/
+GET    /api/v1/students/find-by-cpf/?cpf=          # -> { found: bool } (rate limit) — §7.14
+GET…POST /api/v1/students/{id}/link-codes/         # equipe: gera/lista código de vínculo — §7.14
 GET    /api/v1/guardians/                POST /api/v1/guardians/
+POST   /api/v1/guardians/self-register/            # AllowAny — auto-cadastro + CAPTCHA — §7.14
+GET    /api/v1/guardians/links/          POST /api/v1/guardians/links/  # POST: IsSMEStaff|IsSchoolStaff
+GET    /api/v1/guardians/link-requests/            # fila de solicitações (responsável vê as suas)
+POST   /api/v1/guardians/link-requests/request/            # responsável: CPF+nascimento+nome da mãe
+POST   /api/v1/guardians/link-requests/{id}/review/        # escola: aprova/recusa
+POST   /api/v1/guardians/link-by-code/            # responsável: { student_cpf, code } -> CONFIRMED
 GET    /api/v1/enrollments/              POST /api/v1/enrollments/      # -> enroll_student_in_class()
 GET    /api/v1/sme/transfers/            POST /api/v1/sme/transfers/
 PATCH  /api/v1/sme/transfers/{id}/authorize/   ·   /accept/   ·   /reject/
-GET    /api/v1/guardians/my-dependents/            # portal da família: resumo por filho
+GET    /api/v1/guardians/my-dependents/            # portal da família: resumo por filho (só vínculos CONFIRMED)
+
+# Admissões (matrícula / rematrícula online) — §7.15
+GET…POST /api/v1/admissions/cycles/               # SME: janelas de admissão
+GET…POST /api/v1/admissions/renewals/    POST /api/v1/admissions/renewals/{id}/submit/  ·  /materialize/
+GET…POST /api/v1/admissions/enrollment-requests/  # solicitação de vaga (aluno novo)
+GET…POST /api/v1/admissions/evidence/    POST /api/v1/admissions/evidence/{id}/verify/  # comprovantes de prioridade
 
 # Privacidade / LGPD
 GET    /api/v1/privacy/my-data/?student_id=        # portabilidade do titular
@@ -787,7 +930,8 @@ GET    /api/v1/evaluations/    POST /api/v1/evaluations/          # alias: /desc
 GET    /api/v1/diary/          GET  /api/v1/history/
 
 # Painel e Relatórios
-GET    /api/v1/dashboard/summary/   ·   /overview/   ·   /context/
+GET    /api/v1/dashboard/summary/   ·   /context/
+GET    /api/v1/dashboard/overview/?scope=&school_id=&stage=&shift=&year=&term=   # §7.16
 GET    /api/v1/reports/boletim_pdf/?student_id=   ·   /carteirinha_pdf/?student_id=
 GET    /api/v1/reports/relatorio_excel/   ·   /relatorio_csv/
 GET    /api/v1/reports/educacenso-export/          # CSV simples (legado)
@@ -826,7 +970,8 @@ turma ou professor. O comando cria (idempotente):
 tudo o que o Censo não traz, cobrindo **todas** as funcionalidades: alunos com
 CPF/NIS/certidão, matrículas, frequência, notas, pareceres, alocação docente,
 **responsáveis com login e vínculos** (incluindo irmãos e o login fixo
-`responsavel` / `resp123`), **consentimentos LGPD**, **documentos**,
+`responsavel` / `resp123` — contas de carga não passam pela verificação de
+e-mail do §7.14), **consentimentos LGPD**, **documentos**,
 **notificações**, transferências (as aceitas efetivam a matrícula de destino) e
 o **ano letivo anterior já encerrado** com `SchoolHistory` consolidado. Tudo com
 o prefixo `DEMO` — `--fresh` remove só a carga de demonstração.

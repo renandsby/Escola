@@ -19,7 +19,7 @@ pedagógico de todas as unidades — além de operações de rede como o
 6. [Currículo e matrizes](#6-currículo-e-matrizes)
 7. [Professores e alocações](#7-professores-e-alocações)
 8. [Alunos, documentos e privacidade (LGPD)](#8-alunos-documentos-e-privacidade-lgpd)
-9. [Matrículas](#9-matrículas)
+9. [Matrículas](#9-matrículas) · [Matrícula e rematrícula online (admissões)](#matrícula-e-rematrícula-online-admissões)
 10. [Transferências entre escolas](#10-transferências-entre-escolas)
 11. [Turmas](#11-turmas)
 12. [Acompanhamento pedagógico](#12-acompanhamento-pedagógico)
@@ -35,7 +35,8 @@ pedagógico de todas as unidades — além de operações de rede como o
 ## 1. Primeiro acesso
 
 1. Abra `http://localhost:3000`.
-2. Informe **usuário** e **senha** (na carga de demonstração: `admin` / `admin123`).
+2. Informe **CPF ou e-mail** e a **senha** (na carga de demonstração:
+   `admin` / `admin123` — o login também aceita o CPF do usuário).
 3. Clique em **Entrar**. Você cai no **Dashboard gerencial**.
 4. **Troque a senha padrão:** menu **Configurações → Segurança → Alterar senha**.
    Se esquecer a senha, use **"Esqueci minha senha"** na tela de login — o
@@ -62,6 +63,12 @@ pedagógico de todas as unidades — além de operações de rede como o
 
 Menu **Dashboard gerencial** (`/`).
 
+- **Filtros no topo** — **Ano letivo** (qualquer ano cadastrado na rede) e
+  **Período**: *Todos os bimestres* (padrão, agrega o ano inteiro) ou 1º a 4º
+  bimestre. Ao escolher um bimestre, a frequência média, o indicador "abaixo de
+  75 %", o rendimento por etapa e a completude do diário passam a considerar só
+  aquele período. Há ainda **Etapa de ensino**, **Turno** e o alternador
+  **Rede / Escola**. Os filtros ficam na URL — dá para compartilhar o link.
 - **KPIs da rede** — matrículas ativas, completude do diário, frequência,
   alunos abaixo do mínimo. Cada KPI é um atalho para a listagem filtrada.
 - **Gráficos** — tendência de frequência (ano corrente × ano anterior),
@@ -183,12 +190,13 @@ Menu **Alunos** (`/alunos`).
 
 ### Cadastro único
 
-**Novo Aluno** → nome completo, ID municipal, nome da mãe e data de nascimento
-(obrigatórios); Secretaria; opcionais: nome social, CPF, gênero, nome do pai,
-INEP, NIS, certidão, raça/cor, necessidades especiais (AEE).
+**Novo Aluno** → nome completo, **CPF** (11 dígitos, único na rede — é o
+identificador principal do aluno), ID municipal, nome da mãe e data de
+nascimento (obrigatórios); Secretaria; opcionais: nome social, gênero, nome do
+pai, INEP, NIS, certidão, raça/cor, necessidades especiais (AEE).
 
-> Para o **Educacenso** validar sem pendências, preencha CPF **ou** certidão,
-> raça/cor, sexo e filiação de cada aluno.
+> Para o **Educacenso** validar sem pendências, além do CPF preencha raça/cor,
+> sexo e filiação de cada aluno.
 
 ### Ficha do aluno
 
@@ -204,6 +212,10 @@ disciplina, resumo de frequência e:
   `sme_admin`, **Anonimizar aluno** — substitui nome/CPF/filiação por
   marcadores anônimos, **de forma irreversível**, preservando o histórico
   acadêmico. Só permitido para aluno **sem matrícula ativa**.
+- **Código de vínculo** — gera um código de uso único (validade 72 h) para um
+  responsável vincular esse aluno à conta dele no auto-cadastro do portal. A
+  fila de solicitações de vínculo (quando o responsável não tem código) fica em
+  **Responsáveis → Solicitações de vínculo** (`/responsaveis/solicitacoes-vinculo`).
 - Botões **Emitir Boletim** e **Emitir Carteirinha** (PDF oficial, com QR Code
   na carteirinha).
 
@@ -219,6 +231,22 @@ Menu **Matrículas** (`/matriculas`).
 - **Matrícula ativa duplicada** no mesmo ano letivo é recusada
   (`DUPLICATE_ENROLLMENT`).
 - **Capacidade da turma** excedida é recusada (`CLASS_CAPACITY_EXCEEDED`).
+
+### Matrícula e rematrícula online (admissões)
+
+O menu **Admissões** reúne o fluxo digital:
+
+- **Ciclos de admissão** (`/admissoes/ciclos`) — a SME abre a janela de
+  rematrícula/inscrição por ano letivo.
+- **Rematrículas** (`/admissoes/rematriculas`) — a escola *materializa* a lista
+  de alunos ativos; o responsável confirma permanência ou saída pelo portal e a
+  escola efetiva a matrícula do ano seguinte.
+- **Comprovantes de prioridade** (`/admissoes/comprovantes`) — fila de análise
+  dos anexos (irmão na escola, proximidade, vulnerabilidade) das solicitações de
+  vaga de alunos novos.
+
+> A **distribuição automática de vagas** (algoritmo de alocação) está planejada
+> e ainda não foi implementada — ver `.docs/PLANO_DE_EXECUCAO_ADMISSOES_V2_ALOCACAO.md`.
 
 ---
 
@@ -304,11 +332,12 @@ Menu **Usuários da Rede** (`/usuarios`) — exclusivo `sme_admin`.
 
 - Tabela com nome, e-mail, papel, escola e situação; **busca** por nome/e-mail/
   CPF e filtro por papel.
-- **Novo usuário** → nome, e-mail institucional, CPF, **papel** (admin,
-  supervisor, diretor, secretário, professor), **escola** (obrigatória para
-  diretor/secretário) e **senha provisória** (gerada automaticamente e exibida
-  no aviso, se deixada em branco). E-mail ou CPF duplicado retorna mensagem
-  amigável.
+- **Novo usuário** → nome, e-mail institucional, **CPF** (identificador
+  principal e login da pessoa), **papel** (admin, supervisor, diretor,
+  secretário, professor), **escola** (obrigatória para diretor/secretário) e
+  **senha provisória** (gerada automaticamente e exibida no aviso, se deixada em
+  branco). E-mail ou CPF duplicado retorna mensagem amigável. O usuário entra
+  com **CPF ou e-mail**.
 - Ação **ativar/desativar** — a desativação **corta o acesso imediatamente**
   (as sessões abertas do usuário param de funcionar na requisição seguinte).
 

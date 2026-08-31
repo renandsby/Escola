@@ -35,15 +35,16 @@ Cada funcionalidade do sistema é organizada em um Django App autocontido dentro
 ```text
 backend/
 ├── apps/
-│   ├── authentication/           # API de autenticação JWT, perfil, reset de senha, 2FA/TOTP (totp_service, challenge_token)
+│   ├── authentication/           # API de autenticação JWT (login por CPF ou e-mail), perfil, reset de senha, verificação de e-mail, 2FA/TOTP (totp_service, challenge_token)
 │   ├── governance/               # SME, Anos Letivos, Matrizes, LGPD (privacy_service), fechamento de ano
 │   ├── schools/                  # Unidades Escolares, Infraestrutura física
 │   ├── curriculum/               # Componentes curriculares, Etapas BNCC
 │   ├── classes/                  # Turmas, Salas, Alocações Docentes
-│   ├── students/                 # Alunos, Responsáveis, Matrículas, Transferências, Portal da família
+│   ├── students/                 # Alunos, Responsáveis (auto-cadastro + vinculação c/ prova de parentesco), Matrículas, Transferências, Portal da família
+│   ├── admissions/               # Matrícula/rematrícula online: ciclos, RenewalRequest, EnrollmentRequest, comprovantes de prioridade
 │   ├── class_diary/              # Notas, Frequência, Pareceres, Conteúdo, Consolidação de histórico
 │   ├── reports/                  # Boletim/carteirinha PDF, Excel/CSV, Educacenso, relatórios assíncronos
-│   ├── dashboard/                # Agregações da rede, contexto institucional do cabeçalho
+│   ├── dashboard/                # Agregações da rede (seletor de ano/bimestre), contexto institucional do cabeçalho
 │   ├── documents/                # Upload validado de documentos (magic bytes, escopo RBAC)
 │   ├── notifications/            # Notificações in-app + notification_service (gatilhos de negócio)
 │   ├── communications/           # Mensagens entre usuários
@@ -52,12 +53,16 @@ backend/
 │   └── health/                   # /health/live/ e /health/ready/
 │
 ├── core/                         # Utilitários compartilhados
-│   ├── models.py                 # BaseModel (UUID, timestamps) · SoftDeleteModel · User · UserRole
+│   ├── models.py                 # BaseModel (UUID, timestamps) · SoftDeleteModel · User (cpf == username) · UserRole
+│   ├── validators.py             # normalize_cpf / is_valid_cpf / validate_cpf / generate_cpf (CPF = identificador principal)
+│   ├── fields.py                 # CPFField · auth_backends.py (CPFOrEmailBackend — login por CPF ou e-mail)
+│   ├── captcha.py                # verify_captcha (no-op se CAPTCHA_ENABLED=False) — auto-cadastro
+│   ├── throttling.py             # ScopedRateThrottle nomeados (guardian_register, find_student)
 │   ├── scopes.py                 # apply_scope() — isolamento RBAC por papel (usado pelos selectors)
 │   ├── exceptions.py             # BusinessLogicError + custom_exception_handler (envelope de erro)
 │   ├── middleware.py             # AuditMiddleware
 │   ├── pagination.py             # Paginação padrão da API
-│   └── permissions.py            # RBAC (IsSMEAdmin, IsSMEStaff, IsSchoolStaff, …)
+│   └── permissions.py            # RBAC (IsSMEAdmin, IsSMEStaff, IsSchoolStaff, IsEmailVerified, …)
 │
 └── config/                       # Settings, WSGI, ASGI, URLs raiz, celery.py
 ```
