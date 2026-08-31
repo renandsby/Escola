@@ -20,6 +20,7 @@ docker-compose exec -T backend pip install -q -e ".[dev]"
 echo "🔬 Executando pytest..."
 docker-compose exec -T backend pytest \
   --cov=apps \
+  --cov=core \
   --cov-report=html \
   --cov-report=term-missing \
   --cov-branch \

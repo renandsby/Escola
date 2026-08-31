@@ -99,7 +99,9 @@ jobs:
           REDIS_URL: redis://localhost:6379/0
           JWT_SECRET_KEY: test-jwt-key
         run: |
-          pytest --cov=apps --cov=core --cov=common --cov-report=xml --cov-report=term-missing --cov-fail-under=50
+          # --cov=apps/--cov=core e o .coveragerc (omite migrações/commands/admin)
+          # vêm de pytest.ini; aqui só somamos o XML e o gate de catraca.
+          pytest --cov-report=xml --cov-fail-under=84
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3

@@ -8,8 +8,27 @@ A suite de testes cobre:
 - ✅ **Backend**: Unit tests, Integration tests, API tests (Pytest)
 - ✅ **Frontend**: Component tests, Hook tests, Utility tests (Vitest)
 - ✅ **E2E**: Testes de fluxo completo (Playwright)
+- ✅ **Mutação**: mutmut (backend) / Stryker (frontend), sob demanda
 
-**Meta**: 80%+ cobertura
+### Alvos de cobertura (diferenciados por risco)
+
+O percentual é um proxy — o que importa é cobrir o **caminho crítico** (RBAC,
+LGPD, identidade, fluxos por papel).
+
+| Camada | Alvo |
+| :--- | :--- |
+| `core/` (scopes, permissions, validators, captcha, auth_backends) | 95%+ |
+| `apps/*/services/` e `apps/*/selectors/` | 90–95% |
+| `apps/*/api/` (views, serializers) | 85%+ |
+| Geradores de PDF/XLSX, tasks Celery | 60–75% + smoke/snapshot |
+| Migrações, `management/commands`, `admin.py` | **fora do cálculo** (`backend/.coveragerc`) |
+| **Backend global (com branches)** | **≥ 84%** — gate `--cov-fail-under` |
+| Frontend `utils/` `stores/` `services/` `schemas/` | 85%+ (gate por glob no `vitest.config.ts`) |
+| **Frontend global (linhas, sem contar arquivos de teste)** | catraca — sobe a cada PR, nunca abaixa |
+| Jornadas E2E por papel | 10–15 fluxos (job `e2e` no `main.yml`) |
+
+> **Catraca ("ratchet"):** ao adicionar testes, suba o piso no mesmo PR. Nunca
+> reduza um threshold só para "passar".
 
 ---
 
@@ -304,13 +323,44 @@ npm run test:coverage
 # Relatório em: frontend/coverage/index.html
 ```
 
-Cobertura atual:
-- Utils: 99.7%
-- Components UI: 80.9%
-- Services/Stores: 80%+
+Cobertura atual (linhas):
+- Backend: **~88%** (11k statements; `core/` ~95%, `apps/reports` ~78%, resto 85–98%)
+- Frontend: `utils/` ~99%, `stores/` 100%, `services/errorMessages` ~93%; global
+  ainda baixo (páginas/componentes) — subindo por catraca + E2E
 
-Meta Fase 1: 50%+ geral
-Meta Final (Fase 2): 80%+ backend, 70%+ frontend
+O gate do CI (`--cov-fail-under` no backend, `thresholds` no `vitest.config.ts`)
+é a **catraca**: fica alguns pontos abaixo do real e nunca abaixa.
+
+---
+
+## 🧬 Teste de Mutação
+
+Vale mais que arrancar os últimos pontos de linha: mede se os testes **detectam**
+mudanças de comportamento (um mutante que sobrevive = teste cego). Rodado só nos
+módulos de risco, sob demanda (é lento).
+
+### Backend — mutmut (`pyproject.toml` → `[tool.mutmut]`)
+
+```bash
+docker compose exec backend mutmut run
+docker compose exec backend mutmut results
+docker compose exec backend mutmut show <id>   # inspeciona um sobrevivente
+```
+
+Alvos: `core/scopes.py`, `core/permissions.py`, `core/validators.py`,
+`core/captcha.py`, `core/auth_backends.py`,
+`apps/governance/services/privacy_service.py`,
+`apps/students/services/guardian_link_service.py`,
+`apps/authentication/services/email_verification_service.py`.
+
+### Frontend — Stryker (`stryker.conf.json`)
+
+```bash
+cd frontend && npm run test:mutation
+```
+
+Alvos: `services/errorMessages.ts`, `stores/authStore.ts`, `utils/validation.ts`,
+`utils/api-helpers.ts`, `features/**/schemas/*`, `app/routes/ProtectedRoute.tsx`.
 
 ---
 
@@ -416,16 +466,17 @@ vi.mock('@/api', () => ({
 ### E2E - Boas Práticas
 
 ```typescript
-// ✅ Bom - User perspective
-await page.fill('input[type="text"]', 'admin')
-await page.click('text=Login')
-await expect(page).toHaveURL('/dashboard')
+// ✅ Bom - User perspective (helper `login()` em e2e/helpers.ts)
+await page.getByLabel(/CPF ou e-mail/i).fill('admin')
+await page.getByLabel(/senha/i).fill('admin123')
+await page.getByRole('button', { name: /entrar/i }).click()
+await expect(page).not.toHaveURL(/\/login/)
 
 // ❌ Ruim - Implementation details
 await page.evaluate(() => localStorage.setItem('token', '...'))
 
 // ✅ Wait corretamente
-await page.waitForURL('/dashboard', { timeout: 5000 })
+await page.waitForURL('/', { timeout: 5000 })
 await page.waitForSelector('[data-loaded="true"]')
 
 // ❌ Ruim
@@ -439,11 +490,15 @@ await page.wait(1000)
 ### GitHub Actions
 
 Testes rodam automaticamente em:
-- **Backend**: Toda commit em `backend/`
-- **Frontend**: Toda commit em `frontend/`
-- **E2E**: PRs e antes de merge
+- **Backend** (`backend-ci.yml`): push/PR que toca `backend/` — pytest com
+  `--cov-fail-under=84`
+- **Frontend** (`frontend-ci.yml`): push/PR que toca `frontend/` — lint,
+  type-check, `vitest --coverage` (thresholds no `vitest.config.ts`)
+- **E2E** (`main.yml` job `e2e`): sobe a stack via Docker, roda `seed_censo_igarassu`
+  + `seed_dashboard_demo`, e executa o Playwright contra `http://localhost:3000`
+- **Mutação**: não roda no CI (é lento) — manual, ver seção acima
 
-Logs: https://github.com/projeto/actions
+Logs: aba **Actions** do repositório.
 
 ---
 

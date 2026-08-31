@@ -63,6 +63,7 @@ dev = [
     "ipython==9.16.1",
     "django-extensions==4.1",
     "debugpy==1.8.21",
+    "mutmut==2.5.1",
 ]
 
 [tool.black]
@@ -123,11 +124,16 @@ exclude = [
     "venv/",
 ]
 
-[tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "config.settings"
-python_files = ["tests.py", "test_*.py", "*_tests.py"]
-addopts = "--strict-markers -v"
-markers = [
-    "slow: marks tests as slow",
-    "integration: marks tests as integration tests",
-]
+# A configuração do pytest é única e vive em `pytest.ini` (tem precedência sobre
+# pyproject.toml). Não reintroduzir [tool.pytest.ini_options] aqui.
+
+[tool.mutmut]
+# Teste de mutação focado nas "joias da coroa": RBAC, LGPD, validação de
+# identidade e verificação anti-robô. Rodar sob demanda (é lento):
+#   docker compose exec backend pip install -e ".[dev]"
+#   docker compose exec backend mutmut run
+#   docker compose exec backend mutmut results
+# Se a versão do mutmut não ler daqui, as mesmas chaves valem em setup.cfg [mutmut].
+paths_to_mutate = "core/scopes.py,core/permissions.py,core/validators.py,core/captcha.py,core/auth_backends.py,apps/governance/services/privacy_service.py,apps/students/services/guardian_link_service.py,apps/authentication/services/email_verification_service.py"
+runner = "python -m pytest -q -x --no-header --no-cov -p no:cacheprovider"
+tests_dir = "tests/ apps/"

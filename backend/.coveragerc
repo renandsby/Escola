@@ -1,0 +1,36 @@
+# Cobertura de testes — foco em lógica de negócio.
+# Migrações, comandos de management, admin e infraestrutura de boot ficam fora
+# do numerador: são glue/DDL sem valor de teste unitário.
+
+[run]
+branch = True
+source =
+    apps
+    core
+omit =
+    */migrations/*
+    */management/commands/*
+    */tests/*
+    */admin.py
+    */apps.py
+    */__init__.py
+    */conftest.py
+    config/*
+    manage.py
+    */wsgi.py
+    */asgi.py
+
+[report]
+precision = 1
+show_missing = True
+skip_covered = False
+exclude_lines =
+    pragma: no cover
+    if TYPE_CHECKING:
+    raise NotImplementedError
+    def __repr__
+    if __name__ == .__main__.:
+    ^\s*\.\.\.\s*$
+
+[html]
+directory = htmlcov
