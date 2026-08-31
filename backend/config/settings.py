@@ -385,26 +385,40 @@ FRONTEND_BASE_URL = decouple_config(
 TOTP_ENCRYPTION_KEY = decouple_config('TOTP_ENCRYPTION_KEY', default='') or SECRET_KEY
 TOTP_ISSUER_NAME = decouple_config('TOTP_ISSUER_NAME', default='Rede Municipal de Educação')
 
-DEFAULT_FROM_EMAIL = decouple_config('EMAIL_HOST_USER', default='noreply@escola.com')
-
+# --------------------------------------------------------------------------- #
+#  E-mail (verificação de conta, reset de senha)                               #
+# --------------------------------------------------------------------------- #
+# Django 6.x: a configuração de conexão vive em MAILERS (os EMAIL_HOST*
+# individuais estão deprecados e somem no Django 7). Padrão: console — dev/CI
+# não enviam nada, o e-mail aparece no log do backend.
+# Homologação/produção: EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+# + EMAIL_HOST/PORT/USER/PASSWORD. Sandbox Mailtrap: sandbox.smtp.mailtrap.io:2525
+# com STARTTLS (EMAIL_USE_TLS=True).
 _EMAIL_BACKEND = decouple_config(
     'EMAIL_BACKEND',
     default='django.core.mail.backends.console.EmailBackend',
 )
+_EMAIL_USE_SSL = decouple_config('EMAIL_USE_SSL', default=False, cast=bool)
 
-MAILERS = {
-    'default': {
-        'BACKEND': _EMAIL_BACKEND,
-    },
-}
+MAILERS = {'default': {'BACKEND': _EMAIL_BACKEND}}
 
-# As OPTIONS abaixo só fazem sentido para o backend SMTP; outros backends
-# (console, locmem, filebased) rejeitam ou ignoram esses parâmetros.
+# OPTIONS só valem para o backend SMTP; console/locmem/filebased os rejeitam.
 if _EMAIL_BACKEND.endswith('smtp.EmailBackend'):
     MAILERS['default']['OPTIONS'] = {
-        'host': decouple_config('EMAIL_HOST', default='smtp.gmail.com'),
-        'port': decouple_config('EMAIL_PORT', default=587, cast=int),
-        'use_tls': decouple_config('EMAIL_USE_TLS', default=True, cast=bool),
+        'host': decouple_config('EMAIL_HOST', default='localhost'),
+        'port': decouple_config('EMAIL_PORT', default=25, cast=int),
         'username': decouple_config('EMAIL_HOST_USER', default=''),
         'password': decouple_config('EMAIL_HOST_PASSWORD', default=''),
+        'use_ssl': _EMAIL_USE_SSL,
+        # TLS e SSL são mutuamente exclusivos; SSL tem precedência.
+        'use_tls': False if _EMAIL_USE_SSL else decouple_config(
+            'EMAIL_USE_TLS', default=True, cast=bool
+        ),
+        'timeout': decouple_config('EMAIL_TIMEOUT', default=10, cast=int),
     }
+
+# Remetente exibido nos e-mails (não é a credencial SMTP; não está deprecado).
+DEFAULT_FROM_EMAIL = decouple_config(
+    'DEFAULT_FROM_EMAIL', default='Rede Municipal de Educação <nao-responda@escola.local>'
+)
+SERVER_EMAIL = decouple_config('SERVER_EMAIL', default=DEFAULT_FROM_EMAIL)
