@@ -53,6 +53,12 @@ class School(SoftDeleteModel):
     address_city = models.CharField(max_length=100, blank=True, verbose_name=_('Cidade'))
     address_state = models.CharField(max_length=2, blank=True, verbose_name=_('UF'))
     address_zip_code = models.CharField(max_length=8, blank=True, verbose_name=_('CEP'))
+    latitude = models.DecimalField(
+        max_digits=9, decimal_places=6, null=True, blank=True, verbose_name=_('Latitude')
+    )
+    longitude = models.DecimalField(
+        max_digits=9, decimal_places=6, null=True, blank=True, verbose_name=_('Longitude')
+    )
 
     max_students_per_class = models.IntegerField(
         default=30,

@@ -21,6 +21,12 @@ import StudentFormPage from '@/features/students/pages/StudentFormPage'
 import GuardiansListPage from '@/features/guardians/pages/GuardiansListPage'
 import GuardianFormPage from '@/features/guardians/pages/GuardianFormPage'
 import GuardianDetailPage from '@/features/guardians/pages/GuardianDetailPage'
+import AdmissionCyclesPage from '@/features/admissions/pages/AdmissionCyclesPage'
+import AdmissionRenewalsPage from '@/features/admissions/pages/AdmissionRenewalsPage'
+import EvidenceQueuePage from '@/features/admissions/pages/EvidenceQueuePage'
+import MyAdmissionsPage from '@/features/admissions/pages/MyAdmissionsPage'
+import RenewalConfirmPage from '@/features/admissions/pages/RenewalConfirmPage'
+import EnrollmentRequestFormPage from '@/features/admissions/pages/EnrollmentRequestFormPage'
 import SubjectsListPage from '@/features/curriculum/pages/SubjectsListPage'
 import SubjectFormPage from '@/features/curriculum/pages/SubjectFormPage'
 import MessagesPage from '@/pages/messages/MessagesPage'
@@ -137,6 +143,15 @@ export function AppRoutes() {
           <Route path={ROUTES.enrollments} element={guard([...SME, ...SCHOOL_MGMT], <EnrollmentsListPage />)} />
           <Route path={ROUTES.enrollmentNew} element={guard([...SME, ...SCHOOL_MGMT], <EnrollmentFormPage />)} />
           <Route path={ROUTES.transfers} element={guard([...SME, ...SCHOOL_MGMT], <TransfersPage />)} />
+
+          {/* ADMISSÕES */}
+          <Route path={ROUTES.admissionCycles} element={guard(SME, <AdmissionCyclesPage />)} />
+          <Route path={ROUTES.admissionRenewals} element={guard([...SME, ...SCHOOL_MGMT], <AdmissionRenewalsPage />)} />
+          <Route path={ROUTES.admissionEvidence} element={guard([...SME, ...SCHOOL_MGMT], <EvidenceQueuePage />)} />
+          <Route path={ROUTES.myAdmissions} element={guard(['student_guardian'], <MyAdmissionsPage />)} />
+          <Route path="/minhas-admissoes/rematricula/:id" element={guard(['student_guardian'], <RenewalConfirmPage />)} />
+          <Route path={ROUTES.enrollmentRequestNew} element={guard(['student_guardian'], <EnrollmentRequestFormPage />)} />
+          <Route path="/minhas-admissoes/solicitacao/:id" element={guard(['student_guardian'], <EnrollmentRequestFormPage />)} />
 
           {/* DIÁRIO DE CLASSE */}
           <Route

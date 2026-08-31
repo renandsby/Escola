@@ -731,3 +731,134 @@ export const USER_ROLE_LABELS: Record<UserRole, string> = {
   teacher: 'Professor',
   student_guardian: 'Aluno / Responsável',
 }
+
+// ============ ADMISSÕES (matrícula / rematrícula) ============
+
+export type AdmissionCycleStatus =
+  | 'DRAFT'
+  | 'RENEWAL_OPEN'
+  | 'RENEWAL_CLOSED'
+  | 'NEW_OPEN'
+  | 'NEW_CLOSED'
+  | 'PROCESSED'
+
+export interface AdmissionCycle {
+  id: string
+  education_department: string
+  target_academic_year: string
+  target_year: number
+  name: string
+  renewal_opens_at: string
+  renewal_closes_at: string
+  new_request_opens_at: string
+  new_request_closes_at: string
+  status: AdmissionCycleStatus
+  next_status: AdmissionCycleStatus | null
+  renewal_open: boolean
+  new_request_open: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+export type RenewalOutcome = 'PENDING' | 'STAY' | 'INTERNAL_TRANSFER' | 'NOT_RETURNING'
+
+export interface RenewalRequest {
+  id: string
+  cycle: string
+  student: string
+  student_name: string
+  target_year: number
+  current_school: string
+  current_class: string
+  outcome: RenewalOutcome
+  contact_phone: string
+  residential_address: string
+  residential_lat: string | null
+  residential_lng: string | null
+  has_new_special_needs: boolean
+  special_needs_note: string
+  confirmed_at: string | null
+  renewal_open: boolean
+  next_enrollment_id: string | null
+  created_at?: string
+}
+
+export type EnrollmentRequestStatus =
+  | 'DRAFT'
+  | 'SUBMITTED'
+  | 'AWAITING_PROCESSING'
+  | 'CANCELLED'
+
+export type EvidenceKind = 'PCD' | 'SIBLING' | 'SOCIAL_VULNERABILITY'
+export type EvidenceStatus = 'PENDING' | 'VERIFIED' | 'REJECTED'
+
+export interface SchoolPreference {
+  id: string
+  rank: number
+  school: string
+  school_name: string
+}
+
+export interface PriorityEvidence {
+  id: string
+  request: string
+  request_applicant?: string
+  kind: EvidenceKind
+  declared_school: string | null
+  file: string
+  file_name: string
+  status: EvidenceStatus
+  verified_by: string | null
+  verified_at: string | null
+  review_note: string
+  created_at?: string
+}
+
+export interface EnrollmentRequest {
+  id: string
+  cycle: string
+  target_year: number
+  guardian: string
+  origin: 'NEW' | 'RENEWAL_TRANSFER'
+  renewal_request: string | null
+  student: string | null
+  applicant_display: string
+  applicant_name: string
+  applicant_cpf: string | null
+  applicant_birth_date: string | null
+  applicant_mother_name: string
+  desired_shift: string
+  target_grade_label: string
+  residential_address: string
+  residential_lat: string | null
+  residential_lng: string | null
+  status: EnrollmentRequestStatus
+  submitted_at: string | null
+  score_total: number | null
+  score_breakdown: Record<string, unknown> | null
+  preferences: SchoolPreference[]
+  evidences: PriorityEvidence[]
+  created_at?: string
+}
+
+export const RENEWAL_OUTCOME_LABELS: Record<RenewalOutcome, string> = {
+  PENDING: 'Pendente',
+  STAY: 'Permanece',
+  INTERNAL_TRANSFER: 'Transferência interna',
+  NOT_RETURNING: 'Não retorna',
+}
+
+export const EVIDENCE_KIND_LABELS: Record<EvidenceKind, string> = {
+  PCD: 'Pessoa com Deficiência',
+  SIBLING: 'Irmão na unidade',
+  SOCIAL_VULNERABILITY: 'Vulnerabilidade social',
+}
+
+export const ADMISSION_CYCLE_STATUS_LABELS: Record<AdmissionCycleStatus, string> = {
+  DRAFT: 'Rascunho',
+  RENEWAL_OPEN: 'Rematrícula aberta',
+  RENEWAL_CLOSED: 'Rematrícula encerrada',
+  NEW_OPEN: 'Novas matrículas abertas',
+  NEW_CLOSED: 'Novas matrículas encerradas',
+  PROCESSED: 'Alocação processada',
+}

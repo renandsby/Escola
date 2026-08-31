@@ -95,6 +95,7 @@ INSTALLED_APPS = [
     'apps.dashboard',
     'apps.backups',
     'apps.integrations',
+    'apps.admissions',
 ]
 
 MIDDLEWARE = [

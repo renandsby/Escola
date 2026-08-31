@@ -143,6 +143,30 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
+    label: 'ADMISSÕES',
+    items: [
+      {
+        label: 'Ciclos de admissão',
+        to: ROUTES.admissionCycles,
+        roles: [...SME],
+        matchPrefix: '/admissoes/ciclos',
+        icon: <CalendarDays className={ICON} />,
+      },
+      {
+        label: 'Rematrículas',
+        to: ROUTES.admissionRenewals,
+        roles: [...SME, ...SCHOOL],
+        icon: <ClipboardList className={ICON} />,
+      },
+      {
+        label: 'Comprovantes de prioridade',
+        to: ROUTES.admissionEvidence,
+        roles: [...SME, ...SCHOOL],
+        icon: <FileBadge className={ICON} />,
+      },
+    ],
+  },
+  {
     label: 'DIÁRIO DE CLASSE',
     items: [
       {

@@ -53,6 +53,15 @@ export const ROUTES = {
   enrollmentNew: '/matriculas/nova',
   transfers: '/transferencias',
 
+  // ADMISSÕES (matrícula / rematrícula)
+  admissionCycles: '/admissoes/ciclos',
+  admissionEvidence: '/admissoes/comprovantes',
+  admissionRenewals: '/admissoes/rematriculas',
+  myAdmissions: '/minhas-admissoes',
+  renewalConfirm: (id: string) => `/minhas-admissoes/rematricula/${id}`,
+  enrollmentRequestNew: '/minhas-admissoes/nova-solicitacao',
+  enrollmentRequestEdit: (id: string) => `/minhas-admissoes/solicitacao/${id}`,
+
   // DIÁRIO DE CLASSE
   diaryGrades: '/diario/lancamentos', // notas
   diaryAttendance: '/diario/frequencia',

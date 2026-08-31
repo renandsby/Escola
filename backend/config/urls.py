@@ -29,6 +29,7 @@ api_urlpatterns = [
     path('student-cards/', include('apps.student_cards.urls')),
     path('audit/', include('apps.audit.urls')),
     path('reports/', include('apps.reports.api.urls')),
+    path('admissions/', include('apps.admissions.api.urls')),
     path('dashboard/', include('apps.dashboard.urls')),
     path('backups/', include('apps.backups.urls')),
     path('integrations/', include('apps.integrations.urls')),

@@ -1,9 +1,13 @@
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { GraduationCap } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { TableSkeleton } from '@/components/ui/TableSkeleton'
+import { Button } from '@/components/ui/Button'
 import { useAuthStore } from '@/stores/authStore'
 import { apiGet } from '@/utils/api-helpers'
+import { ROUTES } from '@/app/routes/paths'
 import { StudentCardOverview, type Dependent } from '../components/StudentCardOverview'
 
 export default function GuardianPortalPage() {
@@ -20,6 +24,13 @@ export default function GuardianPortalPage() {
         breadcrumb={[{ label: 'Meus filhos' }]}
         title={firstName ? `Olá, ${firstName}` : 'Meus filhos'}
         meta="Acompanhe notas, frequência e documentos de cada estudante."
+        actions={
+          <Link to={ROUTES.myAdmissions}>
+            <Button variant="secondary" iconLeft={<GraduationCap className="h-4 w-4" />}>
+              Matrícula e rematrícula
+            </Button>
+          </Link>
+        }
       />
 
       {isLoading ? (
