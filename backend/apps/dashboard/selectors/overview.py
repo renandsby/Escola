@@ -158,14 +158,18 @@ def _scoped_querysets(user, *, level, school, year, stage, shift):
 
 
 def _kpis(user, classes, enrollments, *, level, school, year, period_ids, attendance_window):
-    active = enrollments.count()
+    # materializa os ids uma vez: dá ao planner do Postgres uma cardinalidade
+    # exata e evita o plano patológico do ``IN (SELECT ... joins ...)`` quando as
+    # estatísticas da tabela estão frias (ex.: dentro da suíte de testes).
+    enrollment_ids = list(enrollments.values_list('id', flat=True))
+    active = len(enrollment_ids)
     has_enrollments = active > 0
 
     # frequência média por matrícula, depois média simples (definição do plano §2.5)
     attendance_avg = None
     below_minimum = None
     if has_enrollments:
-        att_qs = Attendance.objects.filter(enrollment__in=enrollments)
+        att_qs = Attendance.objects.filter(enrollment_id__in=enrollment_ids)
         if attendance_window:
             att_qs = att_qs.filter(
                 date__gte=attendance_window[0], date__lte=attendance_window[1]
@@ -179,7 +183,7 @@ def _kpis(user, classes, enrollments, *, level, school, year, period_ids, attend
             attendance_avg = round(sum(rates) / len(rates) * 100, 1)
             below_minimum = sum(1 for r in rates if r < 0.75)
 
-    diary_completeness = _diary_completeness_pct(enrollments, period_ids)
+    diary_completeness = _diary_completeness_pct(enrollments, enrollment_ids, period_ids)
 
     transfers = get_transfer_requests_for_user(user=user)
     if level == 'school' and school is not None:
@@ -245,12 +249,12 @@ def _completeness_tone(value):
     return 'ok'
 
 
-def _diary_completeness_pct(enrollments, period_ids):
+def _diary_completeness_pct(enrollments, enrollment_ids, period_ids):
     """células lançadas / esperadas nos períodos selecionados. Sem base → None."""
-    if not period_ids or not enrollments.exists():
+    if not period_ids or not enrollment_ids:
         return None
     launched = Grade.objects.filter(
-        enrollment__in=enrollments, academic_period_id__in=period_ids
+        enrollment_id__in=enrollment_ids, academic_period_id__in=period_ids
     ).count()
     # células esperadas = matrícula × disciplinas da matriz × nº de bimestres selecionados
     expected = (
@@ -266,9 +270,13 @@ def _diary_completeness_pct(enrollments, period_ids):
 
 def _trend_points(enrollments, year):
     """Um ponto de frequência por bimestre do ``year``. None se não houver base."""
-    if year is None or not enrollments.exists():
+    if year is None:
         return None
-    att = Attendance.objects.filter(enrollment__in=enrollments)
+    # ids materializados: evita o IN (SELECT ...join...) patológico (ver _kpis)
+    enrollment_ids = list(enrollments.values_list('id', flat=True))
+    if not enrollment_ids:
+        return None
+    att = Attendance.objects.filter(enrollment_id__in=enrollment_ids)
     if not att.exists():
         return None
     periods = list(
@@ -317,7 +325,7 @@ def _attendance_trend(enrollments, year, *, prev_enrollments=None, prev_year=Non
         if period:
             att = (
                 Attendance.objects.filter(
-                    enrollment__in=enrollments,
+                    enrollment_id__in=list(enrollments.values_list('id', flat=True)),
                     date__gte=period.start_date,
                     date__lte=period.end_date,
                 )
@@ -342,11 +350,14 @@ def _attendance_trend(enrollments, year, *, prev_enrollments=None, prev_year=Non
 
 
 def _performance(enrollments, year, period_ids=None):
-    if year is None or not enrollments.exists():
+    if year is None:
+        return None
+    enrollment_ids = list(enrollments.values_list('id', flat=True))
+    if not enrollment_ids:
         return None
     dept = year.education_department
     passing = float(getattr(dept, 'min_passing_grade', 6) or 6)
-    grades = Grade.objects.filter(enrollment__in=enrollments).select_related(
+    grades = Grade.objects.filter(enrollment_id__in=enrollment_ids).select_related(
         'enrollment__school_class__curriculum_matrix__education_stage'
     )
     if period_ids:
@@ -385,13 +396,17 @@ def _performance(enrollments, year, period_ids=None):
             }
         )
 
-    infantil = enrollments.filter(
-        school_class__curriculum_matrix__education_stage__stage_type='INFANTIL'
+    infantil_ids = list(
+        enrollments.filter(
+            school_class__curriculum_matrix__education_stage__stage_type='INFANTIL'
+        ).values_list('id', flat=True)
     )
     qualitative = None
-    if infantil.exists():
-        children = infantil.count()
-        delivered = DescriptiveEvaluation.objects.filter(enrollment__in=infantil).count()
+    if infantil_ids:
+        children = len(infantil_ids)
+        delivered = DescriptiveEvaluation.objects.filter(
+            enrollment_id__in=infantil_ids
+        ).count()
         qualitative = {
             'label': 'Creche e Pré-escola',
             'children': children,
@@ -705,12 +720,14 @@ def _needs_you(user, classes, enrollments, *, level, school, kpis):
                 'action_label': 'Ver alocações',
             }
         )
-    infantil = enrollments.filter(
-        school_class__curriculum_matrix__education_stage__stage_type='INFANTIL'
+    infantil_ids = list(
+        enrollments.filter(
+            school_class__curriculum_matrix__education_stage__stage_type='INFANTIL'
+        ).values_list('id', flat=True)
     )
-    if infantil.exists():
-        pend = infantil.count() - DescriptiveEvaluation.objects.filter(
-            enrollment__in=infantil
+    if infantil_ids:
+        pend = len(infantil_ids) - DescriptiveEvaluation.objects.filter(
+            enrollment_id__in=infantil_ids
         ).count()
         if pend > 0:
             items.append(
